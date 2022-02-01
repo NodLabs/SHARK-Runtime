@@ -209,7 +209,6 @@ static Optional<Value> allocateWorkgroupMemory(
     subview.emitError("expected op to be within std.func");
     return llvm::None;
   }
-
   // The bounding subview size is expected to be constant. This specified the
   // shape of the allocation.
   SmallVector<int64_t, 2> shape = llvm::to_vector<2>(
@@ -219,10 +218,11 @@ static Optional<Value> allocateWorkgroupMemory(
         return -1;
       }));
   if (llvm::any_of(shape, [](int64_t v) { return v == -1; })) return {};
+
+  b.setInsertionPoint(&funcOp.front(), funcOp.front().begin());
   MemRefType allocType =
       MemRefType::get(shape, subview.getType().getElementType(), {},
                       gpu::GPUDialect::getWorkgroupAddressSpace());
-  b.setInsertionPoint(&funcOp.front(), funcOp.front().begin());
   Value buffer = b.create<memref::AllocOp>(funcOp.getLoc(), allocType);
   return buffer;
 }
@@ -314,11 +314,11 @@ struct LLVMGPUTileAndDistributePass
       OpBuilder builder(&getContext());
       funcOp.walk([&builder](linalg::GenericOp copyOp) {
         if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker())) {
-          Operation *prevOp = copyOp->getPrevNode();
-          if (!prevOp || !hasMarker(prevOp, getCopyToWorkgroupMemoryMarker())) {
-            builder.setInsertionPoint(copyOp);
-            builder.create<gpu::BarrierOp>(copyOp.getLoc());
-          }
+        //  Operation *prevOp = copyOp->getPrevNode();
+//          if (!prevOp || !hasMarker(prevOp, getCopyToWorkgroupMemoryMarker())) {
+//            builder.setInsertionPoint(copyOp);
+//            builder.create<gpu::BarrierOp>(copyOp.getLoc());
+//          }
           Operation *nextOp = copyOp->getNextNode();
           if (!nextOp || !hasMarker(nextOp, getCopyToWorkgroupMemoryMarker())) {
             builder.setInsertionPointAfter(copyOp);

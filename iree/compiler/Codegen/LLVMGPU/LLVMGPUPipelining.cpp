@@ -51,20 +51,61 @@ static void getPipelineStages(
   // stage 1. In order to have a correct scheduling even with back edges we
   // order stages in decreasing order.
   for (Operation& op : forOp.getBody()->getOperations()) {
-    if (!loadDep.count(&op) && !isa<scf::YieldOp>(op))
-      ops.push_back(std::make_pair(&op, 1));
+    if (loadDep.count(&op)) ops.push_back(std::make_pair(&op, 0));
   }
   for (Operation& op : forOp.getBody()->getOperations()) {
-    if (loadDep.count(&op)) ops.push_back(std::make_pair(&op, 0));
+    if (!loadDep.count(&op) && !isa<scf::YieldOp>(op))
+      ops.push_back(std::make_pair(&op, 4));
   }
 }
 
+
 namespace {
+
+struct VectorCopyToGPU : public OpRewritePattern<vector::TransferWriteOp> {
+  using OpRewritePattern<vector::TransferWriteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!op.permutation_map().isMinorIdentity() ||
+        op.getShapedType().cast<MemRefType>().getMemorySpaceAsInt() != 3)
+      return failure();
+    auto read = op.vector().getDefiningOp<vector::TransferReadOp>();
+    if (!read || read.getVectorType() != op.getVectorType() ||
+        !read.permutation_map().isMinorIdentity())
+      return failure();
+    if (read.getVectorType().getNumElements() > 4 ||
+        !read.getVectorType().getElementType().isF32())
+      return failure();
+    rewriter.replaceOpWithNewOp<gpu::DeviceAsyncCpOp>(
+        op, op.source(), op.indices(), read.source(), read.indices(),
+        rewriter.getIndexAttr(read.getVectorType().getNumElements() * 4));
+    return success();
+  }
+};
+
+
+
 struct LLVMGPUPipeliningPass
     : public LLVMGPUPipeliningBase<LLVMGPUPipeliningPass> {
   void runOnOperation() override {
     auto funcOp = getOperation();
     MLIRContext* context = &getContext();
+    if(1)
+    {
+      RewritePatternSet asyncTransform(context);
+      asyncTransform.add<VectorCopyToGPU>(context);
+      if (failed(applyPatternsAndFoldGreedily(funcOp,
+                                              std::move(asyncTransform)))) {
+        return signalPassFailure();
+      }
+      gpu::BarrierOp lastBarrier;
+      funcOp.walk(
+          [&lastBarrier](gpu::BarrierOp barrier) { lastBarrier = barrier; });
+      OpBuilder builder(lastBarrier);
+      Value token = builder.create<gpu::DeviceAsyncCommitOp>(lastBarrier.getLoc());
+      builder.create<gpu::DeviceAsyncWaitOp>(lastBarrier.getLoc(), token, nullptr);
+    }
     // Mark the loop with shared memory copy for pipelining.
     funcOp.walk([](scf::ForOp forOp) {
       bool copyToWorkgroupMemory = false;
@@ -72,6 +113,11 @@ struct LLVMGPUPipeliningPass
       for (Operation& op : forOp.getBody()->getOperations()) {
         // Pipeline the most inner for op that should be a flat region.
         if (op.getNumRegions() > 0) return;
+        if (isa<gpu::DeviceAsyncCpOp, gpu::DeviceAsyncCommitOp>(op)) {
+          copyToWorkgroupMemory = true;
+          op.setAttr(kPipeliningGlobalLoad, builder.getUnitAttr());
+          continue;
+        }
         auto ld = dyn_cast<vector::TransferReadOp>(op);
         if (!ld) continue;
         unsigned ldAddSpace =
@@ -98,6 +144,11 @@ struct LLVMGPUPipeliningPass
                                             std::move(pipeliningPatterns)))) {
       return signalPassFailure();
     }
+    int count = 4;
+    funcOp.walk([&count](gpu::DeviceAsyncWaitOp waitOp) {
+      OpBuilder b(waitOp);
+      waitOp->setAttr(waitOp.numGroupsAttrName(), b.getI32IntegerAttr(count--));
+    });
   }
 };
 }  // namespace

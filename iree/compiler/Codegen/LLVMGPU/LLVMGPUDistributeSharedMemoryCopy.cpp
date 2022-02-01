@@ -77,15 +77,18 @@ static void populateTilingCopyToWorkgroupMemPatterns(
       tilingOptions,
       linalg::LinalgTransformationFilter(
           {StringAttr::get(patterns.getContext(),
-                           getCopyToWorkgroupMemoryMarker())},
+                           getCopyToWorkgroupMemoryMarker()),
+           StringAttr::get(patterns.getContext(), "multi-buffer")},
           StringAttr::get(patterns.getContext(), getVectorizeMarker())));
 }
 
 static void populateVectorizationPatterns(RewritePatternSet &patterns) {
   linalg::VectorizationPatterns<linalg::GenericOp>::insert(
       patterns, linalg::LinalgVectorizationOptions(),
-      linalg::LinalgTransformationFilter(StringAttr::get(
-          patterns.getContext(), getCopyToWorkgroupMemoryMarker())));
+      linalg::LinalgTransformationFilter(
+          {StringAttr::get(patterns.getContext(),
+                           getCopyToWorkgroupMemoryMarker()),
+           StringAttr::get(patterns.getContext(), "multi-buffer")}));
 }
 
 // TODO(thomasraoux): Extend this to support smaller vector size as well.
@@ -194,6 +197,72 @@ static void distributeTransferRead(FuncOp funcOp, Value flatThreadId,
 
 namespace {
 
+
+struct LinalgDoubleBufferPattern : public OpRewritePattern<linalg::CopyOp> {
+  LinalgDoubleBufferPattern(
+      MLIRContext* context,
+      linalg::LinalgTransformationFilter filter = linalg::LinalgTransformationFilter(),
+      PatternBenefit benefit = 1)
+      : OpRewritePattern<linalg::CopyOp>(context, benefit), filter(filter) {}
+
+  LogicalResult matchAndRewrite(linalg::CopyOp op,
+                                PatternRewriter& rewriter) const override {
+    const int numBuffers = 4;
+    Location loc = op->getLoc();
+    if (failed(filter.checkAndNotify(rewriter, op))) return failure();
+    auto parentLoop = op->getParentOfType<scf::ForOp>();
+    Value dst = op.output();
+    while (auto subview = dst.getDefiningOp<memref::SubViewOp>())
+      dst = subview.source();
+    auto alloc = dst.getDefiningOp<memref::AllocOp>();
+    if (!alloc || !parentLoop) return failure();
+    ArrayRef<int64_t> oldShape = alloc.getType().getShape();
+    SmallVector<int64_t, 4> newShape(1, numBuffers);
+    newShape.append(oldShape.begin(), oldShape.end());
+    if (llvm::any_of(alloc->getUsers(), [&](Operation* user) {
+          return !parentLoop->isAncestor(user);
+        }))
+      return failure();
+    rewriter.setInsertionPoint(alloc);
+    auto newMemref = MemRefType::get(newShape, alloc.getType().getElementType(),
+                                     MemRefLayoutAttrInterface(),
+                                     alloc.getType().getMemorySpace());
+    auto newAlloc = rewriter.create<memref::AllocOp>(loc, newMemref);
+    rewriter.setInsertionPoint(parentLoop.getBody(),
+                               parentLoop.getBody()->begin());
+    AffineExpr induc = getAffineDimExpr(0, op.getContext());
+    AffineExpr init = getAffineDimExpr(1, op.getContext());
+    AffineExpr step = getAffineDimExpr(2, op.getContext());
+    AffineExpr expr = ((induc - init).floorDiv(step)) % numBuffers;
+    auto map = AffineMap::get(3, 0, expr);
+    std::array<Value, 3> operands = {parentLoop.getInductionVar(),
+                                     parentLoop.getLowerBound(),
+                                     parentLoop.getStep()};
+    Value bufferIndex = rewriter.create<AffineApplyOp>(loc, map, operands);
+    SmallVector<OpFoldResult, 4> offsets, sizes, strides;
+    offsets.push_back(bufferIndex);
+    offsets.append(oldShape.size(), rewriter.getIndexAttr(0));
+    strides.append(oldShape.size() + 1, rewriter.getIndexAttr(1));
+    sizes.push_back(rewriter.getIndexAttr(1));
+    for (auto size : oldShape) sizes.push_back(rewriter.getIndexAttr(size));
+    auto dstMemref =
+        memref::SubViewOp::inferRankReducedResultType(
+            alloc.getType().getRank(), newMemref, offsets, sizes, strides)
+            .cast<MemRefType>();
+    auto subview = rewriter.create<memref::SubViewOp>(loc, dstMemref, newAlloc,
+                                                      offsets, sizes, strides);
+    auto cast = rewriter.create<memref::CastOp>(loc, subview, alloc.getType());
+    alloc->replaceAllUsesWith(cast);
+    rewriter.eraseOp(alloc);
+    filter.replaceLinalgTransformationFilter(rewriter, op.getOperation());
+    return success();
+  }
+
+ private:
+  /// LinalgTransformMarker handles special attribute manipulations.
+  linalg::LinalgTransformationFilter filter;
+};
+
 class LLVMGPUDistributeSharedMemoryCopyPass
     : public LLVMGPUDistributeSharedMemoryCopyBase<
           LLVMGPUDistributeSharedMemoryCopyPass> {
@@ -202,14 +271,27 @@ class LLVMGPUDistributeSharedMemoryCopyPass
   }
   void runOnOperation() override {
     FuncOp funcOp = getOperation();
+    MLIRContext *context = &getContext();
     auto entryPointOp = getEntryPoint(funcOp);
     if (!entryPointOp) return;
+
+    {
+      RewritePatternSet doubleBufferPatterns(context);
+      doubleBufferPatterns.add<LinalgDoubleBufferPattern>(
+          context, linalg::LinalgTransformationFilter(
+                       StringAttr::get(context, "copy_to_workgroup_memory"),
+                       StringAttr::get(context, "multi-buffer")));
+      if (failed(applyPatternsAndFoldGreedily(
+              funcOp, std::move(doubleBufferPatterns)))) {
+        return signalPassFailure();
+      }
+    }
+
     auto workgroupSize = getWorkgroupSize(entryPointOp);
     workgroupSize.resize(3, 1);
-    MLIRContext *context = &getContext();
     SmallVector<linalg::GenericOp> copiesToWorkgroupMem;
     funcOp.walk([&](linalg::GenericOp copyOp) {
-      if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker()))
+      if (hasMarker(copyOp, {getCopyToWorkgroupMemoryMarker(), "multi-buffer"}))
         copiesToWorkgroupMem.push_back(copyOp);
     });
     if (copiesToWorkgroupMem.empty()) return;
