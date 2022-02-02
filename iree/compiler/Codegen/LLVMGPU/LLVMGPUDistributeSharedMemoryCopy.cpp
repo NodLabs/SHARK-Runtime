@@ -230,15 +230,14 @@ struct LinalgDoubleBufferPattern : public OpRewritePattern<linalg::CopyOp> {
     auto newAlloc = rewriter.create<memref::AllocOp>(loc, newMemref);
     rewriter.setInsertionPoint(parentLoop.getBody(),
                                parentLoop.getBody()->begin());
-    AffineExpr induc = getAffineDimExpr(0, op.getContext());
-    AffineExpr init = getAffineDimExpr(1, op.getContext());
-    AffineExpr step = getAffineDimExpr(2, op.getContext());
-    AffineExpr expr = ((induc - init).floorDiv(step)) % numBuffers;
-    auto map = AffineMap::get(3, 0, expr);
-    std::array<Value, 3> operands = {parentLoop.getInductionVar(),
-                                     parentLoop.getLowerBound(),
-                                     parentLoop.getStep()};
-    Value bufferIndex = rewriter.create<AffineApplyOp>(loc, map, operands);
+    Value bufferIndex = rewriter.create<arith::SubIOp>(
+        loc, parentLoop.getInductionVar(), parentLoop.getLowerBound());
+    bufferIndex =
+        rewriter.create<arith::DivSIOp>(loc, bufferIndex, parentLoop.getStep());
+    Value numBuffersC =
+        rewriter.create<arith::ConstantIndexOp>(loc, numBuffers);
+    bufferIndex =
+        rewriter.create<arith::RemSIOp>(loc, bufferIndex, numBuffersC);
     SmallVector<OpFoldResult, 4> offsets, sizes, strides;
     offsets.push_back(bufferIndex);
     offsets.append(oldShape.size(), rewriter.getIndexAttr(0));
@@ -275,6 +274,9 @@ class LLVMGPUDistributeSharedMemoryCopyPass
     auto entryPointOp = getEntryPoint(funcOp);
     if (!entryPointOp) return;
 
+    auto pipeline =
+        getTranslationInfo(getEntryPoint(funcOp)).getDispatchLoweringPassPipeline();
+    if(pipeline == IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUMatmulTensorCore)
     {
       RewritePatternSet doubleBufferPatterns(context);
       doubleBufferPatterns.add<LinalgDoubleBufferPattern>(
