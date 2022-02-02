@@ -75,7 +75,7 @@ void addGPUMatmulSimtPassPipeline(OpPassManager &pm) {
   pm.addNestedPass<FuncOp>(createOptimizeVectorTransferPass());
 
   // Pipeline memory operations.
-  pm.addNestedPass<FuncOp>(createLLVMGPUPipeliningPass());
+  //pm.addNestedPass<FuncOp>(createLLVMGPUPipeliningPass());
 }
 
 void addGPUMatmulTensorCorePassPipeline(OpPassManager &pm) {

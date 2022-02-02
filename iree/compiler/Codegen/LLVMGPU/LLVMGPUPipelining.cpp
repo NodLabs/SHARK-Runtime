@@ -51,11 +51,11 @@ static void getPipelineStages(
   // stage 1. In order to have a correct scheduling even with back edges we
   // order stages in decreasing order.
   for (Operation& op : forOp.getBody()->getOperations()) {
-    if (loadDep.count(&op)) ops.push_back(std::make_pair(&op, 0));
-  }
-  for (Operation& op : forOp.getBody()->getOperations()) {
     if (!loadDep.count(&op) && !isa<scf::YieldOp>(op))
       ops.push_back(std::make_pair(&op, 4));
+  }
+ for (Operation& op : forOp.getBody()->getOperations()) {
+    if (loadDep.count(&op)) ops.push_back(std::make_pair(&op, 0));
   }
 }
 
@@ -147,7 +147,7 @@ struct LLVMGPUPipeliningPass
     int count = 4;
     funcOp.walk([&count](gpu::DeviceAsyncWaitOp waitOp) {
       OpBuilder b(waitOp);
-      waitOp->setAttr(waitOp.numGroupsAttrName(), b.getI32IntegerAttr(count--));
+      waitOp->setAttr(waitOp.numGroupsAttrName(), b.getI32IntegerAttr(std::min(count--, 3)));
     });
   }
 };
