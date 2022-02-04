@@ -130,6 +130,12 @@ static iree_status_t iree_hal_cuda_device_create_internal(
                                             stream, &device->device_allocator);
   }
 
+#if defined(IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING)
+  if(params->use_caching_allocator) {
+    status = iree_hal_allocator_create_caching(device->device_allocator, &device->device_allocator);
+  }
+#endif  // IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
+
   if (iree_status_is_ok(status) &&
       params->command_buffer_mode == IREE_HAL_CUDA_COMMAND_BUFFER_MODE_STREAM) {
     status = iree_hal_cuda_stream_command_buffer_create(
