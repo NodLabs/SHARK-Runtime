@@ -72,6 +72,9 @@ typedef struct iree_hal_cuda_device_params_t {
   // channels. This will be used IREE_HAL_CHANNEL_COUNT_DEFAULT is specified on
   // creation calls.
   int nccl_default_count;
+
+  // Execution with Caching Allocator
+  bool use_caching_allocator;
 } iree_hal_cuda_device_params_t;
 
 // Initializes |out_params| to default values.
