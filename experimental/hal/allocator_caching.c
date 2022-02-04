@@ -40,7 +40,7 @@ IREE_API_EXPORT iree_hal_allocator_t* iree_hal_caching_allocator_get_delegate(
 }
 
 static iree_status_t iree_hal_caching_allocator_trim(
-    iree_hal_allocator_t* base_allocator) {
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator) {
   return iree_ok_status();
 }
 
@@ -142,7 +142,7 @@ iree_hal_allocator_add_buffer_to_cache(iree_hal_buffer_t* buffer) {
 }
 
 static void iree_hal_caching_allocator_destroy(
-    iree_hal_allocator_t* base_allocator) {
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator) {
   iree_hal_caching_allocator_t* allocator =
       iree_hal_caching_allocator_cast(base_allocator);
   iree_hal_allocator_t* delegate_allocator = allocator->delegate_allocator;
@@ -163,7 +163,7 @@ static iree_allocator_t iree_hal_caching_allocator_host_allocator(
 }
 
 static void iree_hal_caching_allocator_query_statistics(
-    iree_hal_allocator_t* base_allocator,
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator,
     iree_hal_allocator_statistics_t* out_statistics) {
   iree_hal_caching_allocator_t* allocator =
       iree_hal_caching_allocator_cast(base_allocator);
@@ -173,42 +173,41 @@ static void iree_hal_caching_allocator_query_statistics(
 
 static iree_hal_buffer_compatibility_t
 iree_hal_caching_allocator_query_buffer_compatibility(
-    iree_hal_allocator_t* base_allocator, iree_hal_memory_type_t memory_type,
-    iree_hal_buffer_usage_t allowed_usage,
-    iree_hal_buffer_usage_t intended_usage,
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator,
+    const iree_hal_buffer_params_t* IREE_RESTRICT params,
     iree_device_size_t allocation_size) {
   iree_hal_caching_allocator_t* allocator =
       iree_hal_caching_allocator_cast(base_allocator);
-  return iree_hal_allocator_query_buffer_compatibility(
-      allocator->delegate_allocator, memory_type, allowed_usage, intended_usage,
-      allocation_size);
+  return iree_hal_allocator_query_compatibility(allocator->delegate_allocator,
+                                                *params, allocation_size);
 }
 
 static iree_status_t iree_hal_caching_allocator_allocate_buffer(
-    iree_hal_allocator_t* base_allocator, iree_hal_memory_type_t memory_type,
-    iree_hal_buffer_usage_t allowed_usage, iree_host_size_t allocation_size,
-    iree_const_byte_span_t initial_data, iree_hal_buffer_t** out_buffer) {
+    iree_hal_allocator_t* base_allocator,
+    const iree_hal_buffer_params_t* IREE_RESTRICT params,
+    iree_host_size_t allocation_size, iree_const_byte_span_t initial_data,
+    iree_hal_buffer_t** out_buffer) {
   iree_hal_caching_allocator_t* allocator =
       iree_hal_caching_allocator_cast(base_allocator);
-  if (iree_all_bits_set(memory_type, IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL)) {
+  if (iree_all_bits_set(params->type, IREE_HAL_MEMORY_TYPE_DEVICE_LOCAL)) {
     if (iree_hal_caching_allocator_allocate_from_cache(
             allocator, allocation_size, out_buffer)) {
       return iree_ok_status();
     }
   }
   iree_status_t status;
-  status = iree_hal_allocator_allocate_buffer(
-      allocator->delegate_allocator, memory_type, allowed_usage,
-      allocation_size, initial_data, out_buffer);
+  status = iree_hal_allocator_allocate_buffer(allocator->delegate_allocator,
+                                              *params, allocation_size,
+                                              initial_data, out_buffer);
   (*out_buffer)->device_allocator = (iree_hal_allocator_t*)allocator;
   return status;
 }
 
 static iree_status_t iree_hal_caching_allocator_wrap_buffer(
-    iree_hal_allocator_t* base_allocator, iree_hal_memory_type_t memory_type,
-    iree_hal_memory_access_t allowed_access,
-    iree_hal_buffer_usage_t allowed_usage, iree_byte_span_t data,
-    iree_allocator_t data_allocator, iree_hal_buffer_t** out_buffer) {
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator,
+    const iree_hal_buffer_params_t* IREE_RESTRICT params, iree_byte_span_t data,
+    iree_allocator_t data_allocator,
+    iree_hal_buffer_t** IREE_RESTRICT out_buffer) {
   return iree_make_status(IREE_STATUS_UNAVAILABLE,
                           "wrapping of external buffers not supported");
 }
@@ -229,11 +228,11 @@ static void iree_hal_caching_allocator_deallocate_buffer(
 }
 
 static iree_status_t iree_hal_caching_allocator_import_buffer(
-    iree_hal_allocator_t* base_allocator, iree_hal_memory_type_t memory_type,
-    iree_hal_memory_access_t allowed_access,
-    iree_hal_buffer_usage_t allowed_usage,
-    iree_hal_external_buffer_t* external_buffer,
-    iree_hal_buffer_t** out_buffer) {
+    iree_hal_allocator_t* IREE_RESTRICT base_allocator,
+    const iree_hal_buffer_params_t* IREE_RESTRICT params,
+    iree_hal_external_buffer_t* IREE_RESTRICT external_buffer,
+    iree_hal_buffer_release_callback_t release_callback,
+    iree_hal_buffer_t** IREE_RESTRICT out_buffer) {
   return iree_make_status(IREE_STATUS_UNAVAILABLE,
                           "importing from external buffers not supported");
 }
@@ -252,11 +251,10 @@ static const iree_hal_allocator_vtable_t iree_hal_caching_allocator_vtable = {
     .host_allocator = iree_hal_caching_allocator_host_allocator,
     .trim = iree_hal_caching_allocator_trim,
     .query_statistics = iree_hal_caching_allocator_query_statistics,
-    .query_buffer_compatibility =
+    .query_compatibility =
         iree_hal_caching_allocator_query_buffer_compatibility,
     .allocate_buffer = iree_hal_caching_allocator_allocate_buffer,
     .deallocate_buffer = iree_hal_caching_allocator_deallocate_buffer,
-    .wrap_buffer = iree_hal_caching_allocator_wrap_buffer,
     .import_buffer = iree_hal_caching_allocator_import_buffer,
     .export_buffer = iree_hal_caching_allocator_export_buffer,
 };
