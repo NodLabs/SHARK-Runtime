@@ -115,8 +115,9 @@ static iree_status_t iree_hal_cuda_device_create_internal(
       (iree_hal_device_t*)device, &device->context_wrapper, cu_device, stream,
       &device->device_allocator);
 #if defined(IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING)
-  status = iree_hal_allocator_create_caching(
-      identifier, device->device_allocator, &device->device_allocator);
+  if(params->use_caching_allocator) {
+    status = iree_hal_allocator_create_caching(device->device_allocator, &device->device_allocator);
+  }
 #endif  // IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
 
   if (iree_status_is_ok(status) &&
