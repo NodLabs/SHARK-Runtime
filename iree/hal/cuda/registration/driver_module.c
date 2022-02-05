@@ -26,6 +26,10 @@ IREE_FLAG(bool, cuda_allow_inline_execution, false,
           "Allow command buffers to execute inline against CUDA streams when "
           "possible.");
 
+IREE_FLAG(bool, cuda_use_caching_allocator, true,
+          "Allow command buffers to execute inline against CUDA streams when "
+          "possible.");
+
 static iree_status_t iree_hal_cuda_driver_factory_enumerate(
     void* self, const iree_hal_driver_info_t** out_driver_infos,
     iree_host_size_t* out_driver_info_count) {
@@ -60,6 +64,7 @@ static iree_status_t iree_hal_cuda_driver_factory_try_create(
         IREE_HAL_CUDA_COMMAND_BUFFER_MODE_STREAM;
   }
   default_params.allow_inline_execution = FLAG_cuda_allow_inline_execution;
+  default_params.use_caching_allocator = FLAG_cuda_use_caching_allocator;
 
   iree_hal_cuda_driver_options_t driver_options;
   iree_hal_cuda_driver_options_initialize(&driver_options);
