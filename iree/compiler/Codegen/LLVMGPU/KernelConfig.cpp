@@ -52,7 +52,7 @@ static void getTensorCoreConfig(
     SmallVectorImpl<TileWorkgroupSizePair> &tileSizes) {
   // Tile sizes are skewed towards small matmul for now. Long term the plan is
   // to not rely on hardcoded configurations.
-  tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 16}, {64, 2, 1}}));
+  tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 16}, {32, 2, 1}}));
 }
 
 static std::string getTargetArch(FuncOp entryPoint) {
@@ -247,7 +247,9 @@ static LogicalResult setReductionConfig(FuncOp entryPoint,
   if (inputShape.back() % cudaWarpSize != 0) return failure();
 
   std::array<int64_t, 3> workgroupSize = {2 * cudaWarpSize, 1, 1};
-  SmallVector<unsigned> partitionedLoops = getPartitionedLoops(op);
+  auto interfaceOp = cast<IREE::Flow::PartitionableLoopsInterface>(*op);
+  auto partitionedLoops =
+      interfaceOp.getPartitionableLoops(kNumMaxParallelDims);
   size_t numLoops = partitionedLoops.back() + 1;
   SmallVector<int64_t, 4> workgroupTileSizes(numLoops, 1);
   llvm::DenseSet<unsigned> partitionedLoopsSet(partitionedLoops.begin(),
