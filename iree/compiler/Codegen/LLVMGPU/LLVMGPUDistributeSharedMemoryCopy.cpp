@@ -198,20 +198,20 @@ static void distributeTransferRead(FuncOp funcOp, Value flatThreadId,
 namespace {
 
 
-struct LinalgDoubleBufferPattern : public OpRewritePattern<linalg::CopyOp> {
+struct LinalgDoubleBufferPattern : public OpRewritePattern<linalg::GenericOp> {
   LinalgDoubleBufferPattern(
       MLIRContext* context,
       linalg::LinalgTransformationFilter filter = linalg::LinalgTransformationFilter(),
       PatternBenefit benefit = 1)
-      : OpRewritePattern<linalg::CopyOp>(context, benefit), filter(filter) {}
+      : OpRewritePattern<linalg::GenericOp>(context, benefit), filter(filter) {}
 
-  LogicalResult matchAndRewrite(linalg::CopyOp op,
+  LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter& rewriter) const override {
     const int numBuffers = 4;
     Location loc = op->getLoc();
     if (failed(filter.checkAndNotify(rewriter, op))) return failure();
     auto parentLoop = op->getParentOfType<scf::ForOp>();
-    Value dst = op.output();
+    Value dst = op.getOperand(1);
     while (auto subview = dst.getDefiningOp<memref::SubViewOp>())
       dst = subview.source();
     auto alloc = dst.getDefiningOp<memref::AllocOp>();
