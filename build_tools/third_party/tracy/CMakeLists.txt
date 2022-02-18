@@ -34,7 +34,7 @@ else()
   )
 endif()
 
-if(NOT TRACY_DEPS_FOUND)
+if(NOT APPLE AND NOT TRACY_DEPS_FOUND)
   message(STATUS "Could not find Tracy dependencies (Tracy server will not be built).")
   message(STATUS "To build Tracy, install packages capstone, and tbb (on Ubuntu/Debian, 'apt install libcapstone-dev libtbb-dev libzstd-dev')")
   return()
@@ -61,11 +61,17 @@ function(setup_cxx_options name)
   )
   target_include_directories(${name}
     PUBLIC
+      /opt/homebrew/Cellar/capstone/4.0.2/include/capstone
+      /opt/homebrew/Cellar/zstd/1.5.1/include
       ${TRACY_SOURCE_DIR}/imgui
       ${TRACY_DEPS_INCLUDE_DIRS}
   )
+  link_directories(/opt/homebrew/Cellar/zstd/1.5.1/lib)
+  link_directories(/opt/homebrew/Cellar/capstone/4.0.2/lib)
   target_link_libraries(${name}
     PRIVATE
+      capstone
+      zstd
       ${TRACY_DEPS_LIBRARIES}
       ${CMAKE_DL_LIBS}
       ${CMAKE_THREAD_LIBS_INIT}
