@@ -84,7 +84,7 @@ Vulkan::Version getVersion(const TargetTriple &triple) {
 
   // SwiftShader stays at Vulkan 1.1.
   if (triple.getProduct() == TargetTripleProduct::SwiftShader) {
-    return Version::V_1_1;
+    return Version::V_1_2;
   }
 
   return Version::V_1_2;
@@ -131,8 +131,14 @@ void getExtensions(const TargetTriple &triple,
 
   // SwiftShader is very limited regarding functionalities.
   if (getVendor(triple) == spirv::Vendor::SwiftShader) {
-    extensions.push_back(Extension::VK_KHR_storage_buffer_storage_class);
-    return;
+      const std::array<Extension, 5> list = {
+          Extension::VK_KHR_16bit_storage,
+          Extension::VK_KHR_8bit_storage,
+          Extension::VK_KHR_shader_float16_int8,
+          Extension::VK_KHR_storage_buffer_storage_class,
+          Extension::VK_KHR_variable_pointers,
+      };
+      return extensions.append(list.begin(), list.end());
   }
 
   // Desktop GPUs typically support all extensions we care.
@@ -232,13 +238,23 @@ CapabilitiesAttr getCapabilities(const TargetTriple &triple,
     case TargetTripleArch::CPU:
       if (triple.getProduct() == TargetTripleProduct::SwiftShader) {
         // Example: https://vulkan.gpuinfo.org/displayreport.php?id=11023
-        maxComputeSharedMemorySize = 16384;
+        maxComputeSharedMemorySize = 32768;
+        maxComputeWorkGroupInvocations = 1024;
+        maxComputeWorkGroupSize = {1024, 1024, 1024};
 
-        subgroupSize = 4;
+        subgroupSize = 32;
         subgroupFeatures = SubgroupFeature::Basic | SubgroupFeature::Vote |
                            SubgroupFeature::Arithmetic |
                            SubgroupFeature::Ballot | SubgroupFeature::Shuffle |
                            SubgroupFeature::ShuffleRelative;
+
+      shaderFloat16 = true;
+      shaderInt8 = shaderInt16 = true;
+      storageBuffer16BitAccess = storagePushConstant16 = true;
+      uniformAndStorageBuffer16BitAccess = true;
+      storageBuffer8BitAccess = true, storagePushConstant8 = true;
+      uniformAndStorageBuffer8BitAccess = true;
+      variablePointers = variablePointersStorageBuffer = true;
       }
       break;
     case TargetTripleArch::NV_Turing:
