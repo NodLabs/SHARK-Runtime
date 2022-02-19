@@ -116,10 +116,10 @@ void getExtensions(const TargetTriple &triple,
     }
     case TargetTripleArch::QC_Adreno: {
       // Example: https://vulkan.gpuinfo.org/displayreport.php?id=10983
-      const std::array<Extension, 5> list = {
+      const std::array<Extension, 6> list = {
           Extension::VK_KHR_16bit_storage,
+          Extension::VK_KHR_8bit_storage,
           Extension::VK_KHR_shader_float16_int8,
-          Extension::VK_KHR_spirv_1_4,
           Extension::VK_KHR_storage_buffer_storage_class,
           Extension::VK_KHR_variable_pointers,
       };
@@ -288,18 +288,20 @@ CapabilitiesAttr getCapabilities(const TargetTriple &triple,
       // Example: https://vulkan.gpuinfo.org/displayreport.php?id=10983
       maxComputeSharedMemorySize = 32768;
       maxComputeWorkGroupInvocations = 1024;
-      maxComputeWorkGroupSize = {1024, 1024, 64};
+      maxComputeWorkGroupSize = {1024, 1024, 1024};
 
-      subgroupSize = 64;
+      subgroupSize = 32;
       subgroupFeatures = SubgroupFeature::Basic | SubgroupFeature::Vote |
                          SubgroupFeature::Arithmetic | SubgroupFeature::Ballot |
                          SubgroupFeature::Shuffle |
-                         SubgroupFeature::ShuffleRelative |
-                         SubgroupFeature::Quad;
+                         SubgroupFeature::ShuffleRelative;
 
       shaderFloat16 = shaderInt8 = shaderInt16 = true;
 
-      storageBuffer16BitAccess = true;
+      storageBuffer16BitAccess = storagePushConstant16 = true;
+      uniformAndStorageBuffer16BitAccess = true;
+      storageBuffer8BitAccess = true, storagePushConstant8 = true;
+      uniformAndStorageBuffer8BitAccess = true;
       variablePointers = variablePointersStorageBuffer = true;
       break;
   }

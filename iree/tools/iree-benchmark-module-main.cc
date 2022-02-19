@@ -43,7 +43,7 @@ IREE_FLAG(string, entry_function, "",
           "to run. If this is not set, all the exported functions will be "
           "benchmarked and they are expected to not have input arguments.");
 
-IREE_FLAG(string, driver, "vmvx", "Backend driver to use.");
+IREE_FLAG(string, driver, "vulkan", "Backend driver to use.");
 
 IREE_FLAG(bool, print_statistics, false,
           "Prints runtime statistics to stderr on exit.");

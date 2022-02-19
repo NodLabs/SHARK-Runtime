@@ -196,7 +196,6 @@ Status PrintVariantList(iree_vm_list_t* variant_list, size_t max_element_count,
 }
 
 Status CreateDevice(const char* driver_name, iree_hal_device_t** out_device) {
-  IREE_LOG(INFO) << "Creating driver and device for '" << driver_name << "'...";
   iree_hal_driver_t* driver = nullptr;
   IREE_RETURN_IF_ERROR(iree_hal_driver_registry_try_create_by_name(
                            iree_hal_driver_registry_default(),
