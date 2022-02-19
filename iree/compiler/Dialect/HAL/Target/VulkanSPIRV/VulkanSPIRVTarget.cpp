@@ -71,7 +71,7 @@ VulkanSPIRVTargetOptions getVulkanSPIRVTargetOptionsFromFlags() {
 
   static llvm::cl::opt<std::string> clVulkanTargetTriple(
       "iree-vulkan-target-triple", llvm::cl::desc("Vulkan target triple"),
-      llvm::cl::init("cpu-swiftshader-unknown"));
+      llvm::cl::init("adreno-a650-android11"));
 
   static llvm::cl::opt<std::string> clVulkanTargetEnv(
       "iree-vulkan-target-env",
