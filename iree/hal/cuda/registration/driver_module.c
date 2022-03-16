@@ -22,7 +22,7 @@ IREE_FLAG(
     bool, cuda_use_streams, true,
     "Use CUDA streams for executing command buffers (instead of graphs).");
 
-IREE_FLAG(bool, cuda_allow_inline_execution, false,
+IREE_FLAG(bool, cuda_allow_inline_execution, true,
           "Allow command buffers to execute inline against CUDA streams when "
           "possible.");
 
