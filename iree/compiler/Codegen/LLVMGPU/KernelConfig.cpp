@@ -44,6 +44,7 @@ static void getMatmulConfig(SmallVectorImpl<TileWorkgroupSizePair> &tileSizes) {
   tileSizes.push_back(TileWorkgroupSizePair({{8, 128, 4}, {32, 1, 1}}));
   tileSizes.push_back(TileWorkgroupSizePair({{16, 64, 4}, {16, 2, 1}}));
   tileSizes.push_back(TileWorkgroupSizePair({{1, 128, 8}, {32, 1, 1}}));
+  tileSizes.push_back(TileWorkgroupSizePair({{32, 1, 4}, {32, 1, 1}}));
 }
 
 /// Return the best combination of tile size and wg size when using tensorcore
@@ -52,7 +53,7 @@ static void getTensorCoreConfig(
     SmallVectorImpl<TileWorkgroupSizePair> &tileSizes) {
   // Tile sizes are skewed towards small matmul for now. Long term the plan is
   // to not rely on hardcoded configurations.
-  tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 16}, {32, 2, 1}}));
+  tileSizes.push_back(TileWorkgroupSizePair({{128, 32, 32}, {32, 1, 1}}));
 }
 
 static std::string getTargetArch(FuncOp entryPoint) {

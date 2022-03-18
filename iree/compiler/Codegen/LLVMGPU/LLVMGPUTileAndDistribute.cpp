@@ -283,7 +283,7 @@ struct LLVMGPUTileAndDistributePass
     int64_t flatWorkgroupSize =
         workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
     // Only promote to workgroup size if there are multiple warps.
-    if (flatWorkgroupSize > kWarpSize) {
+    if (flatWorkgroupSize > kWarpSize && workgroupSize[0] > 1 && workgroupSize[1] > 1) {
       RewritePatternSet promotionPatterns(&getContext());
       populatePromotionPatterns(context, promotionPatterns);
       if (failed(applyPatternsAndFoldGreedily(funcOp,

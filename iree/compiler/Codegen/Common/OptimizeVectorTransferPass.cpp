@@ -98,9 +98,6 @@ struct OptimizeVectorTransferPass
       mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
       vector::ExtractOp::getCanonicalizationPatterns(patterns, &getContext());
       patterns.add<TransposeUnitDimToShapeCast>(&getContext());
-      mlir::vector::
-          populateVectorTransferCollapseInnerMostContiguousDimsPatterns(
-              patterns);
       if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
         return signalPassFailure();
       }
@@ -115,6 +112,9 @@ struct OptimizeVectorTransferPass
     // Second stage of patterns to flatten transfer ops.
     {
       RewritePatternSet patterns(&getContext());
+      mlir::vector::
+          populateVectorTransferCollapseInnerMostContiguousDimsPatterns(
+              patterns);
       mlir::vector::populateVectorTransferDropUnitDimsPatterns(patterns);
       mlir::vector::populateFlattenVectorTransferPatterns(patterns);
       if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
