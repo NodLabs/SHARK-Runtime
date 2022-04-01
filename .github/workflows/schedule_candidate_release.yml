@@ -10,6 +10,11 @@ jobs:
     # Don't run this in everyone's forks.
     if: github.repository == 'NodLabs/SHARK'
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+        
       - name: Checking out repository
         uses: actions/checkout@v2
         with:
@@ -31,7 +36,7 @@ jobs:
         uses: ad-m/github-push-action@v0.6.0
         with:
           github_token: ${{ secrets.WRITE_ACCESS_TOKEN }}
-          branch: main
+          branch: ${GITHUB_REF##*/}
           tags: true
 
       - name: Create Release
