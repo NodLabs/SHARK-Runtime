@@ -8,7 +8,7 @@ jobs:
     name: "Tag candidate release"
     runs-on: ubuntu-18.04
     # Don't run this in everyone's forks.
-    if: github.repository == 'google/iree'
+    if: github.repository == 'NodLabs/SHARK'
     steps:
       - name: Checking out repository
         uses: actions/checkout@v2
