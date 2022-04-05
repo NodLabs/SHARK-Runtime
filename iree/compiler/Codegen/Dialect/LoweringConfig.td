@@ -45,6 +45,9 @@ def SPIRV_VectorizeToCooperativeOps
 
 def None
     : I32EnumAttrCase<"None", 0xff>;
+def LLVMGPU_WarpLevelReduction
+    : I32EnumAttrCase<"LLVMGPUWarpLevelReduction", 0xfe>;
+
 
 // EnumAttrCase for all known lowerings for ops within dispatch region
 // to scalar/native-vector code.
@@ -56,7 +59,7 @@ def DispatchLoweringPassPipelineEnum : I32EnumAttr<
      CPU_BufferOpsTileAndVectorize, Linalg_TransformInterpCodegen,
      LLVMGPU_SimpleDistribute, LLVMGPU_Vectorize, LLVMGPU_MatmulSimt,
      LLVMGPU_MatmulTensorCore, SPIRV_Distribute, SPIRV_Vectorize,
-     SPIRV_VectorizeToCooperativeOps, None]> {
+     SPIRV_VectorizeToCooperativeOps,LLVMGPU_WarpLevelReduction, None]> {
   let cppNamespace = "::mlir::iree_compiler::IREE::Codegen";
   // Don't generate a C++ class! We want to use the AttrDef
   let genSpecializedAttr = 0;
