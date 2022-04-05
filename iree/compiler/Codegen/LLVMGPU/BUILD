@@ -25,6 +25,8 @@ cc_library(
         "LLVMGPUVectorLowering.cpp",
         "LLVMGPUVectorToGPU.cpp",
         "LLVMGPUVectorization.cpp",
+        "LLVMReductionVectorization.cpp",
+        "VectorReductionToGPU.cpp"
         "Passes.cpp",
         "Verifiers.cpp",
     ],

@@ -321,6 +321,17 @@ def LLVMGPUVectorToGPU :
   let summary = "Pass to convert vector to gpu.";
   let constructor = "mlir::iree_compiler::createLLVMGPUVectorToGPU()";
 }
+def LLVMGPUReduceToGPU :
+    Pass<"iree-llvmgpu-reduction-to-gpu", "FuncOp"> {
+  let summary = "Convert vector reduction to gpu ops.";
+  let constructor = "mlir::iree_compiler::createConvertVectorReductionToGPUPass()";
+}
+
+def LLVMGPUVectorizeReduc :
+    Pass<"iree-llvmgpu-reduction-vectorization", "FuncOp"> {
+  let summary = "vectorization for warp reduction";
+  let constructor = "mlir::iree_compiler::createLLVMGPUReductionVectorizationPass()";
+}
 
 //------------------------------------------------------------------------------
 // SPIR-V
