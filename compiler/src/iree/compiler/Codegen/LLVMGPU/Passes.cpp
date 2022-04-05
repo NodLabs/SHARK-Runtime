@@ -145,6 +145,40 @@ void addGPUMatmulTensorCorePassPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createGPUPipeliningPass(pipelineDepth));
 }
 
+void addGPUWarpLevelReductionPassPipeline(OpPassManager &pm) {
+  tileAndBufferize(pm);
+  //===--------------------------------------------------------------------===//
+  // Initial clean up.
+  //===--------------------------------------------------------------------===//
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createCSEPass());
+
+  // Distribute linalg onto warps within the workgroup.
+  pm.addNestedPass<func::FuncOp>(
+      createLLVMGPUTileAndDistribute(/*distributeToWarp=*/true));
+  if (pipelineDepth > 1)
+    pm.addNestedPass<func::FuncOp>(createLLVMGPUMultiBuffering(pipelineDepth));
+  pm.addNestedPass<func::FuncOp>(createMemrefCopyToLinalgPass());
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createCSEPass());
+
+  pm.addNestedPass<func::FuncOp>(createRemoveSingleIterationLoopPass());
+
+  // Linalg -> vector
+  pm.addNestedPass<func::FuncOp>(createLLVMGPUReductionVectorizationPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addNestedPass<func::FuncOp>(createLoopInvariantCodeMotionPass());
+  pm.addNestedPass<func::FuncOp>(createCSEPass());
+  pm.addNestedPass<func::FuncOp>(createOptimizeVectorTransferPass());
+
+  // Vector -> MMA ops
+  pm.addNestedPass<func::FuncOp>(memref::createFoldSubViewOpsPass());
+  pm.addNestedPass<func::FuncOp>(createConvertVectorReductionToGPUPass());
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createCSEPass());
+}
+
 void addGPUSimpleDistributePassPipeline(OpPassManager &pm) {
   tileAndBufferize(pm);
 
