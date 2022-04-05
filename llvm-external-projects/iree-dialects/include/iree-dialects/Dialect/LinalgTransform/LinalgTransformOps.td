@@ -99,19 +99,41 @@ def MatchOp : Transform_Op<"match"> {
 //===----------------------------------------------------------------------===//
 
 def TileOp : Linalg_Transform_Operation<"tile",
-    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+    [TransformOpInterface]> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
-                   DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
-                   DefaultValuedAttr<I64ArrayAttr, "{}">:$peel,
-                   DefaultValuedAttr<BoolAttr, "false">:$scalarize_dyn_dims);
-  let results = (outs PDL_Operation:$transformed);
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange);
+  let results = (outs PDL_Operation:$tiled_linalg_op,
+                      Variadic<PDL_Operation>:$loops);
+
+  let hasCustomAssemblyFormat = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::LogicalResult apply(
+        ::mlir::linalg::transform::TransformResults &transformResults,
+        ::mlir::linalg::transform::TransformState &state);
+  }];
+}
+
+def ScalarizeOp : Linalg_Transform_Operation<"scalarize",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Indicates that ops of a specific kind in the given
+    function should be scalarized (i.e. their dynamic dimensions tiled by 1).
+    
+    This operation returns the tiled op but not the loops.
+
+    We make this design choice because it is hard to know ahead of time the 
+    number of loops that will be produced (it depends on the number of 
+    dynamic dimensions after multiple transformations have been applied).
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$tiled_linalg_op);
 
   let assemblyFormat = "$target attr-dict";
-  let hasVerifier = 1;
 
   let extraClassDeclaration = [{
     ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
@@ -179,6 +201,8 @@ def PadOp : Linalg_Transform_Operation<"pad",
   using the options provides as operation attributes.}];
 
   let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<StrArrayAttr, "{}">:$padding_values,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$padding_dimensions,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$pack_paddings,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$hoist_paddings,
                    DefaultValuedAttr<

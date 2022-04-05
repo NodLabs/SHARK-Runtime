@@ -70,12 +70,8 @@ static LogicalResult performEnablerTransformations(
 
   // This assumes LICM never removes operations so we don't need tracking.
   if (options.licm) {
-    WalkResult result =
-        func->walk([](LoopLikeOpInterface loopLike) -> WalkResult {
-          return moveLoopInvariantCode(loopLike);
-        });
-    if (result.wasInterrupted())
-      return failure();
+    func->walk(
+        [](LoopLikeOpInterface loopLike) { moveLoopInvariantCode(loopLike); });
   }
 
   func.walk([](Operation *op) {
@@ -169,7 +165,7 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     if (failed(executeTransform(&transform, state))) {
       std::string str;
       llvm::raw_string_ostream ss(str);
-      ss << "failed to apply: " << transform << "\nto\n" << containerOp;
+      ss << "failed to apply: " << transform << "\nto\n" << *containerOp;
       ss.flush();
       return transform.emitError() << str;
     }
