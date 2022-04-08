@@ -153,7 +153,7 @@ void addGPUMatmulTensorCorePassPipeline(OpPassManager &pm,
       createGPUPipeliningPass(pipelineDepth));
 }
 
-void addGPUWarpLevelReductionPassPipeline(OpPassManager &pm) {
+void addGPUWarpLevelReductionPassPipeline(OpPassManager &pm, unsigned pipelineDepth) {
   tileAndBufferize(pm);
   //===--------------------------------------------------------------------===//
   // Initial clean up.

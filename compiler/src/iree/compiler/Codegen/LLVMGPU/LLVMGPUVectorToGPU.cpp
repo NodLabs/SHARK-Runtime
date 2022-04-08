@@ -84,7 +84,7 @@ static void createAsyncGroups(func::FuncOp funcOp) {
           writeOp.getSource(), writeOp.getIndices(), readOp.getSource(),
           readOp.getIndices(),
           builder.getIndexAttr(readOp.getVectorType().getNumElements()),
-          /*bypassL1=*/builder.getUnitAttr());
+	  UnitAttr());
       tokens.push_back(token);
     }
     // Create the group and wait for it right after.
