@@ -9,6 +9,8 @@
 namespace mlir {
 namespace iree_compiler {
 
+static const char kSwizzleAttr[] = "iree_swizzle";
+
 /// This function implements the following swizzling logic
 /// void getTiledId2(unsigned x, unsigned y, unsigned* tiledx,
 ///                 unsigned* tiledy) {
@@ -68,9 +70,13 @@ struct WorkGroupSwizzlePass
     return success();
   }
   void runOnOperation() override {
+    FuncOp funcOp = getOperation();
+    funcOp.walk([&](linalg::LinalgOp op) {
+          if (auto attr = op->getAttrOfType<IntegerAttr>(kSwizzleAttr))
+            swizzleLogTile = attr.getInt();
+    });
     if (swizzleLogTile == 0) return;
     unsigned swizzleTile = pow(2, swizzleLogTile);
-    FuncOp funcOp = getOperation();
     std::array<IREE::HAL::InterfaceWorkgroupIDOp, 2> oldWorkgroupIds;
     bool xFound = false, yFound = false;
     funcOp.walk([&](IREE::HAL::InterfaceWorkgroupIDOp idOp) {
