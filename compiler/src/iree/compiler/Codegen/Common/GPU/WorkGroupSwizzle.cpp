@@ -12,6 +12,8 @@
 namespace mlir {
 namespace iree_compiler {
 
+static const char kSwizzleAttr[] = "iree_swizzle";
+
 /// This function implements the following swizzling logic
 /// void getTiledId2(unsigned x, unsigned y, unsigned* tiledx,
 ///                 unsigned* tiledy) {
@@ -110,6 +112,10 @@ struct WorkGroupSwizzlePass
   }
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
+    funcOp.walk([&](linalg::LinalgOp op) {
+      if (auto attr = op->getAttrOfType<IntegerAttr>(kSwizzleAttr))
+        swizzleLogTile = attr.getInt();
+    });
     (void)swizzleWorkgroupsInFunc(funcOp, swizzleLogTile);
   }
 
