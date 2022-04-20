@@ -39,15 +39,21 @@ static void populateTilingCopyToWorkgroupMemPatterns(
   // Tile and distribute copy to workgroup memory.
   linalg::TileSizeComputationFunction wgCopyTileSizeFn =
       [](OpBuilder &builder, Operation *operation) {
-        const int64_t copyTileSize = 4;
+        int64_t copyTileSize;
         // We tile to 4 as we want each thread to load 4 element in a cyclic
         // distribution.
         SmallVector<Value, 4> tileSizesVal;
-        unsigned rank = cast<linalg::GenericOp>(operation)
-                            .getOperand(0)
-                            .getType()
-                            .cast<MemRefType>()
-                            .getRank();
+        MemRefType lhsMemRefType = cast<linalg::GenericOp>(operation)
+                                       .getOperand(0)
+                                       .getType()
+                                       .cast<MemRefType>();
+
+        unsigned rank = lhsMemRefType.getRank();
+        if (lhsMemRefType.getElementType().isF16()) {
+          copyTileSize = 8;
+        } else {
+          copyTileSize = 4;
+        }
         for (unsigned i = 0; i < rank - 1; i++) {
           int64_t t = (rank - i) <= kNumGPUDims ? 1 : 0;
           tileSizesVal.push_back(
@@ -90,9 +96,6 @@ static void populateVectorizationPatterns(RewritePatternSet &patterns) {
           patterns.getContext(), getCopyToWorkgroupMemoryMarker())));
 }
 
-// TODO(thomasraoux): Extend this to support smaller vector size as well.
-static constexpr int targetVectorSize = 4;
-
 /// Compute a vector size so that the numer of elements is equal to the flat
 /// workgroup size.
 static Optional<SmallVector<int64_t, 4>> getGPUNativeVectorSize(
@@ -101,6 +104,12 @@ static Optional<SmallVector<int64_t, 4>> getGPUNativeVectorSize(
   if (!vt) return llvm::None;
   if (!vt.permutation_map().isMinorIdentity()) return llvm::None;
   ArrayRef<int64_t> shape = vt.getVectorType().getShape();
+  int targetVectorSize;
+  if (vt.getVectorType().getElementType().isF16()) {
+    targetVectorSize = 8;
+  } else {
+    targetVectorSize = 4;
+  }
   SmallVector<int64_t, 4> unroll;
   assert(shape.back() % targetVectorSize == 0);
   int64_t threadsAvailable = flatWorkgroupSize;
@@ -158,6 +167,12 @@ static void distributeTransferRead(func::FuncOp funcOp, Value flatThreadId,
     Value id = flatThreadId;
     SmallVector<int64_t, 2> multiplier;
     auto shape = readOp.getVectorType().getShape();
+    int targetVectorSize = 4;
+    if (readOp.getVectorType().getElementType().isF16()) {
+      targetVectorSize = 8;
+    } else {
+      targetVectorSize = 4;
+    }
     SmallVector<Value> ids;
     SmallVector<AffineExpr> exprs;
     AffineExpr d0 = getAffineDimExpr(0, b.getContext());
@@ -220,8 +235,15 @@ class GPUDistributeSharedMemoryCopyPass
         workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
     bool isAligned = llvm::all_of(
         copiesToWorkgroupMem, [flatWorkgroupSize](linalg::GenericOp copyOp) {
-          auto shape =
-              copyOp.getOperand(0).getType().cast<MemRefType>().getShape();
+          MemRefType lhsMemRefType =
+              copyOp.getOperand(0).getType().cast<MemRefType>();
+          auto shape = lhsMemRefType.getShape();
+          int targetVectorSize;
+          if (lhsMemRefType.getElementType().isF16()) {
+            targetVectorSize = 8;
+          } else {
+            targetVectorSize = 4;
+          }
           return canPerformVectorAccessUsingAllThreads(shape, flatWorkgroupSize,
                                                        targetVectorSize);
         });
