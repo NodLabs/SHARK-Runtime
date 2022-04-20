@@ -29,8 +29,11 @@ static void createAsyncGroups(func::FuncOp funcOp) {
     if (!read || read.getVectorType() != writeOp.getVectorType() ||
         !read.isDimInBounds(0) || !read.getPermutationMap().isMinorIdentity())
       return WalkResult::advance();
+    // Todo (nirvedhmeshram): Check if the numelement check can be relaxed to 8
+    // for FP16
     if (read.getVectorType().getNumElements() > 4 ||
-        !read.getVectorType().getElementType().isF32())
+        !(read.getVectorType().getElementType().isF32() ||
+          read.getVectorType().getElementType().isF16()))
       return WalkResult::advance();
     copyToSharedMem.insert(writeOp);
     return WalkResult::advance();
