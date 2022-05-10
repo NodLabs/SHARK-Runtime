@@ -220,15 +220,18 @@ IREE_API_EXPORT void iree_hal_buffer_recycle(iree_hal_buffer_t* buffer) {
 
 IREE_API_EXPORT void iree_hal_buffer_destroy(iree_hal_buffer_t* buffer) {
   if (IREE_LIKELY(buffer)) {
+#ifndef IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
     iree_hal_allocator_t* device_allocator_to_release =
         buffer->device_allocator;
+#endif
     IREE_HAL_VTABLE_DISPATCH(buffer, iree_hal_buffer, destroy)
     (buffer);
-
+#ifndef IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
     // Release backing allocator, only after unused.
     if (IREE_LIKELY(device_allocator_to_release)) {
       iree_hal_allocator_release(device_allocator_to_release);
     }
+#endif
   }
 }
 
