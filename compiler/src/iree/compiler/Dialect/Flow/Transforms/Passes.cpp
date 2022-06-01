@@ -162,6 +162,7 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
     passManager.addPass(IREE::Util::createPromoteF16ToF32Pass());
   }
   if (clDemoteI64ToI32) {
+    passManager.addPass(IREE::Util::createSignednessPrepI64ToI32Pass());
     passManager.addPass(IREE::Util::createDemoteI64ToI32Pass());
   }
 
