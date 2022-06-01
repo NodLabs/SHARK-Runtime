@@ -30,6 +30,8 @@ std::unique_ptr<OperationPass<void>> createStripDebugOpsPass();
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createDemoteI64ToI32Pass();
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createDemoteF32ToF16Pass();
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createDemoteF64ToF32Pass();
+std::unique_ptr<OperationPass<mlir::ModuleOp>>
+createSignednessPrepI64ToI32Pass();
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createPromoteF16ToF32Pass();
 
 // Test passes.
