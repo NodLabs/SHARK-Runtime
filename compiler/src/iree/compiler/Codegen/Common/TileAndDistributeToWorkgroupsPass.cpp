@@ -206,7 +206,15 @@ void TileAndDistributeToWorkgroupsPass::runOnOperation() {
     llvm::dbgs() << "\n\n";
   });
 
-  applyPatternsAndFoldGreedily(funcOp, std::move(resolveDimOps));
+  // After rewriting destructive updates, there might be uses of compute
+  // operations only in `tensor.dim` ops. Resolve these.
+  RewritePatternSet resolveDimOps(context);
+  memref::populateResolveRankedShapeTypeResultDimsPatterns(resolveDimOps);
+  if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(resolveDimOps)))) {
+    return signalPassFailure();
+  }
+}
+
 std::unique_ptr<OperationPass<func::FuncOp>>
 createTileAndDistributeToWorkgroupsPass() {
   return std::make_unique<TileAndDistributeToWorkgroupsPass>();
