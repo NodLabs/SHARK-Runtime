@@ -211,7 +211,6 @@ void TileAndDistributeToWorkgroupsPass::runOnOperation() {
   RewritePatternSet resolveDimOps(context);
   memref::populateResolveRankedShapeTypeResultDimsPatterns(resolveDimOps);
   if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(resolveDimOps)))) {
-    return signalPassFailure();
   }
 }
 
