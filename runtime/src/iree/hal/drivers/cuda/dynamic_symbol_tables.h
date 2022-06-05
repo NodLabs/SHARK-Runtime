@@ -6,6 +6,7 @@
 
 CU_PFN_DECL(cuCtxCreate, CUcontext*, unsigned int, CUdevice)
 CU_PFN_DECL(cuCtxDestroy, CUcontext)
+CU_PFN_DECL(cuCtxSetCurrent, CUcontext)
 CU_PFN_DECL(cuDeviceGet, CUdevice*, int)
 CU_PFN_DECL(cuDeviceGetCount, int*)
 CU_PFN_DECL(cuDeviceGetName, char*, int, CUdevice)
