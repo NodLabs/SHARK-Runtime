@@ -28,6 +28,8 @@ iree_status_t iree_hal_cuda_device_create(
 iree_status_t iree_hal_cuda_device_get_context(iree_hal_device_t* base_device,
                                                CUcontext* out_context);
 
+iree_status_t iree_cuda_set_current_thread(iree_hal_device_t* device);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
