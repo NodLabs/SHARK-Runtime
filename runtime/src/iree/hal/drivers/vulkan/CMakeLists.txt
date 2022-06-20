@@ -107,6 +107,11 @@ iree_cc_library(
     iree::hal::drivers::vulkan::util::ref_ptr
   PUBLIC
 )
+if(APPLE AND IREE_HAL_DRIVER_VULKAN)
+  # Link MoltenVK for Apple SoC GPU/MoltenVK.
+  add_dependencies(iree_hal_drivers_vulkan_dynamic_symbols project_moltenVK)
+  target_link_libraries(iree_hal_drivers_vulkan_dynamic_symbols PUBLIC moltenVK::runtime)
+endif()
 
 iree_cc_test(
   NAME
