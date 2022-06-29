@@ -35,35 +35,6 @@ llvm::cl::opt<std::string> clGPUCodegenTransformDialectFileName(
 }
 }  // namespace mlir
 
-static Operation *matchLinalgReduction(OpOperand *outputOperand) {
-  auto linalgOp = cast<linalg::LinalgOp>(outputOperand->getOwner());
-  unsigned outputPos =
-      outputOperand->getOperandNumber() - linalgOp.getNumInputs();
-  // Only single combiner operations are supported for now.
-  SmallVector<Operation *, 4> combinerOps;
-  if (!matchReduction(linalgOp.getRegionOutputArgs(), outputPos, combinerOps) ||
-      combinerOps.size() != 1)
-    return nullptr;
-
-  // Return the combiner operation.
-  return combinerOps[0];
-}
-
-static LogicalResult reductionPreconditions(linalg::LinalgOp op) {
-  if (llvm::none_of(op.iterator_types(), isReductionIterator)) {
-    //LDBG("reduction precondition failed: no reduction iterator");
-    return failure();
-  }
-  for (OpOperand *opOperand : op.getOutputOperands()) {
-    Operation *reduceOp = matchLinalgReduction(opOperand);
-    if (!reduceOp || !linalg::getCombinerOpKind(reduceOp)) {
-      //LDBG("reduction precondition failed: reduction detection failed");
-      return failure();
-    }
-  }
-  return success();
-}
-
 namespace {
 struct TileWorkgroupSizePair {
   // How many scalar elements each workgroup should handle along each dimension.
@@ -102,7 +73,7 @@ static void getTensorCoreConfig(
   if (isFp16) {
     tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 32}, {64, 2, 1}}));
   } else {
-    tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 16}, {32, 2, 1}}));
+    tileSizes.push_back(TileWorkgroupSizePair({{32, 32, 16}, {64, 2, 1}}));
   }
 }
 
@@ -295,64 +266,6 @@ static LogicalResult setContractConfig(func::FuncOp entryPoint,
       IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUMatmulSimt);
 }
 
-static LogicalResult setReductionConfig(func::FuncOp entryPoint,
-                                        linalg::GenericOp op) {
-  SmallVector<unsigned> reductionDims;
-  op.getReductionDims(reductionDims);
-  if (reductionDims.size() != 1 ||
-      reductionDims[0] != op.getNumLoops() - 1)
-    return failure();
-  // Transpose not supported yet.
-  for (unsigned i = 0; i < op.getNumInputs(); i++) {
-    AffineMap map = op.indexing_maps()[i].cast<AffineMapAttr>().getValue();
-    // single dim result cannot be a transpose
-    // TODO (nirvedhmeshram) this check needs to be relaxed more, perhaps check
-    // that the result dims are in increasing order for transpose check as not
-    // being minor identity map is not same as being a transpose
-    // single result cannot be a tranpose
-    if (map.getNumResults() == 1) continue;
-    if (!map.isMinorIdentity()) return failure();
-  }
-  if(failed(reductionPreconditions(op))){
-    return failure();
-  }
-  // if (failed(vectorizeStaticLinalgOpPrecondition(op))) return failure();
-  // Only support cases where we can distribute the reduction on a full warp.
-  ArrayRef<int64_t> inputShape =
-      op.getInputOperand(0)->get().getType().cast<ShapedType>().getShape();
-  if (inputShape.back() % cudaWarpSize != 0) return failure();
-
-  std::array<int64_t, 3> workgroupSize = {2 * cudaWarpSize, 1, 1};
-  auto interfaceOp = cast<IREE::Flow::PartitionableLoopsInterface>(*op);
-  auto partitionedLoops =
-      interfaceOp.getPartitionableLoops(kNumMaxParallelDims);
-  size_t numLoops = partitionedLoops.back() + 1;
-  SmallVector<int64_t, 4> workgroupTileSizes(numLoops, 1);
-  llvm::DenseSet<unsigned> partitionedLoopsSet(partitionedLoops.begin(),
-                                               partitionedLoops.end());
-  // Don't try to vectorize the store op right now.
-  unsigned vectorSize = 1;
-  // Set the inner most parallel loop to `lowerTs`.
-  for (int64_t depth = numLoops; depth > 0; depth--) {
-    if (partitionedLoopsSet.count(depth - 1)) {
-      workgroupTileSizes[depth - 1] =
-          (workgroupSize[0] * vectorSize) / cudaWarpSize;
-      break;
-    }
-  }
-  // Tile the reduction size to the size of a warp so that we can distribute the
-  // load from the reduced dimension on the whole warp. Once we support
-  // unrolling multi-reduce op we can try to tile to 4 * warpSize to vectorize
-  // load.
-  workgroupTileSizes.append(reductionDims.size(), cudaWarpSize);
-  TileSizesListType tileSizes;
-  tileSizes.emplace_back(std::move(workgroupTileSizes));  // Workgroup level
-  return setOpConfigAndEntryPointFnTranslation(
-      entryPoint, op, tileSizes,
-      IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUWarpLevelReduction,
-      workgroupSize);
-  return success();
-}
 static LogicalResult setFftConfig(func::FuncOp entryPoint,
                                   IREE::LinalgExt::FftOp op) {
   auto interfaceOp = cast<PartitionableLoopsInterface>(*op);
@@ -628,10 +541,6 @@ static LogicalResult setRootConfig(func::FuncOp entryPointFn,
       return setContractConfig(entryPointFn, linalgOp);
     }
     if (succeeded(setWarpReductionConfig(entryPointFn, linalgOp)))
-      return success();
-  }
-  if (auto genericOp = dyn_cast<linalg::GenericOp>(computeOp)) {
-    if (succeeded(setReductionConfig(entryPointFn, genericOp)))
       return success();
   }
   if (auto fftOp = dyn_cast<IREE::LinalgExt::FftOp>(computeOp)) {
