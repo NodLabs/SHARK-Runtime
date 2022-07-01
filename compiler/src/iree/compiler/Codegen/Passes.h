@@ -518,6 +518,9 @@ std::unique_ptr<OperationPass<func::FuncOp>> createSPIRVVectorizePass();
 /// having pointer bitcast.
 std::unique_ptr<OperationPass<ModuleOp>> createSPIRVVectorizeLoadStore();
 
+/// Maps memref memory space to correct Vulkan/OpenCL memory address space.
+std::unique_ptr<OperationPass<>> createSPIRVMapMemRefStorageClassPass();
+
 // Uses `tensor.pad` ops as anchors to create separate fast and slow paths
 // inside the kernel. The fast path is for inner tiles where we don't need
 // padding, while the slow path is for boundary tiles where we do need
