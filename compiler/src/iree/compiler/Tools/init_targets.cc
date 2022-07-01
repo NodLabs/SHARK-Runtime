@@ -11,6 +11,9 @@
 #ifdef IREE_HAVE_LLVM_CPU_TARGET
 #include "iree/compiler/Dialect/HAL/Target/LLVMCPU/LLVMCPUTarget.h"
 #endif // IREE_HAVE_LLVM_CPU_TARGET
+#ifdef IREE_HAVE_OPENCLSPIRV_TARGET
+#include "iree/compiler/Dialect/HAL/Target/OpenCLSPIRV/OpenCLSPIRVTarget.h"
+#endif // IREE_HAVE_OPENCLSPIRV_TARGET
 #ifdef IREE_HAVE_ROCM_TARGET
 #include "iree/compiler/Dialect/HAL/Target/ROCM/ROCMTarget.h"
 #endif // IREE_HAVE_ROCM_TARGET
@@ -35,6 +38,10 @@ void registerHALTargetBackends() {
     IREE::HAL::registerLLVMCPUTargetBackends(
         []() { return IREE::HAL::LLVMTargetOptions::getFromFlags(); });
 #endif // IREE_HAVE_LLVM_CPU_TARGET
+#ifdef IREE_HAVE_OPENCLSPIRV_TARGET
+    IREE::HAL::registerOpenCLSPIRVTargetBackends(
+        []() { return IREE::HAL::getOpenCLSPIRVTargetOptionsFromFlags(); });
+#endif // IREE_HAVE_OPENCLSPIRV_TARGET
 #ifdef IREE_HAVE_ROCM_TARGET
     IREE::HAL::registerROCMTargetBackends();
 #endif // IREE_HAVE_ROCM_TARGET
