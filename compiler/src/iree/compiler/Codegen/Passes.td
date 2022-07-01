@@ -448,6 +448,12 @@ def SPIRVTileAndPromote : Pass<"iree-spirv-tile-and-promote", "func::FuncOp"> {
     "mlir::iree_compiler::createSPIRVTileAndPromotePass()";
 }
 
+def SPIRVMapMemRefStorageClass : Pass<"iree-spirv-map-memref", ""> {
+  let summary = "Map memref memory address spaces into SPIR-V address spaces.";
+  let constructor =
+    "mlir::iree_compiler::createSPIRVMapMemRefStorageClassPass()";
+}
+
 def SPIRVVectorize : Pass<"iree-spirv-vectorize", "func::FuncOp"> {
   let summary = "Vectorize Linalg ops with buffer semantics";
   let constructor = "mlir::iree_compiler::createSPIRVVectorizePass()";
