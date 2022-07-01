@@ -167,6 +167,7 @@ function build_iree_runtime_instrumented() {
 function build_iree_compiler() {
   IREE_TARGET_BACKEND_CUDA=$(uname -m | awk '{print ($1 == "x86_64") ? "ON" : "OFF"}') \
   IREE_TARGET_BACKEND_ROCM=$(uname -m | awk '{print ($1 == "x86_64") ? "ON" : "OFF"}') \
+  IREE_TARGET_BACKEND_OPENCL_SPIRV=ON \
   build_wheel compiler/
 }
 
