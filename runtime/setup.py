@@ -248,7 +248,7 @@ def prepare_installation():
             get_env_cmake_option("IREE_HAL_DRIVER_CUDA"),
             get_env_cmake_option(
                 "IREE_EXTERNAL_HAL_DRIVERS",
-                "" if platform.system() == "Darwin" else "rocm",
+                "" if platform.system() == "Darwin" else "rocm;level_zero",
             ),
             get_env_cmake_option(
                 "IREE_HAL_DRIVER_VULKAN",
