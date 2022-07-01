@@ -47,3 +47,6 @@
 [submodule "third_party/ROCm-Device-Libs"]
 	path = third_party/ROCm-Device-Libs
 	url = https://github.com/shark-infra/ROCm-Device-Libs
+[submodule "third_party/level-zero"]
+	path = third_party/level-zero
+	url = https://github.com/oneapi-src/level-zero
