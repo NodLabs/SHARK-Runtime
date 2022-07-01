@@ -28,6 +28,7 @@ iree_cc_library(
     "SPIRVCreateFastSlowPath.cpp"
     "SPIRVDistribute.cpp"
     "SPIRVLowerExecutableTargetPass.cpp"
+    "SPIRVMapMemref.cpp"
     "SPIRVTile.cpp"
     "SPIRVTileAndDistribute.cpp"
     "SPIRVTileAndPromote.cpp"
