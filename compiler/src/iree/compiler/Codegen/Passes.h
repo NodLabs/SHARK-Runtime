@@ -156,7 +156,7 @@ std::unique_ptr<OperationPass<func::FuncOp>> createGPUMultiBuffering(
 
 /// Apply software pipelining.
 std::unique_ptr<OperationPass<func::FuncOp>> createGPUPipeliningPass(
-    bool epiloguePeeling = true, unsigned depth = 1);
+    bool epiloguePeeling = true, unsigned depth = 1, unsigned storeStage = 1);
 
 /// Converts vector ops to gpu dialect.
 std::unique_ptr<OperationPass<func::FuncOp>> createWorkGroupSwizzle(
@@ -500,7 +500,8 @@ LogicalResult verifySPIRVMatmulPromoteVectorizePassPipeline(
     IREE::Codegen::TranslationInfoAttr translationInfo,
     ArrayRef<int64_t> workgroupSize);
 void addSPIRVMatmulPromoteVectorizePassPipeline(OpPassManager &pm,
-                                                unsigned pipelineDepth);
+                                                unsigned pipelineDepth,
+                                                unsigned storeStage);
 
 /// Pass pipeline to lower IREE HAL executables by tiling and distributing
 /// reduction to workgroups and then subgroups.
@@ -512,7 +513,7 @@ void addSPIRVSubgroupReducePassPipeline(OpPassManager &pm);
 /// GPU processor ID ops into SPIR-V global variables, loop/standard ops into
 /// corresponding SPIR-V ops.
 std::unique_ptr<OperationPass<ModuleOp>> createConvertToSPIRVPass(
-    bool enableFastMath = false);
+    bool enableFastMath = false, bool use64bitIndex = false);
 
 /// Creates a pass to fold processor ID uses where possible.
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -581,7 +582,8 @@ createSPIRVMapMemRefStorageClassPass();
 /// Populates passes needed to lower linalg/arith/math ops to SPIR-V ops via
 /// the structured ops path. The pass manager `pm` here operate on the module
 /// within the IREE::HAL::ExecutableOp.
-void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath);
+void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath,
+                                   bool use64bitIndex);
 
 //------------------------------------------------------------------------------
 // VMVX passes
