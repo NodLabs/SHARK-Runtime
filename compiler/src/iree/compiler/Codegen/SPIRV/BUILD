@@ -30,6 +30,7 @@ iree_compiler_cc_library(
         "SPIRVTileAndDistribute.cpp",
         "SPIRVTileAndPromote.cpp",
         "SPIRVTileAndVectorizeToCooperativeOps.cpp",
+        "SPIRVMapMemref.cpp",
         "SPIRVVectorToCooperativeOps.cpp",
         "SPIRVVectorize.cpp",
         "SPIRVVectorizeLoadStore.cpp",
