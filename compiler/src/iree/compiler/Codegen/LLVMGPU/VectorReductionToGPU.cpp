@@ -102,6 +102,29 @@ static void hoistHalBindingOps(vector::WarpExecuteOnLane0Op warpOp) {
   for (Operation *op : opsToMove) op->moveBefore(warpOp);
 }
 
+/// Special case to hoist hal operations that have side effect but are safe to
+/// move out of the warp single lane region.
+static void hoistAssumeOp(vector::WarpExecuteOnLane0Op warpOp) {
+  Block *body = warpOp.getBody();
+
+  // Keep track of the ops we want to hoist.
+  llvm::SmallSetVector<Operation *, 8> opsToMove;
+
+  // Do not use walk here, as we do not want to go into nested regions and hoist
+  // operations from there.
+  for (auto &op : body->without_terminator()) {
+    if (!isa<memref::AssumeAlignmentOp>(&op)) continue;
+    if (llvm::any_of(op.getOperands(), [&](Value operand) {
+          return !warpOp.isDefinedOutsideOfRegion(operand);
+        }))
+      continue;
+    opsToMove.insert(&op);
+  }
+
+  // Move all the ops marked as uniform outside of the region.
+  for (Operation *op : opsToMove) op->moveBefore(warpOp);
+}
+
 namespace {
 
 /// Pattern to convert InsertElement to broadcast, this is a workaround until
@@ -165,6 +188,7 @@ struct LLVMGPUReduceToGPUPass
     // 3. Hoist the scalar code outside of the warp region.
     vector::moveScalarUniformCode(warpOp);
     hoistHalBindingOps(warpOp);
+    hoistAssumeOp(warpOp);
     vector::moveScalarUniformCode(warpOp);
 
     // 4. Distribute transfer write operations.
@@ -184,7 +208,6 @@ struct LLVMGPUReduceToGPUPass
                                                         distributionFn);
       (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
     }
-
     // 4. Propagate vector distribution.
     {
       RewritePatternSet patterns(ctx);

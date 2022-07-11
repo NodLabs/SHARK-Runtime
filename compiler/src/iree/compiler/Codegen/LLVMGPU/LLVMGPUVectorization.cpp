@@ -114,6 +114,7 @@ struct LLVMGPUVectorizationPass
       RewritePatternSet canonicalizationPatterns(context);
       vector::ContractionOp::getCanonicalizationPatterns(
           canonicalizationPatterns, context);
+      vector::populateVectorTransferPermutationMapLoweringPatterns(canonicalizationPatterns);
       if (failed(applyPatternsAndFoldGreedily(
               funcOp, std::move(canonicalizationPatterns)))) {
         return signalPassFailure();
