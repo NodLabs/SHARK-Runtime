@@ -97,6 +97,7 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
   LogicalResult serializeExecutable(const SerializationOptions &options,
                                     IREE::HAL::ExecutableVariantOp variantOp,
                                     OpBuilder &executableBuilder) override {
+    llvm::outs()<<"Serializing!\n";
     ModuleOp innerModuleOp = variantOp.getInnerModule();
     auto spirvModuleOps = innerModuleOp.getOps<spirv::ModuleOp>();
     if (!llvm::hasSingleElement(spirvModuleOps)) {
@@ -115,10 +116,10 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
       return variantOp.emitError() << "failed to serialize spv.module";
     }
 
-    if (!options.dumpBinariesPath.empty()) {
-      dumpDataToPath<uint32_t>(options.dumpBinariesPath, options.dumpBaseName,
-                               variantOp.getName(), ".spv", spvBinary);
-    }
+    // if (!options.dumpBinariesPath.empty()) {
+    //   dumpDataToPath<uint32_t>(options.dumpBinariesPath, options.dumpBaseName,
+    //                            variantOp.getName(), ".spv", spvBinary);
+    // }
 
     auto spvCodeRef = flatbuffers_uint32_vec_create(builder, spvBinary.data(),
                                                     spvBinary.size());
@@ -138,6 +139,11 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
            int(workGroupSizeAttr[1].dyn_cast<IntegerAttr>().getInt()),
            int(workGroupSizeAttr[2].dyn_cast<IntegerAttr>().getInt())});
     });
+        // if (!options.dumpBinariesPath.empty()) {
+      dumpDataToPath<uint32_t>("/tmp", entryPointNames[0],
+                               variantOp.getName(), ".spv", spvBinary);
+    // }
+
     auto entryPointsRef = builder.createStringVec(entryPointNames);
     iree_LEVEL_ZEROBlockSizeDef_vec_start(builder);
     auto blockSizes = workgroupSizes.begin();
