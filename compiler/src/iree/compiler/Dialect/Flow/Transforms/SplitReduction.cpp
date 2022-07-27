@@ -83,11 +83,6 @@ struct SplitReductionPass : public SplitReductionBase<SplitReductionPass> {
   }
 
   void runOnOperation() override {
-    if (splitReductionRatio.getValue() <= 1 &&
-        topkSplitReductionRatio.empty()) {
-      return;
-    }
-
     RewritePatternSet patterns(&getContext());
     patterns.add<LinalgSplitReduction>(
         &getContext(),
