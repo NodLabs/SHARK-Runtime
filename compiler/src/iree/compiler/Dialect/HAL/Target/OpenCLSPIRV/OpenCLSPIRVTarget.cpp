@@ -55,9 +55,16 @@ static spirv::TargetEnvAttr getSPIRVTargetEnv(
   //       Vulkan::getTargetEnvForTriple(context, openCLTargetTriple));
   // }
   auto triple = spirv::VerCapExtAttr::get(
-      spirv::Version::V_1_0,
-      {spirv::Capability::Kernel, spirv::Capability::Addresses},
-      {spirv::Extension::SPV_INTEL_subgroups}, context);
+      spirv::Version::V_1_1,
+      {spirv::Capability::Kernel, spirv::Capability::Addresses, spirv::Capability::Float16Buffer, spirv::Capability::Int16, 
+      spirv::Capability::Int8, spirv::Capability::Vector16, spirv::Capability::GenericPointer, 
+      spirv::Capability::Groups, spirv::Capability::ImageBasic, spirv::Capability::Float16, spirv::Capability::Linkage, 
+      spirv::Capability::Int64Atomics, spirv::Capability::Int64, spirv::Capability::Float64, spirv::Capability::GroupNonUniform, spirv::Capability::GroupNonUniformVote,
+      spirv::Capability::GroupNonUniformBallot, spirv::Capability::GroupNonUniformArithmetic, spirv::Capability::GroupNonUniformShuffle,
+      spirv::Capability::GroupNonUniformShuffleRelative, spirv::Capability::GroupNonUniformClustered, spirv::Capability::AtomicFloat16AddEXT,
+      spirv::Capability::AtomicFloat32AddEXT, spirv::Capability::AtomicFloat64AddEXT},
+      {spirv::Extension::SPV_INTEL_subgroups, spirv::Extension::SPV_EXT_shader_atomic_float_add, spirv::Extension::SPV_EXT_shader_atomic_float16_add,
+      spirv::Extension::SPV_EXT_shader_atomic_float_min_max, spirv::Extension::SPV_KHR_linkonce_odr}, context);
   return spirv::TargetEnvAttr::get(triple, spirv::Vendor::Unknown,
                                    spirv::DeviceType::Unknown,
                                    spirv::TargetEnvAttr::kUnknownDeviceID,

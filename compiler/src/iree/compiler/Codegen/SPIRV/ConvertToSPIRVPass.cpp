@@ -594,7 +594,7 @@ void ConvertToSPIRVPass::runOnOperation() {
   spirv::AddressingModel addressingModel = spirv::AddressingModel::Logical;
   spirv::MemoryModel memoryModel = spirv::MemoryModel::GLSL450;
   if (hasKernelCapabilty) {
-    addressingModel = spirv::AddressingModel::Physical32;
+    addressingModel = spirv::AddressingModel::Physical64;
     memoryModel = spirv::MemoryModel::OpenCL;
   }
   auto builder = OpBuilder::atBlockBegin(moduleOp.getBody());
