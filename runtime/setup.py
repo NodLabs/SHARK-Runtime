@@ -241,6 +241,7 @@ def prepare_installation():
         get_env_cmake_option("IREE_ENABLE_RUNTIME_TRACING"),
         get_env_cmake_option("IREE_BUILD_TRACY"),
         get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
+        "-DIREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING=ON",
     ]
 
     # These usually flow through the environment, but we add them explicitly

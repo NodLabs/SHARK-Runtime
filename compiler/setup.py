@@ -232,6 +232,7 @@ def prepare_installation():
         "-DCMAKE_BUILD_TYPE={}".format(cfg),
         get_env_cmake_option("IREE_TARGET_BACKEND_CUDA"),
         get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
+        "-DIREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING=ON",
     ]
 
     # These usually flow through the environment, but we add them explicitly
