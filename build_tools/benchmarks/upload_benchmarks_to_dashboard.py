@@ -24,8 +24,9 @@ import requests
 from typing import Any, Dict, Optional
 
 from common.common_arguments import expand_and_check_file_paths
-from common.benchmark_presentation import COMPILATION_METRICS_TO_TABLE_MAPPERS, collect_all_compilation_metrics
-from common.benchmark_definition import (BenchmarkInfo, BenchmarkResults,
+from common.benchmark_presentation import (COMPILATION_METRICS_TO_TABLE_MAPPERS,
+                                           collect_all_compilation_metrics)
+from common.benchmark_definition import (BenchmarkResults,
                                          execute_cmd_and_get_output)
 from common.benchmark_thresholds import BENCHMARK_THRESHOLDS
 
@@ -36,7 +37,7 @@ THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 COMMON_DESCRIIPTION = """
 <br>
 For the graph, the x axis is the Git commit index, and the y axis is the
-measured latency in milliseconds.
+measured metrics. The unit for the numbers is shown in the "Unit" dropdown.
 <br>
 See <a href="https://github.com/iree-org/iree/tree/main/benchmarks/dashboard.md">
 https://github.com/iree-org/iree/tree/main/benchmarks/dashboard.md
@@ -111,6 +112,7 @@ def get_git_commit_info(commit: str, verbose: bool = False) -> Dict[str, str]:
 
 def compose_series_payload(project_id: str,
                            series_id: str,
+                           series_unit: str,
                            series_description: bool = None,
                            average_range: str = '5%',
                            average_min_count: int = 3,
@@ -120,6 +122,7 @@ def compose_series_payload(project_id: str,
   payload = {
       'projectId': project_id,
       'serieId': series_id,
+      'serieUnit': series_unit,
       'analyse': {
           'benchmark': {
               'range': average_range,
@@ -155,12 +158,14 @@ def compose_build_payload(project_id: str,
 def compose_sample_payload(project_id: str,
                            series_id: str,
                            build_id: int,
+                           sample_unit: str,
                            sample_value: int,
                            override: bool = False) -> Dict[str, Any]:
   """Composes the payload dictionary for a sample."""
   return {
       'projectId': project_id,
       'serieId': series_id,
+      'sampleUnit': sample_unit,
       'sample': {
           'buildId': build_id,
           'value': sample_value
@@ -199,10 +204,11 @@ def post_to_dashboard(url: str,
   code = response.status_code
   if code != 200:
     raise requests.RequestException(
-        f'Failed to post to dashboard server with status code {code}')
+        f'Failed to post to dashboard server with {code} - {response.text}')
 
 
 def add_new_iree_series(series_id: str,
+                        series_unit: str,
                         series_description: Optional[str] = None,
                         override: bool = False,
                         dry_run: bool = False,
@@ -220,10 +226,11 @@ def add_new_iree_series(series_id: str,
 
   payload = compose_series_payload(IREE_PROJECT_ID,
                                    series_id,
+                                   series_unit,
                                    series_description,
                                    average_range=average_range,
                                    override=override)
-  post_to_dashboard(f'{url}/apis/addSerie',
+  post_to_dashboard(f'{url}/apis/v2/addSerie',
                     payload,
                     dry_run=dry_run,
                     verbose=verbose)
@@ -247,6 +254,7 @@ def add_new_iree_build(build_id: int,
 
 def add_new_sample(series_id: str,
                    build_id: int,
+                   sample_unit: str,
                    sample_value: int,
                    override: bool = False,
                    dry_run: bool = False,
@@ -254,8 +262,8 @@ def add_new_sample(series_id: str,
   """Posts a new sample to the dashboard."""
   url = get_required_env_var('IREE_DASHBOARD_URL')
   payload = compose_sample_payload(IREE_PROJECT_ID, series_id, build_id,
-                                   sample_value, override)
-  post_to_dashboard(f'{url}/apis/addSample',
+                                   sample_unit, sample_value, override)
+  post_to_dashboard(f'{url}/apis/v2/addSample',
                     payload,
                     dry_run=dry_run,
                     verbose=verbose)
@@ -339,14 +347,16 @@ def main(args):
     description += COMMON_DESCRIIPTION
 
     # Override by default to allow updates to the series.
-    add_new_iree_series(series_id,
-                        description,
+    add_new_iree_series(series_id=series_id,
+                        series_unit="ns",
+                        series_description=description,
                         override=True,
                         dry_run=args.dry_run,
                         verbose=args.verbose)
-    add_new_sample(series_id,
-                   commit_count,
-                   sample_value,
+    add_new_sample(series_id=series_id,
+                   build_id=commit_count,
+                   sample_unit="ns",
+                   sample_value=sample_value,
                    dry_run=args.dry_run,
                    verbose=args.verbose)
 
@@ -363,15 +373,19 @@ def main(args):
     for mapper in COMPILATION_METRICS_TO_TABLE_MAPPERS:
       sample_value, _ = mapper.get_current_and_base_value(compile_metrics)
       series_id = mapper.get_series_name(name)
+      series_unit = mapper.get_unit()
+
       # Override by default to allow updates to the series.
-      add_new_iree_series(series_id,
-                          description,
+      add_new_iree_series(series_id=series_id,
+                          series_unit=series_unit,
+                          series_description=description,
                           override=True,
                           dry_run=args.dry_run,
                           verbose=args.verbose)
-      add_new_sample(series_id,
-                     commit_count,
-                     sample_value,
+      add_new_sample(series_id=series_id,
+                     build_id=commit_count,
+                     sample_unit=series_unit,
+                     sample_value=sample_value,
                      dry_run=args.dry_run,
                      verbose=args.verbose)
 

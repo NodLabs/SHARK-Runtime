@@ -16,6 +16,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(IREE ASM C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+# LLVM defines this as a CACHE property and uses a policy that causes the
+# cache value to take precedence. This is causing us to mix 17/14 across
+# the boundary.
+# TODO: Remove this once the LLVM mechanism is updated. See:
+#   https://discourse.llvm.org/t/important-new-toolchain-requirements-to-build-llvm-will-most-likely-be-landing-within-a-week-prepare-your-buildbots/61447/9
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to" FORCE)
 set(IREE_IDE_FOLDER IREE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -53,7 +59,6 @@ option(IREE_BUILD_DOCS "Builds IREE docs." OFF)
 option(IREE_BUILD_SAMPLES "Builds IREE sample projects." ON)
 option(IREE_BUILD_PYTHON_BINDINGS "Builds the IREE python bindings" OFF)
 option(IREE_BUILD_TRACY "Builds tracy server tools." OFF)
-option(IREE_BUILD_TORCH_MLIR_SUPPORT "Builds support for compiling torch-mlir programs." ON)
 
 option(IREE_BYTECODE_MODULE_FORCE_LLVM_SYSTEM_LINKER "Use the system linker when generating IREE modules in tests/samples/benchmarks (useful for Tracy)." OFF)
 
@@ -207,11 +212,37 @@ cmake_dependent_option(IREE_TARGET_BACKEND_ROCM "Enables the 'rocm' compiler tar
 cmake_dependent_option(IREE_TARGET_BACKEND_WEBGPU "Enables the 'webgpu' compiler target backend" OFF ${IREE_BUILD_COMPILER} OFF)
 
 #-------------------------------------------------------------------------------
+# Compiler Input Dialects
+#-------------------------------------------------------------------------------
+
+cmake_dependent_option(IREE_INPUT_MHLO "Builds support for compiling MHLO programs" ON ${IREE_BUILD_COMPILER} OFF)
+cmake_dependent_option(IREE_INPUT_TORCH "Builds support for compiling Torch MLIR programs" ON ${IREE_BUILD_COMPILER} OFF)
+cmake_dependent_option(IREE_INPUT_TOSA "Builds support for compiling TOSA programs" ON ${IREE_BUILD_COMPILER} OFF)
+
+message(STATUS "IREE compiler input dialects:")
+if(IREE_INPUT_MHLO)
+  message(STATUS "  - MHLO")
+endif()
+if(IREE_INPUT_TORCH)
+  message(STATUS "  - Torch MLIR")
+endif()
+if(IREE_INPUT_TOSA)
+  message(STATUS "  - TOSA")
+endif()
+
+#-------------------------------------------------------------------------------
 # Compiler Output Formats
 #-------------------------------------------------------------------------------
 
-# The 'vm-bytecode' and 'vm-asm' formats are always enabled.
 cmake_dependent_option(IREE_OUTPUT_FORMAT_C "Enables the 'vm-c' output format, using MLIR EmitC" ON ${IREE_BUILD_COMPILER} OFF)
+
+message(STATUS "IREE compiler output formats:")
+if(IREE_OUTPUT_FORMAT_C)
+  message(STATUS "  - C source module")
+endif()
+# The 'vm-bytecode' and 'vm-asm' formats are always enabled.
+message(STATUS "  - VM Bytecode")
+message(STATUS "  - VM MLIR Assembly")
 
 #-------------------------------------------------------------------------------
 # IREE compilation toolchain configuration
@@ -221,6 +252,7 @@ option(IREE_ENABLE_ASAN "Enable address sanitizer" OFF)
 option(IREE_ENABLE_MSAN "Enable memory sanitizer" OFF)
 option(IREE_ENABLE_TSAN "Enable thread sanitizer" OFF)
 option(IREE_BYTECODE_MODULE_ENABLE_TSAN "Enable thread sanitizer in IREE modules in tests" OFF)
+option(IREE_ENABLE_UBSAN "Enable undefined behavior sanitizer" OFF)
 
 # STREQUAL feels wrong here - we don't care about the exact true-value used,
 # ON or TRUE or something else. But we haven't been able to think of a less bad
@@ -544,7 +576,7 @@ else()
   # Add default external projects.
   iree_add_llvm_external_project(mlir-iree-dialects MLIR_IREE_DIALECTS ${CMAKE_CURRENT_SOURCE_DIR}/llvm-external-projects/iree-dialects)
   iree_add_llvm_external_project(mlir-hlo MLIR_HLO ${CMAKE_CURRENT_SOURCE_DIR}/third_party/mlir-hlo)
-  if(IREE_BUILD_TORCH_MLIR_SUPPORT)
+  if(IREE_INPUT_TORCH)
     iree_add_llvm_external_project(torch-mlir-dialects TORCH_MLIR_DIALECTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/torch-mlir-dialects)
   endif()
 

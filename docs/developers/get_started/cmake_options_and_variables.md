@@ -74,6 +74,10 @@ Default setting for each `IREE_TARGET_BACKEND_*` option.
 
 Individual options enabling the build for each compiler target backend.
 
+#### `IREE_INPUT_*`:BOOL
+
+Individual options enabling each set of input dialects.
+
 #### `IREE_OUTPUT_FORMAT_C`:BOOL
 
 Enables the vm-c compiler output format, using MLIR EmitC. Defaults to `ON`.
@@ -105,9 +109,10 @@ the current build type is Debug and the compiler supports it.
 Enable [thread sanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) if
 the current build type is Debug and the compiler supports it.
 
-#### `IREE_BUILD_TORCH_MLIR_SUPPORT`:BOOL
+#### `IREE_ENABLE_UBSAN`:BOOL
 
-Enables building of the torch-mlir-dialects to IREE compiler. Defaults to `ON`.
+Enable [undefiend behavior sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+if the current build type is Debug and the compiler supports it.
 
 ## Cross-compilation
 
