@@ -25,7 +25,7 @@ IREE_FLAG(bool, cuda_allow_inline_execution, true,
           "possible.");
 
 IREE_FLAG(int32_t, cuda_default_index, 0, "Index of the default CUDA device.");
-IREE_FLAG(bool, cuda_use_caching_allocator, true,
+IREE_FLAG(bool, cuda_use_caching_allocator, false,
           "Allow command buffers to execute inline against CUDA streams when "
           "possible.");
 
