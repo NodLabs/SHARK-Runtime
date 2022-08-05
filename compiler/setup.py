@@ -259,6 +259,8 @@ def prepare_installation():
             "-DPython3_EXECUTABLE={}".format(sys.executable),
             "-DCMAKE_BUILD_TYPE={}".format(cfg),
             # TODO(scotttodd): include IREE_TARGET_BACKEND_WEBGPU here (and in env)
+            get_env_cmake_option("IREE_TARGET_BACKEND_ROCM"),
+            get_env_cmake_option("IREE_TARGET_BACKEND_OPENCL_SPIRV"),
             get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
         ]
         cmake_args.extend(get_cmake_version_info_args())
