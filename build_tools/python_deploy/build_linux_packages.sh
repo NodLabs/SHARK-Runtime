@@ -115,17 +115,21 @@ function run_in_docker() {
 
 function build_iree_runtime() {
   IREE_HAL_DRIVER_CUDA=ON \
+  IREE_EXTERNAL_HAL_DRIVERS=rocm \
   python -m pip wheel -v -w /wheelhouse /main_checkout/iree/runtime/
 }
 
 function build_iree_runtime_instrumented() {
-  IREE_HAL_DRIVER_CUDA=ON IREE_BUILD_TRACY=ON IREE_ENABLE_RUNTIME_TRACING=ON \
+  IREE_HAL_DRIVER_CUDA=ON \
+  IREE_EXTERNAL_HAL_DRIVERS=rocm \
+  IREE_BUILD_TRACY=ON IREE_ENABLE_RUNTIME_TRACING=ON \
   IREE_RUNTIME_CUSTOM_PACKAGE_SUFFIX="-instrumented" \
   python -m pip wheel -v -w /wheelhouse /main_checkout/iree/runtime/
 }
 
 function build_iree_compiler() {
   IREE_TARGET_BACKEND_CUDA=ON \
+  IREE_TARGET_BACKEND_ROCM=ON \
   python -m pip wheel -v -w /wheelhouse /main_checkout/iree/compiler/
 }
 
