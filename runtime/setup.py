@@ -239,8 +239,6 @@ def prepare_installation():
         get_env_cmake_option("IREE_EXTERNAL_HAL_DRIVERS", "rocm"),
         get_env_cmake_option("IREE_HAL_DRIVER_VULKAN",
                              "OFF" if platform.system() == "Darwin" else "ON"),
-        get_env_cmake_option("IREE_ENABLE_RUNTIME_TRACING"),
-        get_env_cmake_option("IREE_BUILD_TRACY"),
         get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
     ]
 
