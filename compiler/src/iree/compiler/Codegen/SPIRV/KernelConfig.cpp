@@ -25,16 +25,11 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
-#include <iostream>
 
 #define DEBUG_TYPE "iree-spirv-kernel-config"
 
 namespace mlir {
 namespace iree_compiler {
-
-llvm::cl::opt<bool> spirvUseIntel(
-    "iree-spirv-use-intel",
-    llvm::cl::desc("Do intel specific codegen"), llvm::cl::init(false));
 
 //===----------------------------------------------------------------------===//
 // Convolution Default Configuration
@@ -565,12 +560,6 @@ static LogicalResult setSPIRVOpConfig(const spirv::TargetEnv &targetEnv,
   LogicalResult result = success();
   // First try to find a proper CodeGen configuration to tile and vectorize for
   // the current target architecture.
-  std::cout<< spirv::stringifyVendor(targetEnv.getVendorID()).data();
-  if(spirvUseIntel){
-   // do some intel specific things here?
-   result = detail::setINTELCodeGenConfig(targetEnv, rootOp);
-  }
-  else {
   switch (targetEnv.getVendorID()) {
     case spirv::Vendor::AMD:
       result = detail::setAMDCodeGenConfig(targetEnv, rootOp);
@@ -590,12 +579,11 @@ static LogicalResult setSPIRVOpConfig(const spirv::TargetEnv &targetEnv,
     default:
       break;
   }
-  }
 
   if (failed(result)) return result;
   // Check whether there is actually a configuration found. If so, it's done.
   if (getLoweringConfig(rootOp)) return result;
-  std::cout<<"Going to the fallback\n";
+
   // Otherwise fallback to use a default configuration that tiles and
   // distributes/vectorizes.
   spirv::ResourceLimitsAttr limits = targetEnv.getResourceLimits();
@@ -649,7 +637,6 @@ static LogicalResult setSPIRVOpConfig(const spirv::TargetEnv &targetEnv,
 //===----------------------------------------------------------------------===//
 
 LogicalResult initSPIRVLaunchConfig(ModuleOp module) {
-  std::cout<<" In the init\n";
   llvm::StringMap<IREE::HAL::ExecutableExportOp> exportOps =
       getAllEntryPoints(module);
   spirv::TargetEnvAttr targetEnvAttr = getSPIRVTargetEnvAttr(module);
@@ -680,7 +667,6 @@ LogicalResult initSPIRVLaunchConfig(ModuleOp module) {
     // Try to find a configuration according to a matmul/convolution op and use
     // it as the root op.
     for (Operation *computeOp : computeOps) {
-      std::cout<<"In the compute ops\n";
       if (failed(setSPIRVOpConfig(targetEnv, computeOp))) return failure();
 
       // Check if the op configuration was set.

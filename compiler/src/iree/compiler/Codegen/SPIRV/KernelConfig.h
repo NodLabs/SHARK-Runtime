@@ -58,8 +58,6 @@ LogicalResult setAMDCodeGenConfig(const spirv::TargetEnv &targetEnv,
                                   Operation *rootOp);
 LogicalResult setMaliCodeGenConfig(const spirv::TargetEnv &targetEnv,
                                    Operation *rootOp);
-LogicalResult setINTELCodeGenConfig(const spirv::TargetEnv &targetEnv,
-                                     Operation *rootOp);
 LogicalResult setNVIDIACodeGenConfig(const spirv::TargetEnv &targetEnv,
                                      Operation *rootOp);
 
