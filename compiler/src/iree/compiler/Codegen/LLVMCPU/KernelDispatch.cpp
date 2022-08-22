@@ -933,22 +933,20 @@ static LogicalResult setRootConfig(func::FuncOp entryPointFn,
 }
 
 static void setX86WorkgroupTileSizes(
-    linalg::GenericOp genericOp, unsigned numLoops,
-    ArrayRef<int64_t> flowTileSizes, ArrayRef<int64_t> minTileSizes,
-    ArrayRef<int64_t> maxTileSizes,
-    SmallVectorImpl<int64_t> &workgroupTileSizes) {
+    linalg::GenericOp genericOp, ArrayRef<int64_t> flowTileSizes,
+    ArrayRef<int64_t> tileSizes, SmallVectorImpl<int64_t> &workgroupTileSizes,
+    bool allowIncompleteTile = false) {
+  unsigned numLoops = genericOp.getNumLoops();
   workgroupTileSizes.append(numLoops, 0);
   SmallVector<int64_t, 4> staticLoopRanges = genericOp.getStaticLoopRanges();
-  for (auto loopNum : llvm::seq<unsigned>(0, numLoops)) {
-    if (flowTileSizes[loopNum]) {
-      workgroupTileSizes[loopNum] =
-          getMaxTileSize(0, flowTileSizes[loopNum], minTileSizes[loopNum],
-                         minTileSizes[loopNum]);
+  for (auto i : llvm::seq<unsigned>(0, numLoops)) {
+    if (flowTileSizes[i]) {
+      workgroupTileSizes[i] = getMaxTileSize(0, flowTileSizes[i], tileSizes[i],
+                                             tileSizes[i], allowIncompleteTile);
     } else {
-      // If the flow level tile size is zero, and static loop range is 0 as
+      // If the flow level tile size is zero, and static loop range is 1 as
       // well, set the tile sizes here to zero as well.
-      workgroupTileSizes[loopNum] =
-          staticLoopRanges[loopNum] == 1 ? 0 : minTileSizes[loopNum];
+      workgroupTileSizes[i] = staticLoopRanges[i] == 1 ? 0 : tileSizes[i];
     }
   }
 }
@@ -1010,8 +1008,8 @@ static LogicalResult setDefaultGenericOpRootConfig(
   // Set the next level tile sizes.
   SmallVector<int64_t> parallelTileSizes;
   SmallVector<int64_t> reductionTileSizes;
-  setX86WorkgroupTileSizes(genericOp, numLoops, flowTileSizes, minTileSizes,
-                           maxTileSizes, parallelTileSizes);
+  setX86WorkgroupTileSizes(genericOp, flowTileSizes, minTileSizes,
+                           parallelTileSizes);
   splitParallelAndReductionTiles(genericOp, parallelTileSizes,
                                  reductionTileSizes);
 
@@ -1089,8 +1087,8 @@ static LogicalResult setTransposeLikeOpRootConfig(func::FuncOp entryPointFn,
 
   // Set the next level tile sizes.
   SmallVector<int64_t> parallelTileSizes;
-  setX86WorkgroupTileSizes(genericOp, numLoops, flowTileSizes, minTileSizes,
-                           maxTileSizes, parallelTileSizes);
+  setX86WorkgroupTileSizes(genericOp, flowTileSizes, minTileSizes,
+                           parallelTileSizes);
 
   TileSizesListType tileSizes;
   tileSizes.push_back(flowTileSizes);
@@ -1106,11 +1104,84 @@ static LogicalResult setTransposeLikeOpRootConfig(func::FuncOp entryPointFn,
                                                tileSizes, passPipeline);
 }
 
+static LogicalResult setElementwiseGenericOpRootConfig(
+    func::FuncOp entryPointFn, linalg::GenericOp genericOp) {
+  if (getLoweringConfig(genericOp)) {
+    return success();
+  }
+
+  unsigned numLoops = genericOp.getNumLoops();
+  if (numLoops == 0) return success();
+  if (numLoops != genericOp.getNumParallelLoops()) return success();
+
+  // Set the flow level tiling to the default.
+  SmallVector<int64_t> minTileSizes =
+      getMinTilingSizesForEachDim(entryPointFn, genericOp);
+  SmallVector<int64_t> maxTileSizes(numLoops, defaultWorkgroupTileSize);
+  SmallVector<int64_t> flowTileSizes =
+      getDefaultDistributedLevelTileSizes(genericOp, minTileSizes, maxTileSizes,
+                                          /*allowIncompleteTile=*/true);
+
+  // Adjust the number of workload per workgroup to at least 4096.
+  auto shape = genericOp.getStaticLoopRanges();
+  int64_t numWorkload = 1;
+  for (auto en : llvm::enumerate(shape)) {
+    int64_t size = en.value();
+    if (size == ShapedType::kDynamicSize) {
+      numWorkload = ShapedType::kDynamicSize;
+      break;
+    }
+    int index = en.index();
+    if (flowTileSizes[index]) {
+      size = flowTileSizes[index];
+    }
+    numWorkload *= size;
+    printf("size=%d, numWorkload = %d\n", (int)size, (int)numWorkload);
+  }
+  printf("numWorkload = %d\n", (int)numWorkload);
+
+  constexpr int64_t kMinimumWorkload = 4096;
+  for (unsigned currDim = 0;
+       numWorkload < kMinimumWorkload && currDim < numLoops;) {
+    int64_t currSize = flowTileSizes[currDim];
+    if (currSize == shape[currDim] || currSize == 0 ||
+        shape[currDim] == ShapedType::kDynamicSize ||
+        numWorkload == ShapedType::kDynamicSize) {
+      currDim++;
+      continue;
+    }
+    int64_t newSize = std::min<int64_t>(currSize * 2, shape[currDim]);
+    numWorkload = numWorkload / currSize * newSize;
+    flowTileSizes[currDim] = newSize;
+    printf("scale %d: %d -> %d\n", (int)currDim, (int)currSize, (int)newSize);
+  }
+
+  // Set the next level tile sizes.
+  SmallVector<int64_t> parallelTileSizes;
+  setX86WorkgroupTileSizes(genericOp, flowTileSizes, minTileSizes,
+                           parallelTileSizes, /*allowIncompleteTile=*/true);
+
+  // Workaround to kick in peeling transform.
+  SmallVector<int64_t> reductionTileSizes(numLoops, 0);
+  TileSizesListType tileSizes;
+  tileSizes.push_back(flowTileSizes);
+  tileSizes.push_back(parallelTileSizes);
+  tileSizes.push_back(reductionTileSizes);
+
+  auto passPipeline =
+      genericOp.hasTensorSemantics()
+          ? DispatchLoweringPassPipeline::CPUDoubleTilingPeelingExpert
+          : DispatchLoweringPassPipeline::CPUBufferOpsTileAndVectorize;
+  return setOpConfigAndEntryPointFnTranslation(entryPointFn, genericOp,
+                                               tileSizes, passPipeline);
+}
+
 /// Sets the lowering configuration for a generic op to use
 /// CPUDoubleTilingExpert pipeline.
 static LogicalResult setRootConfig(func::FuncOp entryPointFn,
                                    linalg::GenericOp genericOp) {
   if (failed(setTransposeLikeOpRootConfig(entryPointFn, genericOp)) ||
+      failed(setElementwiseGenericOpRootConfig(entryPointFn, genericOp)) ||
       failed(setDefaultGenericOpRootConfig(entryPointFn, genericOp))) {
     return failure();
   }
