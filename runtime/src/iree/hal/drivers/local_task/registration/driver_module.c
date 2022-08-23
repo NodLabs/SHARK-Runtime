@@ -10,9 +10,13 @@
 #include <stddef.h>
 
 #include "iree/base/api.h"
+#include "iree/base/internal/flags.h"
 #include "iree/hal/drivers/local_task/task_driver.h"
 #include "iree/hal/local/loaders/registration/init.h"
 #include "iree/task/api.h"
+
+IREE_FLAG(bool, cpu_use_caching_allocator, true,
+          "Allow caching of memory buffers when possible");
 
 static iree_status_t iree_hal_local_task_driver_factory_enumerate(
     void* self, iree_host_size_t* out_driver_info_count,
@@ -40,6 +44,8 @@ static iree_status_t iree_hal_local_task_driver_factory_try_create(
 
   iree_hal_task_device_params_t default_params;
   iree_hal_task_device_params_initialize(&default_params);
+
+  default_params.use_caching_allocator = FLAG_cpu_use_caching_allocator;
 
   iree_hal_executable_loader_t* loaders[8] = {NULL};
   iree_host_size_t loader_count = 0;

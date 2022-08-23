@@ -103,6 +103,11 @@ iree_status_t iree_hal_task_device_create(
                                       (char*)device + struct_size);
     device->host_allocator = host_allocator;
     device->device_allocator = device_allocator;
+    #if defined(IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING)
+      if(params->use_caching_allocator) {
+        status = iree_hal_allocator_create_caching(device->device_allocator, &device->device_allocator);
+      }
+    #endif  // IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
     iree_hal_allocator_retain(device_allocator);
 
     iree_arena_block_pool_initialize(4096, host_allocator,

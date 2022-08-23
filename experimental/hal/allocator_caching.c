@@ -145,13 +145,13 @@ static void iree_hal_caching_allocator_destroy(
     iree_hal_allocator_t* IREE_RESTRICT base_allocator) {
   iree_hal_caching_allocator_t* allocator =
       iree_hal_caching_allocator_cast(base_allocator);
-  iree_hal_allocator_t* delegate_allocator = allocator->delegate_allocator;
-  iree_hal_buffer_node_t* cache_list_ptr = allocator->cache_list;
-  while (cache_list_ptr) {
-    cache_list_ptr->cache_data->device_allocator = delegate_allocator;
-    iree_hal_buffer_destroy(cache_list_ptr->cache_data);
-    cache_list_ptr = cache_list_ptr->next;
-  }
+  // iree_hal_allocator_t* delegate_allocator = allocator->delegate_allocator;
+  // iree_hal_buffer_node_t* cache_list_ptr = allocator->cache_list;
+  // while (cache_list_ptr) {
+  //   cache_list_ptr->cache_data->device_allocator = delegate_allocator;
+  //   iree_hal_buffer_destroy(cache_list_ptr->cache_data);
+  //   cache_list_ptr = cache_list_ptr->next;
+  // }
   iree_hal_allocator_destroy(allocator->delegate_allocator);
 }
 
