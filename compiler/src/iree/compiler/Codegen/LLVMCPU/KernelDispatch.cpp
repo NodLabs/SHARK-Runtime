@@ -1158,8 +1158,10 @@ static LogicalResult setElementwiseGenericOpRootConfig(
   setX86WorkgroupTileSizes(genericOp, flowTileSizes, minTileSizes,
                            parallelTileSizes, /*allowIncompleteTile=*/true);
 
-  // Workaround to kick in peeling transform.
+  // Setting reduction tile sizes is a workaround to kick in peeling transform.
+  // The tiling won't happen because the sizes are zeros.
   SmallVector<int64_t> reductionTileSizes(numLoops, 0);
+
   TileSizesListType tileSizes;
   tileSizes.push_back(flowTileSizes);
   tileSizes.push_back(parallelTileSizes);
