@@ -307,6 +307,18 @@ def VectorContractCustomKernels :
   ];
 }
 
+def LLVMCPUFuseTensorPadWithConsumer :
+    Pass<"iree-llvmcpu-fuse-tensor-pad-with-consumer", "func::FuncOp"> {
+  let summary = "Fuse tensor.pad op into its consumer op's tiled loop nest";
+  let constructor = "mlir::iree_compiler::createLLVMCPUFuseTensorPadWithConsumerPass()";
+}
+
+def LLVMCPUPadTile :
+    Pass<"iree-llvmcpu-pad-tile", "func::FuncOp"> {
+  let summary = "Fuse pad + concretize";
+  let constructor = "mlir::iree_compiler::createLLVMCPUPadTilePass()";
+}
+
 //------------------------------------------------------------------------------
 // LLVMGPU
 //------------------------------------------------------------------------------
