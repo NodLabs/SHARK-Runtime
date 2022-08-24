@@ -235,6 +235,15 @@ std::unique_ptr<OperationPass<func::FuncOp>> createLLVMCPUUnfuseFMAOpsPass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createVectorContractCustomKernelsPass();
 
+/// Fuses tensor.pad ops into their consumer ops' tiled loop nests.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLLVMCPUFuseTensorPadWithConsumerPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLLVMCPUPadTilePass();
+
+std::unique_ptr<OperationPass<func::FuncOp>> createLLVMCPUVectorizePadPass();
+
 //------------------------------------------------------------------------------
 // LLVMCPU Codegen specific patterns.
 //------------------------------------------------------------------------------
@@ -246,6 +255,9 @@ void populateVectorContractCustomKernelsPatterns(
 
 void populateUnfusedFMAOpsPassPatterns(MLIRContext *context,
                                        RewritePatternSet &patterns);
+
+void populateLLVMCPUVectorizePadPatterns(RewritePatternSet &patterns,
+                                  PatternBenefit baseBenefit = 1);
 
 //----------------------------------------------------------------------------//
 // LLVMCPU backend Pass Pipelines.
