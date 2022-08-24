@@ -1136,9 +1136,7 @@ static LogicalResult setElementwiseGenericOpRootConfig(
       size = flowTileSizes[index];
     }
     numWorkload *= size;
-    printf("size=%d, numWorkload = %d\n", (int)size, (int)numWorkload);
   }
-  printf("numWorkload = %d\n", (int)numWorkload);
 
   constexpr int64_t kMinimumWorkload = 4096;
   for (unsigned currDim = 0;
@@ -1153,7 +1151,6 @@ static LogicalResult setElementwiseGenericOpRootConfig(
     int64_t newSize = std::min<int64_t>(currSize * 2, shape[currDim]);
     numWorkload = numWorkload / currSize * newSize;
     flowTileSizes[currDim] = newSize;
-    printf("scale %d: %d -> %d\n", (int)currDim, (int)currSize, (int)newSize);
   }
 
   // Set the next level tile sizes.
