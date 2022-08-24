@@ -107,6 +107,8 @@ static void addTileAndDistributePasses(OpPassManager &pm) {
   pm.addPass(createTileAndDistributeToWorkgroupsPass());
   auto &nestedModulePM = pm.nest<ModuleOp>();
   nestedModulePM.addNestedPass<func::FuncOp>(
+      createLLVMCPUFuseTensorPadWithConsumerPass());
+  nestedModulePM.addNestedPass<func::FuncOp>(
       createConvertToDestinationPassingStylePass());
   nestedModulePM.addNestedPass<func::FuncOp>(
       createFoldAffineMinInDistributedLoopsPass());
@@ -297,6 +299,9 @@ void addCPUBufferOpsTileAndVectorizePipeline(OpPassManager &passManager) {
     nestedModulePM.addNestedPass<func::FuncOp>(createCanonicalizerPass());
     nestedModulePM.addNestedPass<func::FuncOp>(createCSEPass());
   }
+
+  nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUPadTilePass());
+  nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUVectorizePadPass());
 
   // Run IREE specific passes before vector lowering expert.
   nestedModulePM.addNestedPass<func::FuncOp>(
@@ -498,6 +503,9 @@ void addConvTileAndDecomposeExpertPassPipeline(OpPassManager &passManager) {
     nestedModulePM.addNestedPass<func::FuncOp>(createCSEPass());
   }
 
+  nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUPadTilePass());
+  nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUVectorizePadPass());
+
   // Add the sandbox single tiling expert to vectorize.
   // We can't do the vectorization in the tiling expert above due to an issue in
   // codegen strategy pipeline. Since we are moving to the transform dialect, we
@@ -511,6 +519,7 @@ void addConvTileAndDecomposeExpertPassPipeline(OpPassManager &passManager) {
     nestedModulePM.addNestedPass<func::FuncOp>(createCanonicalizerPass());
     nestedModulePM.addNestedPass<func::FuncOp>(createCSEPass());
   }
+
 
   addBufferizePasses(nestedModulePM);
   nestedModulePM.addNestedPass<func::FuncOp>(createCSEPass());
