@@ -735,9 +735,10 @@ bool iree_notification_commit_wait(iree_notification_t* notification,
   while ((iree_atomic_load_int64(&notification->value,
                                  iree_memory_order_acquire) >>
           IREE_NOTIFICATION_EPOCH_SHIFT) == wait_token) {
-    // NOTE: we do an abs->rel conversion within the loop so that we can account
-    // for spurious wakes that may cause us to loop several times with waits of
-    // various time inbetween.
+// NOTE: we do an abs->rel conversion within the loop so that we can account
+// for spurious wakes that may cause us to loop several times with waits of
+// various time inbetween.
+#if 0
     uint32_t timeout_ms = iree_absolute_deadline_to_timeout_ms(deadline_ns);
     iree_status_code_t status_code = iree_futex_wait(
         iree_notification_epoch_address(notification), wait_token, timeout_ms);
@@ -745,6 +746,7 @@ bool iree_notification_commit_wait(iree_notification_t* notification,
       result = false;
       break;
     }
+#endif
   }
 
   // TODO(benvanik): benchmark under real workloads.

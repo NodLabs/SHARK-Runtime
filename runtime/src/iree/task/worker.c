@@ -154,8 +154,8 @@ iree_task_t* iree_task_worker_try_steal_task(iree_task_worker_t* worker,
   if (task) return task;
 
   // If we still didn't steal any tasks then let's try the slist instead.
-  task = iree_atomic_task_slist_pop(&worker->mailbox_slist);
-  if (task) return task;
+  // task = iree_atomic_task_slist_pop(&worker->mailbox_slist);
+  // if (task) return task;
 
   return NULL;
 }
