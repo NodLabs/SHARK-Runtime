@@ -1,5 +1,15 @@
 // RUN: iree-opt --split-input-file -iree-flow-convert-conv2d-1x1-to-matmul %s | FileCheck %s
 
+        // %131 = linalg.init_tensor [1, 1024, 14, 14] : tensor<1x1024x14x14xf32>
+        // %132 = linalg.fill ins(%cst_262 : f32) outs(%131 : tensor<1x1024x14x14xf32>) -> tensor<1x1024x14x14xf32>
+        // %133 = linalg.conv_2d_nchw_fchw {dilations = dense<1> : vector<2xi64>, strides = dense<1> : vector<2xi64>} ins(%arg0, %cst_133 : tensor<1x256x14x14xf32>, tensor<1024x256x1x1xf32>) outs(%132 : tensor<1x1024x14x14xf32>) -> tensor<1x1024x14x14xf32>
+        // return %133 : tensor<1x1024x14x14xf32>
+        // tensor<1x256x14x14xf32>, tensor<1024x256x1x1xf32>) outs(%132 : tensor<1x1024x14x14xf32>) -> tensor<1x1024x14x14xf32>
+// input: 1x256x14x14xf32 -> 256x196 [(0,1),(2,3)]
+// filter: 1024x256x1x1xf32 -> 1024 x256 [(0), (1,2,3)]
+// output: 1x1024x14x14xf32 -> 1024 x196 [(0,1), (2,3)]
+
+
 func.func @conv_2d_1x1(%input: tensor<1x4x5x2xf32>, %filter: tensor<1x1x2x7xf32>) -> tensor<1x4x5x7xf32> {
     %0 = linalg.init_tensor [1, 4, 5, 7] : tensor<1x4x5x7xf32>
     %1 = linalg.conv_2d_nhwc_hwcf {
