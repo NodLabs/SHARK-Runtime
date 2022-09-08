@@ -158,7 +158,7 @@ void addGPUMatmulSimtPassPipeline(OpPassManager &pm) {
   nestedModulePM.addPass(createCSEPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(
-      memref::createFoldSubViewOpsPass());
+      memref::createFoldMemRefAliasOpsPass());
   nestedModulePM.addPass(createCSEPass());
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
@@ -194,8 +194,10 @@ void addGPUMatmulTensorCorePassPipeline(OpPassManager &pm,
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
 
-  nestedModulePM.addNestedPass<func::FuncOp>(
-      createLLVMGPUReduceSharedMemoryBankConflicts());
+  if (!llvmgpuUseMMASync) {
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createLLVMGPUReduceSharedMemoryBankConflicts());
+  }
   nestedModulePM.addNestedPass<func::FuncOp>(
       createRemoveSingleIterationLoopPass());
   nestedModulePM.addNestedPass<func::FuncOp>(
@@ -213,7 +215,7 @@ void addGPUMatmulTensorCorePassPipeline(OpPassManager &pm,
 
   // Vector -> MMA ops
   nestedModulePM.addNestedPass<func::FuncOp>(
-      memref::createFoldSubViewOpsPass());
+      memref::createFoldMemRefAliasOpsPass());
   nestedModulePM.addNestedPass<func::FuncOp>(createLLVMGPUVectorToGPU());
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
@@ -273,7 +275,7 @@ void addGPUWarpReductionPassPipeline(OpPassManager &pm) {
       createOptimizeVectorTransferPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(
-      memref::createFoldSubViewOpsPass());
+      memref::createFoldMemRefAliasOpsPass());
   nestedModulePM.addNestedPass<func::FuncOp>(
       createLoopInvariantCodeMotionPass());
   nestedModulePM.addNestedPass<func::FuncOp>(createCanonicalizerPass());
@@ -351,8 +353,22 @@ static void addLowerToLLVMGPUPasses(OpPassManager &pm, bool useROCM) {
 }
 
 extern llvm::cl::opt<std::string> clGPUCodegenTransformDialectFileName;
+extern llvm::cl::list<int64_t> clGPUCodegenTransformDialectTileSizes;
 
 void addGPUTransformDialectInterpreterPasses(OpPassManager &passManager) {
+  if (!clGPUCodegenTransformDialectTileSizes.empty()) {
+    // First do the tile and distribution to workgroups and remove the
+    // distributions loops. Then apply the transform dialect.
+    passManager.addPass(createTileAndDistributeToWorkgroupsPass());
+    auto &nestedModulePM = passManager.nest<ModuleOp>();
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createConvertToDestinationPassingStylePass());
+    nestedModulePM.addPass(createCanonicalizerPass());
+    nestedModulePM.addPass(createCSEPass());
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createRemoveSingleIterationLoopPass());
+  }
+
   // Give control to the transform dialect.
   passManager.addPass(
       mlir::iree_compiler::createTransformDialectInterpreterPass(

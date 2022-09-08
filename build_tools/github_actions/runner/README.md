@@ -124,7 +124,7 @@ rolling out these updates involves a few steps.
 ### MIG Rolling Updates
 
 See https://cloud.google.com/compute/docs/instance-groups/updating-migs for the
-main documentation. There are two modes for a roling MIG update, "proactive" and
+main documentation. There are two modes for a rolling MIG update, "proactive" and
 "opportunistic" (AKA "selective"). There are also three different actions the
 MIG can take to update an instance: "refresh", "restart", and "replace". A
 "refresh" update only allows updating instance metadata or adding extra disks,
@@ -140,9 +140,9 @@ our instances shut themselves down when they're done with a job, but apparently
 it *doesn't* apply updates if it's recreating an instance deemed "unhealthy"
 which is unfortunately the case for instances that shut themselves down. So
 these sorts of updates need to be done as "opportunistic" updates which will
-need to be manually managed. Use the GitHub runners UI to check which instances
-are currently running jobs and manually bring down instances (either via the UI
-or gcloud) when they are not running jobs.
+need to be manually managed. You can use
+[`remove_idle_runners.sh`](./gcp/remove_idle_runners.sh) to relatively safely
+bring down instances that aren't currently processing a job.
 
 ### Test Runners
 
@@ -151,21 +151,46 @@ that can be used to deploy new runner configurations and can be tested by
 targeting jobs using the label. Create templates using the
 [`create_templates.sh`](./gcp/create_templates.sh) script, overriding the
 `TEMPLATE_CONFIG_REPO` and/or `TEMPLATE_CONFIG_REF` environment variables to
-point to your new configurations. Update the testing instance group to your new
-template using [`update_instance_group.sh`](./gcp/update_instance_group.sh) (no
-need to canary to the test group). The autoscaling configuration for the testing
+point to your new configurations. The autoscaling configuration for the testing
 group usually has both min and max replicas set to 0, so there aren't any
 instances running. Update the configuration to something appropriate for your
 testing (probably something like 1-10) using
-[`update_autoscaling.sh`](./gcp/update_autoscaling.sh). Check that your runners
-successfully start up and register with the GitHub UI. Then send a PR or trigger
-a workflow dispatch (depending on what you're testing) targeting the testing
-environment, and ensure that your new runners work. Send and merge a PR updating
-the runner configuration. When you're done, make sure to set the testing group
-autoscaling back to 0-0. For now, you'll need to shut down the remaining
-runners. The easiest way to do this for now is to go to the UI for the managed
-instance group and delete all the instances. The necessity for manual deletion
-will go away with future improvements.
+[`update_autoscaling.sh`](./gcp/update_autoscaling.sh):
+
+```shell
+build_tools/github_actions/runner/gcp/update_autoscaling.sh \
+  github-runner-testing-presubmit-cpu-us-west1 us-west1 1 10
+```
+
+Update the testing instance group to your new template using
+[`update_instance_groups.py`](./gcp/update_instance_groups.py) (no need to
+canary to the test group):
+
+```shell
+build_tools/github_actions/runner/gcp/update_instance_group.py direct-update \
+  --env=testing --region=all --group=all --type=all --version="${VERSION?}"
+```
+
+Check that your runners successfully start up and register with the GitHub UI.
+Then send a PR or trigger a workflow dispatch (depending on what you're testing)
+targeting the testing environment, and ensure that your new runners work. Send
+and merge a PR updating the runner configuration. When you're done, make sure to
+set the testing group autoscaling back to 0-0.
+
+```shell
+build_tools/github_actions/runner/gcp/update_autoscaling.sh \
+  github-runner-testing-presubmit-cpu-us-west1 us-west1 0 0
+```
+
+For now, you'll need to shut down the remaining runners. The easiest way to do
+this for now is to go to the UI for the managed instance group and delete all
+the instances. The necessity for manual deletion will go away with future
+improvements.
+
+```shell
+build_tools/github_actions/runner/gcp/remove_idle_runners.sh \
+  testing-presubmit cpu us-west1
+```
 
 ### Deploy to Prod
 
@@ -175,14 +200,26 @@ changes you make need to be forward and backward compatible with changes to
 anything that is picked up directly from tip of tree (such as workflow files).
 These should be changed in separate PRs.
 
-To deploy to prod, create new prod templates. Then use the
-[`canary_update_instance_group.sh`](./gcp/canary_update_instance_group.sh)
-script to canary an update to 10% of runners. Watch to make sure that your new
-runners are starting up and registering as expected and there aren't any
-additional failures. It is probably best to wait on the order of days before
-proceeding. When you are satisfied that your new configuration is good, complete
-the update with your new template, using `update_instance_group.sh`.
+To deploy to prod, create new prod templates. Then use the update script to
+canary to a single instance:
 
+```shell
+build_tools/github_actions/runner/update_instance_group.py canary-update \
+  --prod --region=all --group=all --type=all --version="${VERSION}"
+```
+
+Watch to make sure that your new runners are starting up and registering as
+expected and there aren't any additional failures. It is probably best to wait
+on the order of days before proceeding. When you are satisfied that your new
+configuration is good, complete the update with your new template:
+
+```shell
+build_tools/github_actions/runner/update_instance_group.py promote-canary \
+  --prod --region=all --group=all --type=all
+```
+
+To speed things along, you may want to remove idle instances since they'll only
+pick up the updates on restart.
 
 ## Known Issues / Future Work
 

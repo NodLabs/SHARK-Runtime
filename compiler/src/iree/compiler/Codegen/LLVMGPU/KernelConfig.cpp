@@ -32,7 +32,13 @@ llvm::cl::opt<std::string> clGPUCodegenTransformDialectFileName(
     llvm::cl::desc(
         "MLIR file containing a transform dialect specification to apply"),
     llvm::cl::init(""));
-}
+
+llvm::cl::list<int64_t> clGPUCodegenTransformDialectTileSizes(
+    "iree-codegen-llvmgpu-workgroup-tile-sizes",
+    llvm::cl::desc("Fixed tile sizes when using the transform dialect starting "
+                   "from IR already workgroup distributed"),
+    llvm::cl::CommaSeparated);
+}  // namespace iree_compiler
 }  // namespace mlir
 
 namespace {
@@ -402,9 +408,11 @@ static LogicalResult setRootDefaultConfig(func::FuncOp entryPoint,
 
   auto linalgOp = dyn_cast<linalg::LinalgOp>(op);
   // Pick a vectorSize of 1 for op that we know won't get vectorizedd.
+  // Also skip vectorization for linalg on memref (no result) as the pipeline
+  // relies on tensor level tiling.
   // TODO(thomasraoux): This could be improved by checking if the linalg op
   // would fail vectorization.
-  if (!linalgOp || op->getNumResults() > 1 ||
+  if (!linalgOp || op->getNumResults() != 1 ||
       llvm::any_of(linalgOp.getInputAndOutputOperands(), [&](OpOperand *input) {
         return !linalgOp.getTiedIndexingMap(input).isProjectedPermutation();
       })) {
@@ -592,6 +600,17 @@ static LogicalResult setTransposeConfig(func::FuncOp entryPoint,
 
 static LogicalResult setRootConfig(func::FuncOp entryPointFn,
                                    Operation *computeOp) {
+  if (!clGPUCodegenTransformDialectTileSizes.empty()) {
+    SmallVector<int64_t, 4> workgroupTileSizes(
+        clGPUCodegenTransformDialectTileSizes.begin(),
+        clGPUCodegenTransformDialectTileSizes.end());
+    TileSizesListType tileSizes;
+    tileSizes.emplace_back(std::move(workgroupTileSizes));
+    auto config = IREE::Codegen::LoweringConfigAttr::get(
+        computeOp->getContext(), tileSizes);
+    setLoweringConfig(computeOp, config);
+    return success();
+  }
   if (IREE::Codegen::CompilationInfoAttr compilationInfo =
           getCompilationInfo(computeOp)) {
     // If the op already has a lowering config coming from the IR use this and
@@ -644,7 +663,7 @@ LogicalResult initGPULaunchConfig(ModuleOp moduleOp) {
           moduleOp.getContext(), IREE::Codegen::DispatchLoweringPassPipeline::
                                      TransformDialectInterpreterCodegen);
       setTranslationInfo(funcOp, translationInfo);
-      continue;
+      if (clGPUCodegenTransformDialectTileSizes.empty()) continue;
     }
 
     Operation *rootOperation = nullptr;

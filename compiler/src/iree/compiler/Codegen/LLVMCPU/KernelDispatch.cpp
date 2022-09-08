@@ -859,15 +859,21 @@ static LogicalResult setRootConfig(
 /// op
 static LogicalResult setRootConfig(func::FuncOp entryPointFn,
                                    linalg::Mmt4DOp mmt4dOp) {
-  // TODO(ataei): These are hand tuned for some performance benchmarks for
-  // now, we want to adapt the same strategy as matmul that dynamically sets
-  // tile size.
   auto getWorkgroupTileSizes = [&]() -> SmallVector<int64_t> {
     if (!mmt4dWorkgroupTileSizes.empty()) {
       return SmallVector<int64_t>(mmt4dWorkgroupTileSizes.begin(),
                                   mmt4dWorkgroupTileSizes.end());
     }
-    return {48, 32};
+    unsigned numLoops = mmt4dOp.getNumLoops();
+    SmallVector<int64_t> minTileSizes(numLoops, 0);
+    SmallVector<int64_t> maxTileSizes(numLoops, 0);
+    minTileSizes[0] = 4;
+    minTileSizes[1] = 4;
+    maxTileSizes[0] = 48;
+    maxTileSizes[1] = 32;
+    SmallVector<int64_t> flowTileSizes = getDefaultDistributedLevelTileSizes(
+        mmt4dOp, minTileSizes, maxTileSizes);
+    return flowTileSizes;
   };
 
   auto getL1TileSizes = [&]() -> SmallVector<int64_t> {
@@ -1159,25 +1165,14 @@ static LogicalResult setElementwiseGenericOpRootConfig(
     flowTileSizes[currDim] = newSize;
   }
 
-  // Adjust tiling sizes of vector levels to avoid large unroll factors.
+  // Adjust tiling sizes of vector levels to avoid large unroll factors. Most of
+  // the cases are f32 and i32, so we divide it by 4.
+  auto nativeVecSize = getNativeVectorSizeInBytes(entryPointFn);
+  int64_t vecSize =
+      nativeVecSize ? nativeVecSize.value() : clNativeVectorSizeInBytes;
+  vecSize /= 4;
   SmallVector<int64_t> vecTileSizes(minTileSizes.begin(), minTileSizes.end());
-  for (auto operand : genericOp.getOutputOperands()) {
-    constexpr int64_t kMaxUnrollFactor = 8;
-    AffineMap map = genericOp.getTiedIndexingMap(operand);
-    int64_t vecSize = getVectorSize(entryPointFn, operand->get().getType());
-    int64_t currSize = 1;
-    for (auto dimExpr : llvm::reverse(map.getResults().drop_back())) {
-      unsigned pos = dimExpr.cast<AffineDimExpr>().getPosition();
-      if (vecTileSizes[pos] * currSize > vecSize * kMaxUnrollFactor) {
-        vecTileSizes[pos] = 1;
-        currSize = vecSize * kMaxUnrollFactor;
-      }
-    }
-    int fastestPos =
-        map.getResults().back().cast<AffineDimExpr>().getPosition();
-    vecTileSizes[fastestPos] =
-        std::min<int64_t>(vecTileSizes[fastestPos], kMaxUnrollFactor);
-  }
+  for (auto &i : vecTileSizes) i = std::min(i, vecSize);
 
   // Setting reduction tile sizes is a workaround to kick in peeling transform.
   // The tiling won't happen because the sizes are zeros.
