@@ -56,6 +56,7 @@ static spirv::TargetEnvAttr getSPIRVTargetEnv(
       spirv::Version::V_1_1,
       {spirv::Capability::Kernel,
        spirv::Capability::Addresses,
+       spirv::Capability::SubgroupDispatch,
        spirv::Capability::Float16Buffer,
        spirv::Capability::Int16,
        spirv::Capability::Int8,
@@ -151,11 +152,11 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
       return variantOp.emitError() << "failed to serialize spv.module";
     }
 
-     if (!options.dumpBinariesPath.empty()) {
-       dumpDataToPath<uint32_t>(options.dumpBinariesPath,
-       options.dumpBaseName,
-                                variantOp.getName(), ".spv", spvBinary);
-     }
+    if (!options.dumpBinariesPath.empty()) {
+      dumpDataToPath<uint32_t>(options.dumpBinariesPath,
+      options.dumpBaseName,
+                               variantOp.getName(), ".spv", spvBinary);
+    }
 
     auto spvCodeRef = flatbuffers_uint32_vec_create(builder, spvBinary.data(),
                                                     spvBinary.size());
@@ -166,6 +167,7 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
     SmallVector<StringRef, 8> entryPointNames;
     std::vector<SmallVector<int32_t, 3>> workgroupSizes;
     spvModuleOp.walk([&](spirv::ExecutionModeOp executionModelOp) {
+      if(executionModelOp.execution_mode() == spirv::ExecutionMode::LocalSize){
       executionModelOp.dump();
       entryPointNames.push_back(executionModelOp.fn());
       ArrayAttr workGroupSizeAttr = executionModelOp.values();
@@ -175,6 +177,7 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
           {int(workGroupSizeAttr[0].dyn_cast<IntegerAttr>().getInt()),
            int(workGroupSizeAttr[1].dyn_cast<IntegerAttr>().getInt()),
            int(workGroupSizeAttr[2].dyn_cast<IntegerAttr>().getInt())});
+      }
     });
     // if (!options.dumpBinariesPath.empty()) {
     // dumpDataToPath<uint32_t>("/tmp", entryPointNames[0],

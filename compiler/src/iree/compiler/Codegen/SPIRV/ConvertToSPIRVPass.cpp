@@ -261,6 +261,29 @@ struct HALInterfaceWorkgroupIdAndCountConverter final
   }
 };
 
+/// A pattern to convert hal.interface.workgroup.id/count into corresponding
+/// SPIR-V Builtin ops with 64 bit addressing.
+template <typename InterfaceOpTy, spirv::BuiltIn builtin>
+struct HALInterfaceWorkgroupIdAndCount64BitConverter final
+    : public OpConversionPattern<InterfaceOpTy> {
+  using OpConversionPattern<InterfaceOpTy>::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      InterfaceOpTy op, typename InterfaceOpTy::Adaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    int32_t index = static_cast<int32_t>(op.getDimension().getSExtValue());
+    auto i64Type = rewriter.getIntegerType(64);
+    Value spirvBuiltin =
+        spirv::getBuiltinVariableValue(op, builtin, i64Type, rewriter);
+    auto spirvBuiltinExt = rewriter.create<spirv::CompositeExtractOp>(op.getLoc(),
+        i64Type, spirvBuiltin, rewriter.getI32ArrayAttr({index}));
+    auto i32Type = rewriter.getIntegerType(32);
+    rewriter.replaceOpWithNewOp<spirv::UConvertOp>(
+        op, i32Type, spirvBuiltinExt);
+    return success();
+  }
+};
+
 /// A pattern to convert hal.interface.binding.subspan into a sequence of SPIR-V
 /// ops to get the address to a global variable representing the resource
 /// buffer.
@@ -376,8 +399,11 @@ struct HALInterfaceBindingSubspanToArgPointerConverter final
       // necessary.
       if (offsetVal != 0) {
         SmallVector<Value, 2> emptyIndices;
+        Value byteOffset = adaptor.getByteOffset();
+        byteOffset = rewriter.create<spirv::UConvertOp>(
+                subspanOp.getLoc(), rewriter.getIntegerType(64), byteOffset);
         dataPtr = rewriter.create<spirv::PtrAccessChainOp>(
-            subspanOp.getLoc(), dataPtr, adaptor.getByteOffset(), emptyIndices);
+            subspanOp.getLoc(), dataPtr, byteOffset, emptyIndices);
       }
     }
     rewriter.replaceOp(subspanOp, dataPtr);
@@ -583,23 +609,31 @@ void ConvertToSPIRVPass::runOnOperation() {
   // Pull in builtin func to spv.func conversion.
   populateBuiltinFuncToSPIRVPatterns(typeConverter, patterns);
 
-  // Add IREE HAL interface op conversions.
-  patterns.insert<
-      HALInterfaceWorkgroupIdAndCountConverter<
-          IREE::HAL::InterfaceWorkgroupIDOp, spirv::BuiltIn::WorkgroupId>,
-      HALInterfaceWorkgroupIdAndCountConverter<
-          IREE::HAL::InterfaceWorkgroupCountOp, spirv::BuiltIn::NumWorkgroups>>(
-      typeConverter, context);
-
   // Interface-Resource Map needs to be initialized in main region to prevent
   // segfault.
   InterfaceResourceMap interfaceToResourceVars;
   if (hasKernelCapabilty) {
+    // Add IREE HAL interface op conversions.
+    patterns.insert<
+        HALInterfaceWorkgroupIdAndCount64BitConverter<
+            IREE::HAL::InterfaceWorkgroupIDOp, spirv::BuiltIn::WorkgroupId>,
+        HALInterfaceWorkgroupIdAndCount64BitConverter<
+            IREE::HAL::InterfaceWorkgroupCountOp, spirv::BuiltIn::NumWorkgroups>>(
+        typeConverter, context);
+
     patterns.insert<FuncOpToSPVConverter,
                     HALInterfaceLoadConstantToArgPointerConverter,
                     HALInterfaceBindingSubspanToArgPointerConverter>(
         typeConverter, context);
   } else {
+    // Add IREE HAL interface op conversions.
+    patterns.insert<
+        HALInterfaceWorkgroupIdAndCountConverter<
+            IREE::HAL::InterfaceWorkgroupIDOp, spirv::BuiltIn::WorkgroupId>,
+        HALInterfaceWorkgroupIdAndCountConverter<
+            IREE::HAL::InterfaceWorkgroupCountOp, spirv::BuiltIn::NumWorkgroups>>(
+        typeConverter, context);
+
     patterns.insert<HALInterfaceLoadConstantToAccessChainLoadConverter>(
         typeConverter, context);
     // For using use them in conversion.
@@ -643,7 +677,7 @@ void ConvertToSPIRVPass::runOnOperation() {
   spirv::AddressingModel addressingModel = spirv::AddressingModel::Logical;
   spirv::MemoryModel memoryModel = spirv::MemoryModel::GLSL450;
   if (hasKernelCapabilty) {
-    addressingModel = spirv::AddressingModel::Physical32;
+    addressingModel = spirv::AddressingModel::Physical64;
     memoryModel = spirv::MemoryModel::OpenCL;
   }
   auto builder = OpBuilder::atBlockBegin(moduleOp.getBody());
