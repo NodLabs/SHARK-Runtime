@@ -35,29 +35,29 @@ jobs:
       matrix:
         include:
           # Ubuntu packages.
-          - runs-on: [managed-releaser, os-family=Linux, runner-group=releaser]
+          - runs-on: icelake
             build-family: linux
             build-package: main-dist-linux
             experimental: false
-          - runs-on: [managed-releaser, os-family=Linux, runner-group=releaser]
+          - runs-on: icelake
             build-family: linux
             build-package: py-compiler-pkg
             experimental: false
-          - runs-on: [managed-releaser, os-family=Linux, runner-group=releaser]
+          - runs-on: icelake
             build-family: linux
             build-package: py-runtime-pkg
             experimental: false
-          - runs-on: [managed-releaser, os-family=Linux, runner-group=releaser]
+          - runs-on: icelake
             build-family: linux
             build-package: py-tf-compiler-tools-pkg
             experimental: false
 
           # Macos packages.
-          - runs-on: macos-11
+          - runs-on: macos-12
             build-family: macos
             build-package: py-compiler-pkg
             experimental: true
-          - runs-on: macos-11
+          - runs-on: macos-12
             build-family: macos
             build-package: py-runtime-pkg
             experimental: true
