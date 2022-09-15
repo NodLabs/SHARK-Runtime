@@ -3,7 +3,7 @@ name: 'Sync Upstream'
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '0 7 * * *'
+    - cron: '0 7 * * *'
 
 jobs:
   sync_upstream:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    #- name: debug - github object
+    # - name: debug - github object
     #  run: |
     #    echo '${{ tojson(github) }}'
 
