@@ -47,10 +47,6 @@ jobs:
             build-family: linux
             build-package: py-runtime-pkg
             experimental: false
-          - runs-on: Linux
-            build-family: linux
-            build-package: py-tf-compiler-tools-pkg
-            experimental: false
 
           # Macos packages.
           - runs-on: macos-11
