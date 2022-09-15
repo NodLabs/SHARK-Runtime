@@ -1,0 +1,70 @@
+name: 'Sync Upstream'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '0 7 * * *'
+
+jobs:
+  sync_upstream:
+    name: 'Sync Upstream'
+    runs-on: ubuntu-latest
+    steps:
+
+    #- name: debug - github object
+    #  run: |
+    #    echo '${{ tojson(github) }}'
+
+    - name: Git Identity
+      run: |
+        set -ex
+        git config --global user.name "Actions Bot"
+        git config --global user.email action@github.com
+
+    - uses: actions/checkout@v3
+
+    - name: Add upstream
+      run: |
+        set -ex
+
+        PARENT=$(curl -s https://api.github.com/repos/${{github.repository}} | jq -r '.parent.clone_url // empty')
+        git remote add upstream "$PARENT"
+
+    - name: Fetch current origin
+      run: |
+        set -ex
+        # Because actions/checkout does a lazy, shallow checkout
+        # we need to use --shallow-since to make sure there's
+        # enough common history that git can tell how the two
+        # branches relate.
+        #
+        # We *could* do a full checkout by setting depth: 0 above,
+        # but this is faster, especially on a large repo like this one.
+        #
+        # Since this runs daily, 1 week should be plenty.
+        git fetch '--shallow-since=1 week' origin main "${{ github.ref_name }}" git-annex
+        git fetch '--shallow-since=1 week' upstream main
+
+    - name: Sync main
+      # force main to be identical to upstream
+      # This throws away any commits to our local main
+      # so don't commit anything to that branch.
+      run: |
+        set -ex
+        git checkout -B main upstream/main
+
+    - name: Sync ${{ github.ref_name }}
+      run: |
+        set -ex
+        git checkout "${{ github.ref_name }}"
+        git rebase main
+
+    - name: Rebase shark, our development branch
+      run: |
+        set -ex
+        git checkout shark
+        git rebase main
+
+    - name: Upload everything back to Github
+      run: |
+        git push -f --all
