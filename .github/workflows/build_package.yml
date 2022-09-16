@@ -35,7 +35,7 @@ jobs:
       matrix:
         include:
           # Ubuntu packages.
-          - runs-on: ubunut-latest
+          - runs-on: ubuntu-latest
             build-family: linux
             build-package: main-dist-linux
             experimental: false
