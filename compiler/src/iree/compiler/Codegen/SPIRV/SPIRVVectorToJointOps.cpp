@@ -87,7 +87,7 @@ struct ConvertVectorTransferOp final
     //matType.dump();
     Type matType1 = spirv::JointMatrixINTELType::get(
                 vectorType.getElementType(), spirv::Scope::Subgroup, vectorType.getDimSize(0),
-                vectorType.getDimSize(1), spirv::MatrixLayout::RowMajor);
+                vectorType.getDimSize(1), spirv::MatrixLayout::ColumnMajor);
     //std::cout<<"manual convertor\n";
    // matType1.dump();
     /*Type matTypePackedB = spirv::JointMatrixINTELType::get(
@@ -108,22 +108,25 @@ struct ConvertVectorTransferOp final
     if (contract.getLhs() == op->getResult(0)) {
       std::cout<<"Use 1\n";
       rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp>(
-          op, matType1,spirv::Scope::Subgroup,spirv::MatrixLayout::RowMajor,
-          bufferPtr, strideValue,spirv::MemoryAccessAttr(),IntegerAttr());
+          op, matType1, bufferPtr, strideValue,
+          spirv::MatrixLayout::ColumnMajor, spirv::Scope::Subgroup,
+          spirv::MemoryAccessAttr(),IntegerAttr());
       return success();
     }
     if (contract.getRhs() == op->getResult(0)) {
       std::cout<<"Use 2\n";
       rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp>(
-          op, matType1,spirv::Scope::Subgroup,spirv::MatrixLayout::PackedB,
-          bufferPtr, strideValue,spirv::MemoryAccessAttr(),IntegerAttr());
+          op, matType1, bufferPtr, strideValue,
+          spirv::MatrixLayout::PackedB, spirv::Scope::Subgroup,
+          spirv::MemoryAccessAttr(),IntegerAttr());
       return success();
     }
       if (contract.getAcc() == op->getResult(0)) {
       std::cout<<"Use 3\n";
       rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp>(
-          op, matType1,spirv::Scope::Subgroup,spirv::MatrixLayout::RowMajor,
-          bufferPtr, strideValue,spirv::MemoryAccessAttr(),IntegerAttr());
+          op, matType1, bufferPtr, strideValue,
+          spirv::MatrixLayout::ColumnMajor, spirv::Scope::Subgroup,
+          spirv::MemoryAccessAttr(),IntegerAttr());
       return success();
     }
   }
@@ -136,8 +139,8 @@ struct ConvertVectorTransferOp final
           *getTypeConverter<SPIRVTypeConverter>(), memrefType,
           adaptor.getSource(), adaptor.getIndices(), loc, rewriter);
       rewriter.create<spirv::JointMatrixStoreINTELOp>(
-          loc, spirv::Scope::Subgroup,spirv::MatrixLayout::RowMajor, 
-          bufferPtr, adaptor.getVector(), strideValue,
+          loc, bufferPtr, adaptor.getVector(), strideValue,
+          spirv::MatrixLayout::ColumnMajor, spirv::Scope::Subgroup, 
           spirv::MemoryAccessAttr(),IntegerAttr());
       rewriter.eraseOp(op);
       return success();
@@ -171,8 +174,8 @@ struct ConvertVectorContractOp final
     if (!isRowMajorMatmul(contractOp.getIndexingMapsAttr())) return failure();
 
     rewriter.replaceOpWithNewOp<spirv::JointMatrixMadINTELOp>(
-        contractOp, operands.getAcc().getType(), spirv::Scope::Subgroup, operands.getLhs(),
-        operands.getRhs(), operands.getAcc());
+        contractOp, operands.getAcc().getType(), operands.getLhs(),
+        operands.getRhs(), operands.getAcc(), spirv::Scope::Subgroup);
     return success();
   }
 };
@@ -254,7 +257,7 @@ struct SPIRVVectorToJointOpsPass final
           Type elementType = typeConverter.convertType(type.getElementType());
           return spirv::JointMatrixINTELType::get(
               elementType, spirv::Scope::Subgroup, type.getDimSize(0),
-                type.getDimSize(1), spirv::MatrixLayout::RowMajor);
+                type.getDimSize(1), spirv::MatrixLayout::ColumnMajor);
         });
 
 

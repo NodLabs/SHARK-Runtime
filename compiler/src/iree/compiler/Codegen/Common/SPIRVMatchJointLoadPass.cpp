@@ -52,7 +52,7 @@ class FoldExtIntoContract
       std::cout<<"\n new type\n";
       newJointMatrixType.dump();
       rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp> (op,newJointMatrixType,
-      spirv::Scope::Subgroup,opLayout, op.pointer(),op.stride(),
+      op.pointer(),op.stride(), opLayout, spirv::Scope::Subgroup,
                 spirv::MemoryAccessAttr(),IntegerAttr());
       /*rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp>(
           op, matType1,spirv::Scope::Subgroup,spirv::MatrixLayout::RowMajor,
