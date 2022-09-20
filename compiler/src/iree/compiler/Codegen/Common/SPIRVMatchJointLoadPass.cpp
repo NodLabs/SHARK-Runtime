@@ -43,55 +43,73 @@ class FoldExtIntoContract
     if(resultLayout==opLayout){
       return failure();
     }
-    else{
       auto newJointMatrixType = spirv::JointMatrixINTELType::get(
                 jointMatrixType.getElementType(), spirv::Scope::Subgroup, jointMatrixType.getRows(),
                 jointMatrixType.getColumns(), opLayout);
-      std::cout<<"old type\n";
-      jointMatrixType.dump();
-      std::cout<<"\n new type\n";
-      newJointMatrixType.dump();
       rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp> (op,newJointMatrixType,
       op.pointer(),op.stride(), opLayout, spirv::Scope::Subgroup,
                 spirv::MemoryAccessAttr(),IntegerAttr());
-      /*rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp>(
-          op, matType1,spirv::Scope::Subgroup,spirv::MatrixLayout::RowMajor,
-          bufferPtr, strideValue,spirv::MemoryAccessAttr(),IntegerAttr());*/
       return success();
-    }
-    return failure();
-    op.dump();
-    //jointMatrixType.dump();
-    
-    /*if(auto readop = dyn_cast<vector::TransferReadOp>(op.getLhs().getDefiningOp())){
-    std::cout<<"This is the good case do nothing\n";
-    return failure();
-    }
-    std::cout<<"This case needs handling\n";
-    //auto indexingMaps = op.getIndexingMapsArray();
-    //auto iteratorTypes = op.getIteratorTypes();
-    auto parentOpLhs = op.getLhs().getDefiningOp()->getOperands()[0].getDefiningOp();
-auto parentOpRhs = op.getRhs().getDefiningOp()->getOperands()[0].getDefiningOp();
 
-    rewriter.replaceOpWithNewOp<vector::ContractionOp>(op, op.getResultType(),parentOpLhs->getResults()[0],parentOpRhs->getResults()[0] ,op.getAcc(),
-        op.getMasks(),
-        rewriter.getAffineMapArrayAttr(op.getIndexingMapsArray()),
-        op.getIteratorTypes(), op.getKind());
-    return success();*/
   }
 };
 
+class CastJointMatrixLoadProducerPtr
+    : public OpRewritePattern<spirv::JointMatrixLoadINTELOp> {
+ public:
+  using OpRewritePattern<spirv::JointMatrixLoadINTELOp>::OpRewritePattern;
 
+  LogicalResult matchAndRewrite(spirv::JointMatrixLoadINTELOp op,
+                                PatternRewriter& rewriter) const override {
+    
+     auto opPointer= op.pointer();
+     auto pointerType = opPointer.getType().cast<spirv::PointerType>();
+     auto pointerStorage = pointerType.getStorageClass();
+     if (pointerStorage == spirv::StorageClass::Generic)
+      return failure();
+    Location loc = op.getLoc();
+    auto newPointerType = spirv::PointerType::get(pointerType.getPointeeType(),spirv::StorageClass::Generic);
+    Value newPtr = rewriter.create<spirv::PtrCastToGenericOp>(loc,newPointerType,opPointer);
+      rewriter.replaceOpWithNewOp<spirv::JointMatrixLoadINTELOp> (op,op.getResult().getType(),
+      newPtr,op.stride(), op.layout(), spirv::Scope::Subgroup,
+                spirv::MemoryAccessAttr(),IntegerAttr());
+    return success();
+  }
+};
+
+class CastJointMatrixStoreProducerPtr
+    : public OpRewritePattern<spirv::JointMatrixStoreINTELOp> {
+ public:
+  using OpRewritePattern<spirv::JointMatrixStoreINTELOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(spirv::JointMatrixStoreINTELOp op,
+                                PatternRewriter& rewriter) const override {
+    
+     auto opPointer= op.pointer();
+     auto pointerType = opPointer.getType().cast<spirv::PointerType>();
+     auto pointerStorage = pointerType.getStorageClass();
+     if (pointerStorage == spirv::StorageClass::Generic)
+      return failure();
+    Location loc = op.getLoc();
+    auto newPointerType = spirv::PointerType::get(pointerType.getPointeeType(),spirv::StorageClass::Generic);
+    Value newPtr = rewriter.create<spirv::PtrCastToGenericOp>(loc,newPointerType,opPointer);
+      rewriter.replaceOpWithNewOp<spirv::JointMatrixStoreINTELOp> (op,
+      newPtr,op.object(),op.stride(), op.layout(), spirv::Scope::Subgroup,
+                spirv::MemoryAccessAttr(),IntegerAttr());
+    return success();
+  }
+};
 
 struct SPIRVMatchJointLoadPass
     : public SPIRVMatchJointLoadBase<SPIRVMatchJointLoadPass> {
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
 
-    
     {
       RewritePatternSet patterns(&getContext());
       patterns.add<FoldExtIntoContract>(&getContext());
+      patterns.add<CastJointMatrixLoadProducerPtr>(&getContext());
+      patterns.add<CastJointMatrixStoreProducerPtr>(&getContext());
       if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
         return signalPassFailure();
       }
