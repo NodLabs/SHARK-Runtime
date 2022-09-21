@@ -25,6 +25,7 @@ iree_lit_test_suite(
     "materialize_dispatch_instrumentation.mlir"
     "materialize_interfaces.mlir"
     "materialize_resource_caches.mlir"
+    "materialize_timelines.mlir"
     "memoize_device_queries.mlir"
     "preprocess_executables.mlir"
     "resolve_export_ordinals.mlir"

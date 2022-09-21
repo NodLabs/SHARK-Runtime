@@ -27,6 +27,7 @@ iree_compiler_cc_library(
         "MaterializeDispatchInstrumentation.cpp",
         "MaterializeInterfaces.cpp",
         "MaterializeResourceCaches.cpp",
+        "MaterializeTimelines.cpp",
         "MemoizeDeviceQueries.cpp",
         "Passes.cpp",
         "PreprocessExecutables.cpp",
