@@ -54,6 +54,9 @@ void registerHALConfigurationPassPipeline();
 // Converts input flow/std/etc dialects to the IREE HAL dialect.
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createConvertToHALPass();
 
+// Materializes timelines for device queues.
+std::unique_ptr<OperationPass<mlir::ModuleOp>> createMaterializeTimelinesPass();
+
 //===----------------------------------------------------------------------===//
 // Device management
 //===----------------------------------------------------------------------===//
@@ -188,6 +191,7 @@ inline void registerHALPasses() {
   createLinkTargetExecutablesPass("");
   createMaterializeInterfacesPass();
   createMaterializeResourceCachesPass(targetOptions);
+  createMaterializeTimelinesPass();
   createMemoizeDeviceQueriesPass();
   createPreprocessExecutablesPass("");
   createResolveExportOrdinalsPass();
