@@ -474,7 +474,7 @@ void addSPIRVSubgroupReducePassPipeline(OpPassManager &pm);
 /// GPU processor ID ops into SPIR-V global variables, loop/standard ops into
 /// corresponding SPIR-V ops.
 std::unique_ptr<OperationPass<ModuleOp>> createConvertToSPIRVPass(
-    bool enableFastMath = false);
+    bool enableFastMath = false, bool use64bitIndex = false);
 
 /// Creates a pass to fold processor ID uses where possible.
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -538,7 +538,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createSPIRVEmulateI64Pass();
 /// Populates passes needed to lower linalg/arith/math ops to SPIR-V ops via
 /// the structured ops path. The pass manager `pm` here operate on the module
 /// within the IREE::HAL::ExecutableOp.
-void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath);
+void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath,
+                                   bool use64bitIndex);
 
 //------------------------------------------------------------------------------
 // VMVX passes
