@@ -120,7 +120,8 @@ class VulkanSPIRVTargetBackend : public TargetBackend {
     // files we could use spirv-link or import them into MLIR and merge here).
     if (variantOp.isExternal()) return;
 
-    buildSPIRVCodegenPassPipeline(passManager, /*enableFastMath=*/false);
+    buildSPIRVCodegenPassPipeline(passManager, /*enableFastMath=*/false,
+                                  /*addressingModel=*/spirv::AddressingModel::Logical);
   }
 
   LogicalResult serializeExecutable(const SerializationOptions &options,
