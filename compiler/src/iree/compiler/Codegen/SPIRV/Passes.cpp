@@ -177,7 +177,8 @@ static void addMemRefLoweringPasses(OpPassManager &pm) {
 }
 
 /// Adds passes to perform the final SPIR-V conversion.
-static void addSPIRVLoweringPasses(OpPassManager &pm, bool enableFastMath) {
+static void addSPIRVLoweringPasses(OpPassManager &pm, bool enableFastMath,
+                                   bool use64bitIndex) {
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createCSEPass());
 
@@ -186,8 +187,8 @@ static void addSPIRVLoweringPasses(OpPassManager &pm, bool enableFastMath) {
   pm.addPass(createCSEPass());
 
   pm.addPass(createSPIRVMapMemRefStorageClassPass());
-  pm.addPass(createConvertToSPIRVPass(enableFastMath));
-  
+  pm.addPass(createConvertToSPIRVPass(enableFastMath, use64bitIndex));
+
   OpPassManager &spirvPM = pm.nest<spirv::ModuleOp>();
   spirvPM.addPass(spirv::createUnifyAliasedResourcePass());
   spirvPM.addPass(spirv::createLowerABIAttributesPass());
@@ -358,13 +359,14 @@ void addSPIRVSubgroupReducePassPipeline(OpPassManager &pm) {
 // Entry Point
 //===----------------------------------------------------------------------===//
 
-void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath) {
+void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath,
+                                   bool use64bitIndex) {
   pm.nest<ModuleOp>().nest<func::FuncOp>().addPass(createTypePropagationPass());
   pm.nest<ModuleOp>().addPass(createBufferizeCopyOnlyDispatchesPass());
   pm.addPass(createSPIRVLowerExecutableTargetPass());
 
   addMemRefLoweringPasses(pm.nest<ModuleOp>());
-  addSPIRVLoweringPasses(pm.nest<ModuleOp>(), enableFastMath);
+  addSPIRVLoweringPasses(pm.nest<ModuleOp>(), enableFastMath, use64bitIndex);
 
   LLVM_DEBUG({
     llvm::dbgs() << "Using SPIR-V pass pipeline:\n";
