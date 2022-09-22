@@ -39,8 +39,14 @@ OpenCLSPIRVTargetOptions getOpenCLSPIRVTargetOptionsFromFlags() {
       "iree-opencl-target-triple", llvm::cl::desc("OpenCL target triple"),
       llvm::cl::init("spir-unknown-unknown"));
 
+  static llvm::cl::opt<bool> clOpenCLUsePhysical32(
+      "iree-opencl-physical32-addressing",
+      llvm::cl::desc("Use Physical32 addressing with OpenCL"),
+      llvm::cl::init(false));
+
   OpenCLSPIRVTargetOptions targetOptions;
   targetOptions.openCLTargetTriple = clOpenCLTargetTriple;
+  targetOptions.openCLUsePhysical32 = clOpenCLUsePhysical32;
 
   return targetOptions;
 }
@@ -127,8 +133,19 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
         context, b.getStringAttr(deviceID()), configAttr);
   }
 
-  void buildTranslationPassPipeline(OpPassManager &passManager) override {
-    buildSPIRVCodegenPassPipeline(passManager, /*enableFastMath=*/false);
+  void buildTranslationPassPipeline(IREE::HAL::ExecutableVariantOp variantOp,
+                                    OpPassManager &passManager) override {
+    // For now we disable translation if the variant has external object files.
+    // We could instead perform linking with those objects (if they're .spv
+    // files we could use spirv-link or import them into MLIR and merge here).
+    if (variantOp.isExternal()) return;
+
+    spirv::AddressingModel addressingModel = spirv::AddressingModel::Physical64;
+    if (options_.openCLUsePhysical32)
+      addressingModel = spirv::AddressingModel::Physical32;
+
+    buildSPIRVCodegenPassPipeline(passManager, /*enableFastMath=*/false,
+                                  addressingModel);
   }
 
   LogicalResult serializeExecutable(const SerializationOptions &options,
