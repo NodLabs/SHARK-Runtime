@@ -542,8 +542,8 @@ class ConvertToSPIRVPass : public ConvertToSPIRVBase<ConvertToSPIRVPass> {
     registry.insert<spirv::SPIRVDialect>();
   }
 
-  explicit ConvertToSPIRVPass(bool enableFastMath, unsigned indexBits)
-      : enableFastMath(enableFastMath), indexBits(indexBits) {}
+  explicit ConvertToSPIRVPass(bool enableFastMath, unsigned indexBits, spirv::AddressingModel addressingModel)
+      : enableFastMath(enableFastMath), indexBits(indexBits), addressingModel(addressingModel) {}
 
   LogicalResult initializeOptions(StringRef options) override {
     if (failed(Pass::initializeOptions(options))) return failure();
@@ -561,6 +561,8 @@ class ConvertToSPIRVPass : public ConvertToSPIRVBase<ConvertToSPIRVPass> {
   bool enableFastMath;
   // Use 64 bits for index widths.
   unsigned indexBits;
+  // Addressing model to use.
+  spirv::AddressingModel addressingModel;
 };
 }  // namespace
 
@@ -606,6 +608,11 @@ void ConvertToSPIRVPass::runOnOperation() {
   spirv::TargetEnvAttr targetAttr = getSPIRVTargetEnvAttr(moduleOp);
   moduleOp->setAttr(spirv::getTargetEnvAttrName(), targetAttr);
 
+  if (addressingModel == spirv::AddressingModel::Physical32)
+    indexBits = 32;
+  else if (addressingModel == spirv::AddressingModel::Physical64)
+    indexBits = 64;
+
   if (indexBits != 32 && indexBits != 64) {
     moduleOp.emitOpError(
         "Only 32-bit or 64-bit indices are supported for SPIR-V");
@@ -634,8 +641,8 @@ void ConvertToSPIRVPass::runOnOperation() {
   ScfToSPIRVContext scfToSPIRVContext;
 
   bool hasKernelCapabilty = false;
-  for (auto capabiltiy : targetAttr.getCapabilities()) {
-    if (capabiltiy == spirv::Capability::Kernel) {
+  for (auto capability : targetAttr.getCapabilities()) {
+    if (capability == spirv::Capability::Kernel) {
       hasKernelCapabilty = true;
     }
   }
@@ -729,10 +736,14 @@ void ConvertToSPIRVPass::runOnOperation() {
   }
 
   // Collect all SPIR-V ops into a spirv.module.
-  spirv::AddressingModel addressingModel = spirv::AddressingModel::Logical;
   spirv::MemoryModel memoryModel = spirv::MemoryModel::GLSL450;
   if (hasKernelCapabilty) {
-    addressingModel = spirv::AddressingModel::Physical32;
+    if (addressingModel != spirv::AddressingModel::Physical64 &&
+            addressingModel != spirv::AddressingModel::Physical32) {
+      moduleOp.emitOpError(
+          "Only Physical32 or Physical64 addressing models are supported for OpenCL SPIR-V");
+      return signalPassFailure();
+    }
     memoryModel = spirv::MemoryModel::OpenCL;
   }
   auto builder = OpBuilder::atBlockBegin(moduleOp.getBody());
@@ -752,8 +763,8 @@ void ConvertToSPIRVPass::runOnOperation() {
 //===----------------------------------------------------------------------===//
 
 std::unique_ptr<OperationPass<ModuleOp>> createConvertToSPIRVPass(
-    bool enableFastMath, unsigned indexBits) {
-  return std::make_unique<ConvertToSPIRVPass>(enableFastMath, indexBits);
+    bool enableFastMath, unsigned indexBits, spirv::AddressingModel addressingModel) {
+  return std::make_unique<ConvertToSPIRVPass>(enableFastMath, indexBits, addressingModel);
 }
 
 }  // namespace iree_compiler
