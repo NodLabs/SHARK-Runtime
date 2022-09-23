@@ -18,7 +18,7 @@ class SubViewOp;
 namespace iree_compiler {
 
 static constexpr int32_t kNumGPUDims = 3;
-static constexpr int32_t kWarpSize = 32;
+static constexpr int32_t kWarpSize = 8;
 
 llvm::SmallVector<linalg::ProcInfo, 2> getGPUThreadIdsAndCounts(
     OpBuilder &builder, Location loc, unsigned numDims,

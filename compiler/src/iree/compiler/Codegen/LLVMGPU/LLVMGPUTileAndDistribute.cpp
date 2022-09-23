@@ -218,6 +218,7 @@ static void populatePromotionPatterns(MLIRContext *context,
 /// This is a fragile and temporary solution until we move to be able to do this
 /// kind of transformations on tensors.
 static void propagateFillIntoPromotionAlloc(func::FuncOp funcOp) {
+  funcOp.dump();
   SmallVector<Operation *> toDelete;
   funcOp.walk([&toDelete](memref::CopyOp copyOp) {
     if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker())) {
@@ -284,7 +285,6 @@ struct LLVMGPUTileAndDistributePass
         return signalPassFailure();
       }
     }
-
     {
       RewritePatternSet wgTilingCanonicalizationPatterns =
           linalg::getLinalgTilingCanonicalizationPatterns(context);
@@ -295,7 +295,7 @@ struct LLVMGPUTileAndDistributePass
         return signalPassFailure();
       }
     }
-
+    funcOp.dump();
     LLVM_DEBUG({
       llvm::dbgs() << "After tile reductions:";
       funcOp.dump();
@@ -305,16 +305,17 @@ struct LLVMGPUTileAndDistributePass
         getEntryPoint(funcOp)->getWorkgroupSize().value(),
         [&](Attribute attr) { return attr.cast<IntegerAttr>().getInt(); }));
 
-    int64_t flatWorkgroupSize =
-        workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
+    /*int64_t flatWorkgroupSize =
+        workgroupSize[0] * workgroupSize[1] * workgroupSize[2];*/
     // Only promote to workgroup size if there are multiple warps.
-    if (flatWorkgroupSize > kWarpSize) {
+    //if (flatWorkgroupSize > kWarpSize) {
       RewritePatternSet promotionPatterns(&getContext());
       populatePromotionPatterns(context, promotionPatterns, {0, 1});
       if (failed(applyPatternsAndFoldGreedily(funcOp,
                                               std::move(promotionPatterns)))) {
         return signalPassFailure();
       }
+      funcOp.dump();
       // Insert barriers before and after copies to workgroup memory and skip
       // insert barriers between back to back copy to workgroup memory.
       OpBuilder builder(&getContext());
@@ -332,7 +333,7 @@ struct LLVMGPUTileAndDistributePass
           }
         }
       });
-    }
+    //}
 
     {
       RewritePatternSet promotionCanonicalization =

@@ -39,6 +39,29 @@
 namespace mlir {
 namespace iree_compiler {
 
+static FailureOr<Value> gpuAllocationFn(OpBuilder &builder, Location loc,
+                                        MemRefType memRefType,
+                                        ValueRange dynamicSizes,
+                                        unsigned alignment) {
+  MemRefType allocType = MemRefType::get(memRefType.getShape(),
+                                         memRefType.getElementType(), {}, 3);
+  return builder.create<memref::AllocOp>(loc, allocType, dynamicSizes)
+      .getResult();
+}
+
+
+static LogicalResult gpuCopyFn2(OpBuilder &builder, Location loc, Value from,
+                               Value to) {
+  bool sharedMemCopy =
+      from.getType().cast<MemRefType>().getMemorySpaceAsInt() == 3 ||
+      to.getType().cast<MemRefType>().getMemorySpaceAsInt() == 3;
+  if (sharedMemCopy) builder.create<gpu::BarrierOp>(loc);
+  createLinalgCopyOp(builder, loc, from, to);
+  if (sharedMemCopy) builder.create<gpu::BarrierOp>(loc);
+  return success();
+}
+
+
 // Allocation callbacks to use with upstream comprehensive bufferization
 static FailureOr<Value> gpuAllocateWorkgroupMemoryFn(OpBuilder &builder,
                                                      Location loc,
@@ -89,11 +112,35 @@ static void addBufferizePasses(OpPassManager &passManager,
   addIREEComprehensiveBufferizePasses(passManager, allocationFn, deallocationFn,
                                       memcpyFn);
 }
+static void addBufferizePasses2(OpPassManager &passManager) {
+  BufferizationOptions::AllocationFn allocationFn = gpuAllocationFn;
+  BufferizationOptions::DeallocationFn deallocationFn = gpuDeallocationFn;
+  BufferizationOptions::MemCpyFn memcpyFn = gpuCopyFn2;
+  addIREEComprehensiveBufferizePasses(passManager, allocationFn, deallocationFn,
+                                      memcpyFn);
+  passManager.addPass(createCanonicalizerPass());
+  passManager.addPass(createCSEPass());
+}
 
 //===----------------------------------------------------------------------===//
 // Common Pass Recipes
 //===----------------------------------------------------------------------===//
+static void tileAndDistributeToWorkgroup(OpPassManager &pm) {
+  pm.addPass(createTileAndDistributeToWorkgroupsPass());
 
+  auto &nestedModulePM = pm.nest<ModuleOp>();
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createConvertToDestinationPassingStylePass());
+  nestedModulePM.addPass(createCanonicalizerPass());
+  nestedModulePM.addPass(createCSEPass());
+}
+
+static void tileAndBufferize(OpPassManager &pm) {
+  tileAndDistributeToWorkgroup(pm);
+
+  auto &nestedModulePM = pm.nest<ModuleOp>();
+  addBufferizePasses2(nestedModulePM);
+}
 static void addTileAndDistributeToWorkgroupsPasses(
     OpPassManager &passManager, bool useFuseTensorPadWithConsumerPass = false) {
   passManager.addPass(createTileAndDistributeToWorkgroupsPass());
@@ -270,12 +317,35 @@ void addSPIRVTileAndVectorizeToCooperativeOpsPassPipeline(OpPassManager &pm) {
 }
 
 void addSPIRVTileAndVectorizeToJointOpsPassPipeline(OpPassManager &pm) {
-  addTileAndDistributeToWorkgroupsPasses(pm);
+  /*addTileAndDistributeToWorkgroupsPasses(pm);
 
   auto &nestedModulePM = pm.nest<ModuleOp>();
 
   addBufferizePasses(nestedModulePM, gpuAllocateWorkgroupMemoryFn);
 
+  nestedModulePM.addPass(createCanonicalizerPass());
+  nestedModulePM.addPass(createCSEPass());*/
+
+  tileAndBufferize(pm);
+
+  auto &nestedModulePM = pm.nest<ModuleOp>();
+  // Distribute linalg onto warps within the workgroup.
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createLLVMGPUTileAndDistribute(/*distributeToWarp=*/true));
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createRemoveSingleIterationLoopPass());
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createLLVMGPUMultiBuffering(1));
+  nestedModulePM.addNestedPass<func::FuncOp>(createMemrefCopyToLinalgPass());
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createGPUDistributeSharedMemoryCopy());
+  nestedModulePM.addPass(createCanonicalizerPass());
+  nestedModulePM.addPass(createCSEPass());
+
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createLLVMGPUReduceSharedMemoryBankConflicts());
+  nestedModulePM.addNestedPass<func::FuncOp>(
+      createRemoveSingleIterationLoopPass());
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
 

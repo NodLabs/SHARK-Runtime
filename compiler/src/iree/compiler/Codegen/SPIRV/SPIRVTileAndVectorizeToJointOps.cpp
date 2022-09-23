@@ -376,7 +376,7 @@ class SPIRVTileAndVectorizeToJointOpsPass final
 
     // At the last perform various canonicalization and cleanups.
 
-    linalg::hoistRedundantVectorTransfers(funcOp);
+    //linalg::hoistRedundantVectorTransfers(funcOp);
 
     LLVM_DEBUG({
       llvm::dbgs() << "--- After hoisting vector transfers ---\n";

@@ -49,6 +49,7 @@ struct ConvertVectorTransferOp final
       VectorTransferOpInterface op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     // Don't support masked load/store.
+    std::cout<<"here A\n";
     if (op.getMaskType()) return failure();
 
     // Expect inbound access.
@@ -62,19 +63,26 @@ struct ConvertVectorTransferOp final
     if (!memrefType) return failure();
 
     // Expect 2-D vectors.
+    std::cout<<"here B\n";
     auto vectorType = op.getVectorType();
-    if (vectorType.getRank() != 2) return failure();
-
+    if (vectorType.getRank() != 2) {
+    std::cout<<"Failing with\n";
+    op.dump();  
+      return failure();
+    }
+   std::cout<<"here C\n";
     // TODO: Use coloumn major with transposed transfer ops.
     if (!op.permutation_map().isMinorIdentity()) return failure();
 
     int64_t offset = 0;
     SmallVector<int64_t, 2> strides;
-    if (failed(getStridesAndOffset(memrefType, strides, offset)))
+    if (failed(getStridesAndOffset(memrefType, strides, offset))){
+      std::cout<<"failing due to strides\n";
       return failure();
+    }
     auto stride = strides[0];
     if (ShapedType::isDynamicStrideOrOffset(stride)) return failure();
-
+   std::cout<<"here 1\n";
     auto loc = op.getLoc();
 
     auto i32Type = rewriter.getI32Type();
@@ -93,7 +101,7 @@ struct ConvertVectorTransferOp final
     /*Type matTypePackedB = spirv::JointMatrixINTELType::get(
                 vectorType, spirv::Scope::Subgroup, vectorType.getDimSize(0),
                 vectorType.getDimSize(1), spirv::MatrixLayout::PackedB);*/
-
+    std::cout<<"here 2\n";
     if (auto readOp = dyn_cast<vector::TransferReadOp>(*op)) {
       vector::TransferReadOp::Adaptor adaptor(operands,
                                               op->getAttrDictionary());
@@ -305,7 +313,7 @@ struct SPIRVVectorToJointOpsPass final
     std::unique_ptr<ConversionTarget> target =
         SPIRVConversionTarget::get(targetAttr);
     target->addLegalOp<UnrealizedConversionCastOp>();
-    target->addIllegalDialect<vector::VectorDialect>();
+    //target->addIllegalDialect<vector::VectorDialect>();
 
     if (failed(applyPartialConversion(funcOp, *target, std::move(patterns))))
       return signalPassFailure();
