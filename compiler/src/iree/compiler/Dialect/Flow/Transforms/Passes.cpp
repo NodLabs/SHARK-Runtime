@@ -267,6 +267,7 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
       .addPass(createPartitionLinalgOpsUsingAnnotationsPass)
       ////////////////////////////////////////////////////////////////////////
       // Dispatch region formation.
+      .addPass(createDispatchCCLPass)
       .addPredicatedPass(!clDispatchTransformFileName.empty(),
                          [&]() {
                            return createDispatchWithTransformDialect(

@@ -89,6 +89,11 @@ def DispatchWithTransformDialect :
   ];
 }
 
+def DispatchCCL : InterfacePass<"iree-flow-dispatch-ccl-pass", "::mlir::FunctionOpInterface"> {
+  let summary = "Create collectives dispatch regions.";
+  let constructor = "mlir::iree_compiler::IREE::Flow::createDispatchCCLPass()";
+}
+
 def ExpandTensorShapes :
     Pass<"iree-flow-expand-tensor-shapes", "mlir::ModuleOp"> {
   let summary = "Expands tensor shape dimensions into SSA values across the program.";

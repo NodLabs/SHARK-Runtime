@@ -40,6 +40,7 @@ iree_cc_library(
     "ConvertToFlow.cpp"
     "DeduplicateExecutables.cpp"
     "DetachElementwiseFromNamedOps.cpp"
+    "DispatchCCL.cpp"
     "DispatchLinalgOnTensors.cpp"
     "DispatchLinalgOnTensorsViaRegionOps.cpp"
     "DispatchWithTransformDialect.cpp"
@@ -79,6 +80,7 @@ iree_cc_library(
     MLIRArithmeticDialect
     MLIRArithmeticUtils
     MLIRControlFlowDialect
+    MLIRCCLDialect
     MLIRFuncDialect
     MLIRIR
     MLIRLinalgDialect
