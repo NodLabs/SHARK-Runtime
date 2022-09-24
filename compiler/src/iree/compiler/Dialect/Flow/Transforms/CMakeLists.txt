@@ -38,6 +38,7 @@ iree_cc_library(
     "ConvertRegionToWorkgroups.cpp"
     "DeduplicateExecutables.cpp"
     "DetachElementwiseFromNamedOps.cpp"
+    "DispatchCCL.cpp"
     "DispatchLinalgOnTensors.cpp"
     "DispatchWithTransformDialect.cpp"
     "DumpDispatchGraph.cpp"
@@ -73,6 +74,7 @@ iree_cc_library(
     MLIRArithmeticDialect
     MLIRArithmeticUtils
     MLIRControlFlowDialect
+    MLIRCCLDialect
     MLIRFuncDialect
     MLIRIR
     MLIRLinalgDialect

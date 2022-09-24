@@ -10,6 +10,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/CCL/IR/CCL.h"
 
 namespace mlir {
 namespace iree_compiler {

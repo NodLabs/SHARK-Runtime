@@ -1573,6 +1573,64 @@ void populateTensorSliceOpWithDispatchTensorOpFoldingPatterns(
           context);
 }
 
+BlockArgument DispatchCollectivesOp::getOutputBlockArgument(unsigned idx) {
+  Optional<ArrayAttr> tiedOperands = getTiedOperands();
+  if (!tiedOperands.has_value() || tiedOperands->empty()) {
+    unsigned numInputs = getArguments().size();
+    return getCollectivesBody().getArguments().drop_front(numInputs)[idx];
+  }
+
+  // Some outputs are tied to inputs and share their block arguments.
+  int64_t tiedOperand =
+      (*tiedOperands)[idx].cast<IntegerAttr>().getValue().getSExtValue();
+  if (tiedOperand != IREE::Util::TiedOpInterface::kUntiedIndex)
+    // This output is tied to an input.
+    return getInputBlockArgument(tiedOperand);
+
+  unsigned nextOutArgIdx = getArguments().size();
+  for (unsigned i = 0; i < idx; ++i)
+    if ((*tiedOperands)[i].cast<IntegerAttr>().getValue().getSExtValue() ==
+        IREE::Util::TiedOpInterface::kUntiedIndex)
+      nextOutArgIdx++;
+  return getCollectivesBody().getArguments()[nextOutArgIdx];
+}
+
+SmallVector<BlockArgument> DispatchCollectivesOp::getOutputBlockArguments() {
+  SmallVector<BlockArgument> result;
+  for (unsigned i = 0; i < getNumResults(); ++i)
+    result.push_back(getOutputBlockArgument(i));
+  return result;
+}
+
+Operation::operand_range DispatchCollectivesOp::getClosureOperands() {
+  return getArguments();
+}
+
+Operation::result_range DispatchCollectivesOp::getClosureResults() {
+  return getResults();
+}
+
+bool DispatchCollectivesOp::canClosureContainOp(Operation *op) {
+  return canDispatchRegionContainOp(op);
+}
+
+IREE::Util::ClosureOpInterface
+DispatchCollectivesOp::cloneReplacementExcludingOperandsAndResults(
+    ArrayRef<unsigned> excludedOperandIndices,
+    ArrayRef<unsigned> excludedResultIndices, PatternRewriter &rewriter) {
+  assert(false);
+}
+
+IREE::Util::ValueAccess DispatchCollectivesOp::getOperandAccess(
+    unsigned operandIndex) {
+  assert(false);
+}
+
+IREE::Util::ValueAccess DispatchCollectivesOp::getResultAccess(
+    unsigned resultIndex) {
+  assert(false);
+}
+
 }  // namespace Flow
 }  // namespace IREE
 }  // namespace iree_compiler

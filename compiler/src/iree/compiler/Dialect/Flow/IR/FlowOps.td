@@ -325,6 +325,78 @@ def FLOW_DispatchWorkgroupSizeOp : FLOW_PureOp<"dispatch.workgroup.size", [
   }];
 }
 
+def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
+  IsolatedFromAbove,
+  AttrSizedOperandSegments,
+  SingleBlockImplicitTerminator<"IREE::Flow::ReturnOp">,
+  DeclareOpInterfaceMethods<Util_ClosureOpInterface>,
+  DeclareOpInterfaceMethods<Util_TiedOpInterface>,
+  Util_ShapeAwareOp
+]> {
+  let summary = [{dispatch that contains only collective communication operations}];
+
+  let arguments = (ins
+    Variadic<AnyType>:$arguments,
+    FLOW_ShapeDynamicDims:$argument_dims,
+    FLOW_ShapeDynamicDims:$result_dims,
+    OptionalAttr<Util_TiedOpStorageAttr>:$tied_operands
+  );
+  let results = (outs
+    Variadic<AnyType>:$results
+  );
+
+  let regions = (region
+    AnyRegion:$collectives_body
+  );
+
+  let builders = [
+    OpBuilder<(ins
+      "TypeRange":$resultTypes, "ValueRange":$resultDims,
+      "ValueRange":$arguments, "ValueRange":$argumentDims,
+      "ArrayRef<int64_t>":$tiedOperands,
+      CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
+  ];
+
+  let extraClassDeclaration = [{
+    ValueRange getOperandDynamicDims(unsigned idx) { return getArgumentDims(); }
+    ValueRange getResultDynamicDims(unsigned idx) { return getResultDims(); }
+
+    /// Returns the BlockArguments corresponding to the inputs in the type
+    /// signature.
+    Block::BlockArgListType getInputBlockArguments() {
+      return getCollectivesBody().getArguments().take_front(getArguments().size());
+    }
+
+    /// Returns the BlockArgument corresponding to the idx-th input in the type
+    /// signature.
+    BlockArgument getInputBlockArgument(unsigned idx) {
+      return getCollectivesBody().getArguments()[idx];
+    }
+
+    /// Returns the BlockArgument corresponding to the idx-th output in the
+    /// type signature. If the output is tied to an input, the returned value
+    /// is also an input BlockArgument.
+    BlockArgument getOutputBlockArgument(unsigned idx);
+
+    /// Returns the BlockArguments corresponding to the outputs in the type
+    /// signature. In case an output is tied to an input, the return list
+    /// overlaps with `getInputBlockArguments`.
+    SmallVector<BlockArgument> getOutputBlockArguments();
+
+  }];
+
+  let assemblyFormat = [{
+    `(` $arguments `)` `:`
+    custom<ShapedFunctionType>(ref($arguments),
+                                type($arguments), $argument_dims,
+                                type($results), $result_dims,
+                               $tied_operands)
+    attr-dict-with-keyword
+    ``
+    regions
+  }];
+}
+
 def FLOW_DispatchTieShapeOp : FLOW_PureOp<"dispatch.tie_shape", [
   AllTypesMatch<["operand", "result"]>,
   DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>,

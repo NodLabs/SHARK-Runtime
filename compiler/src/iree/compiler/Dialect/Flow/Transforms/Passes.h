@@ -13,6 +13,7 @@
 #include "iree/compiler/Utils/CustomKernelsTargetInfo.h"
 #include "llvm/ADT/StringMap.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Dialect/CCL/IR/CCL.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LLVM.h"
@@ -148,6 +149,8 @@ createDispatchLinalgOnTensorsPass();
 std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
 createDispatchWithTransformDialect(
     llvm::StringRef transformFileName = llvm::StringRef());
+
+std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>> createDispatchCCLPass();
 
 // Captures dynamic shape dimensions required by dispatch operands.
 std::unique_ptr<Pass> createCaptureDispatchDynamicDimsPass();
