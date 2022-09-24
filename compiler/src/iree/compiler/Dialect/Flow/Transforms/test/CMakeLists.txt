@@ -22,6 +22,7 @@ iree_lit_test_suite(
     "conv2d_to_img2col.mlir"
     "convert_region_to_workgroups.mlir"
     "deduplicate_executables.mlir"
+    "dispatch_ccl.mlir"
     "detach_elementwise_from_named_ops.mlir"
     "dispatch_linalg_on_tensors.mlir"
     "dispatch_linalg_on_tensors_default.mlir"

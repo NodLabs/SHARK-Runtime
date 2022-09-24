@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/ArmNeon/ArmNeonDialect.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/CCL/IR/CCL.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
@@ -52,6 +53,7 @@ inline void registerMlirDialects(DialectRegistry &registry) {
                   nvgpu::NVGPUDialect,
                   LLVM::LLVMDialect,
                   linalg::LinalgDialect,
+                  ccl::CCLDialect,
                   math::MathDialect,
                   memref::MemRefDialect,
                   ml_program::MLProgramDialect,
