@@ -306,8 +306,8 @@ class SPIRVTileAndVectorizeToJointOpsPass final
       return signalPassFailure();
     }
 
-    auto jointOpSize = getTargetJointOpSize(rootOp);
-    auto subgroupCounts = deduceSubgroupCounts(rootOp);
+    SmallVector<int64_t> jointOpSize = getTargetJointOpSize(rootOp);
+    SmallVector<int64_t> subgroupCounts = deduceSubgroupCounts(rootOp);
 
     // Then tile and distribute to subgroups.
 

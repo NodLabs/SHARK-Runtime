@@ -309,8 +309,9 @@ struct LLVMGPUTileAndDistributePass
         workgroupSize[0] * workgroupSize[1] * workgroupSize[2];*/
     // Only promote to workgroup size if there are multiple warps.
     //if (flatWorkgroupSize > kWarpSize) {
+      //if(0){
       RewritePatternSet promotionPatterns(&getContext());
-      populatePromotionPatterns(context, promotionPatterns, {0, 1});
+      populatePromotionPatterns(context, promotionPatterns, {0,1});
       if (failed(applyPatternsAndFoldGreedily(funcOp,
                                               std::move(promotionPatterns)))) {
         return signalPassFailure();

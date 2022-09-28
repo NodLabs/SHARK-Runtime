@@ -221,7 +221,7 @@ class GPUDistributeSharedMemoryCopyPass
     if (copiesToWorkgroupMem.empty()) return;
     int64_t flatWorkgroupSize =
         workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
-    bool isAligned = llvm::all_of(
+    /*bool isAligned = llvm::all_of(
         copiesToWorkgroupMem, [flatWorkgroupSize](linalg::GenericOp copyOp) {
           MemRefType lhsMemRefType =
               copyOp.getOperand(0).getType().cast<MemRefType>();
@@ -230,8 +230,8 @@ class GPUDistributeSharedMemoryCopyPass
               copyVectorNumBits / lhsMemRefType.getElementTypeBitWidth();
           return canPerformVectorAccessUsingAllThreads(shape, flatWorkgroupSize,
                                                        targetVectorSize);
-        });
-    if (isAligned) {
+        });*/
+    if (0) {
       // Step 1. Vectorize the shared memory copy.
       RewritePatternSet vectorizationPatterns(context);
       populateVectorizationPatterns(vectorizationPatterns);

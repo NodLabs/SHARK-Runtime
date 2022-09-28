@@ -207,7 +207,12 @@ static void addMemRefLoweringPasses(OpPassManager &pm) {
 
   // Turn scalar load/store from memrefs into vectorized ones if possible. This
   // gives better memory access patterns, which is very important for perf.
-  pm.addPass(createSPIRVVectorizeLoadStore());
+  //pm.addPass(createSPIRVVectorizeLoadStore());
+  /*pm.addNestedPass<func::FuncOp>(
+      createSPIRVVectorToJointOpsPass());
+
+  pm.addNestedPass<func::FuncOp>(
+      createSPIRVMatchJointLoadPass());*/
   // Perform various vector-level cross-op optimizations like load-store
   // forwarding, shape casting and casting op cancelling.
   pm.addNestedPass<func::FuncOp>(createOptimizeVectorTransferPass());
@@ -334,16 +339,16 @@ void addSPIRVTileAndVectorizeToJointOpsPassPipeline(OpPassManager &pm) {
       createLLVMGPUTileAndDistribute(/*distributeToWarp=*/true));
   nestedModulePM.addNestedPass<func::FuncOp>(
       createRemoveSingleIterationLoopPass());
-    nestedModulePM.addNestedPass<func::FuncOp>(
-        createLLVMGPUMultiBuffering(1));
+    /*nestedModulePM.addNestedPass<func::FuncOp>(
+        createLLVMGPUMultiBuffering(1));*/
   nestedModulePM.addNestedPass<func::FuncOp>(createMemrefCopyToLinalgPass());
   nestedModulePM.addNestedPass<func::FuncOp>(
       createGPUDistributeSharedMemoryCopy());
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
 
-  nestedModulePM.addNestedPass<func::FuncOp>(
-      createLLVMGPUReduceSharedMemoryBankConflicts());
+  /*nestedModulePM.addNestedPass<func::FuncOp>(
+      createLLVMGPUReduceSharedMemoryBankConflicts());*/
   nestedModulePM.addNestedPass<func::FuncOp>(
       createRemoveSingleIterationLoopPass());
   nestedModulePM.addPass(createCanonicalizerPass());
@@ -352,6 +357,8 @@ void addSPIRVTileAndVectorizeToJointOpsPassPipeline(OpPassManager &pm) {
   // Tile and distribute to GPU subgroups and vectorize.
   nestedModulePM.addNestedPass<func::FuncOp>(
       createSPIRVTileAndVectorizeToJointOpsPass());
+  /*nestedModulePM.addNestedPass<func::FuncOp>(
+      createGPUDistributeSharedMemoryCopy());*/
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
 
@@ -363,12 +370,16 @@ void addSPIRVTileAndVectorizeToJointOpsPassPipeline(OpPassManager &pm) {
   // Fold subview ops is reqiured for converting vector transfer ops into SPIR-V
   // cooperative ops in the next step.
   nestedModulePM.addPass(memref::createFoldSubViewOpsPass());
-
+  nestedModulePM.addPass(createCanonicalizerPass());
+  nestedModulePM.addPass(createCSEPass());
   nestedModulePM.addNestedPass<func::FuncOp>(
       createSPIRVVectorToJointOpsPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(
       createSPIRVMatchJointLoadPass());
+  nestedModulePM.addPass(createSPIRVVectorizeLoadStore());
+  /*nestedModulePM.addNestedPass<func::FuncOp>(
+      createGPUPipeliningPass(1));*/
   
 }
 
