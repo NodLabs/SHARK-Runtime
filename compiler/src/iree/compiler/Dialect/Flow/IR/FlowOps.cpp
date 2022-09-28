@@ -1573,6 +1573,69 @@ void populateTensorSliceOpWithDispatchTensorOpFoldingPatterns(
           context);
 }
 
+void DispatchCollectivesOp::build(OpBuilder &builder, OperationState &state,
+                                  TypeRange resultTypes, ValueRange resultDims,
+                                  ValueRange arguments, ValueRange argumentDims,
+                                  ArrayRef<int64_t> tiedOperands,
+                                  ArrayRef<NamedAttribute> attributes) {
+  state.addTypes(resultTypes);
+  state.addOperands(arguments);
+  state.addOperands(argumentDims);
+  state.addOperands(resultDims);
+  state.addAttributes(attributes);
+  state.attributes.erase(IREE::Util::TiedOpInterface::getStorageAttrName());
+  state.addAttribute(IREE::Util::TiedOpInterface::getStorageAttrName(),
+                     builder.getIndexArrayAttr(tiedOperands));
+  state.attributes.erase(getOperandSegmentSizeAttr());
+  state.addAttribute(getOperandSegmentSizeAttr(),
+                     builder.getDenseI32ArrayAttr({
+                         static_cast<int32_t>(arguments.size()),
+                         static_cast<int32_t>(argumentDims.size()),
+                         static_cast<int32_t>(resultDims.size()),
+                     }));
+
+  auto *collectivesBody = state.addRegion();
+  assert(collectivesBody->begin() == collectivesBody->end());
+  {
+    // createBlock implicitly moves IP, RAII away...
+    OpBuilder::InsertionGuard g(builder);
+    builder.createBlock(collectivesBody);
+  }
+
+  llvm::BitVector operandAliases(llvm::size(arguments), false);
+  llvm::BitVector resultAliases(llvm::size(resultTypes), false);
+  for (unsigned resultIndex = 0; resultIndex < tiedOperands.size();
+       ++resultIndex) {
+    int64_t tiedOperandIndex = tiedOperands[resultIndex];
+    if (tiedOperandIndex != IREE::Util::TiedOpInterface::kUntiedIndex) {
+      operandAliases[tiedOperandIndex] = true;
+      resultAliases[resultIndex] = true;
+    }
+  }
+  for (auto operand : llvm::enumerate(arguments)) {
+    Type type = operand.value().getType();
+    if (auto tensorType = type.dyn_cast<TensorType>()) {
+      type = DispatchTensorType::get(operandAliases[operand.index()]
+                                         ? TensorAccess::ReadWrite
+                                         : TensorAccess::ReadOnly,
+                                     tensorType);
+    }
+    collectivesBody->addArgument(type, operand.value().getLoc());
+  }
+  for (auto resultType : llvm::enumerate(resultTypes)) {
+    if (resultAliases[resultType.index()]) {
+      // Already handled by an aliased operand.
+      continue;
+    }
+    Type type = resultType.value();
+    if (auto tensorType = type.dyn_cast<TensorType>()) {
+      type = DispatchTensorType::get(TensorAccess::WriteOnly, tensorType);
+    }
+    collectivesBody->addArgument(type, state.location);
+  }
+  assert(std::next(collectivesBody->begin()) == collectivesBody->end());
+}
+
 BlockArgument DispatchCollectivesOp::getOutputBlockArgument(unsigned idx) {
   Optional<ArrayAttr> tiedOperands = getTiedOperands();
   if (!tiedOperands.has_value() || tiedOperands->empty()) {
@@ -1610,25 +1673,104 @@ Operation::result_range DispatchCollectivesOp::getClosureResults() {
   return getResults();
 }
 
-bool DispatchCollectivesOp::canClosureContainOp(Operation *op) {
-  return canDispatchRegionContainOp(op);
-}
+bool DispatchCollectivesOp::canClosureContainOp(Operation *op) { return false; }
 
 IREE::Util::ClosureOpInterface
 DispatchCollectivesOp::cloneReplacementExcludingOperandsAndResults(
     ArrayRef<unsigned> excludedOperandIndices,
     ArrayRef<unsigned> excludedResultIndices, PatternRewriter &rewriter) {
-  assert(false);
+  SmallVector<Type, 4> newResultTypes = llvm::to_vector<4>(getResultTypes());
+  SmallVector<Value, 4> newResultDims = llvm::to_vector<4>(getResultDims());
+  SmallVector<Value, 4> newArguments = llvm::to_vector<4>(getArguments());
+  SmallVector<Value, 4> newArgumentDims = llvm::to_vector<4>(getArgumentDims());
+  IREE::Util::excludeClosureOperandsAndResults(
+      newArguments, newArgumentDims, excludedOperandIndices, newResultTypes,
+      newResultDims, excludedResultIndices);
+
+  auto newTiedOperandIndices =
+      llvm::to_vector<4>(getTiedResultOperandIndices());
+
+  // TODO(benvanik): all this offset stuff is confusing and should be reworked.
+  // We should probably have absolute indices and relative indices, or just one
+  // or the other, and not be crossing the streams. The way things are offset
+  // is the same as variadic ODS operands for consistency, but just like ODS
+  // operands half of the code assumes its within a particular ODS operand and
+  // half the code assumes it's within the flattened set of all Operation
+  // operands.
+  unsigned tiedOperandOffset = getTiedOperandsIndexAndLength().first;
+  for (unsigned i = 0; i < newTiedOperandIndices.size(); ++i) {
+    if (newTiedOperandIndices[i] != IREE::Util::TiedOpInterface::kUntiedIndex) {
+      newTiedOperandIndices[i] -= tiedOperandOffset;
+    }
+  }
+
+  // This need to happen *after* accounting for tied operand offset, given that
+  // all excluded operand/result indices are relative ranges.
+  IREE::Util::excludeTiedOperandAndResultIndices(
+      excludedOperandIndices, excludedResultIndices, newTiedOperandIndices);
+
+  auto newOp = rewriter.create<DispatchCollectivesOp>(
+      getLoc(), newResultTypes, newResultDims, newArguments, newArgumentDims,
+      newTiedOperandIndices, getOperation()->getAttrs());
+  auto &newBody = newOp.getClosureBodyRegion();
+  newBody.takeBody(getClosureBodyRegion());
+
+  // For dropped results, erase all the store-op uses. It is a pre-requisite
+  // that the result can be dropped only if it is written within the dispatch
+  // region op.
+  unsigned baseResultIndex = getArguments().size();  // old index
+  auto erasedArguments = llvm::to_vector<4>(excludedOperandIndices);
+  for (unsigned i = baseResultIndex, e = newBody.getNumArguments(); i != e;
+       ++i) {
+    if (!is_contained(excludedResultIndices, i - baseResultIndex)) continue;
+    auto arg = newBody.front().getArgument(i);
+    eraseArgUseTree(arg, rewriter);
+    erasedArguments.push_back(i);
+  }
+  auto &block = newBody.front();
+  BitVector eraseIndices(block.getNumArguments());
+  for (auto i : erasedArguments) eraseIndices.set(i);
+  block.eraseArguments(eraseIndices);
+
+  return newOp;
 }
 
 IREE::Util::ValueAccess DispatchCollectivesOp::getOperandAccess(
     unsigned operandIndex) {
-  assert(false);
+  BlockArgument arg = getCollectivesBody().front().getArgument(operandIndex);
+  if (auto tensorType = arg.getType().dyn_cast<DispatchTensorType>()) {
+    auto tensorAccess = refineTensorAccess(arg, tensorType);
+    return IREE::Util::ValueAccess(
+        /*isRead=*/(tensorAccess == TensorAccess::ReadOnly) ||
+            (tensorAccess == TensorAccess::ReadWrite),
+        /*isWrite=*/(tensorAccess == TensorAccess::ReadWrite) ||
+            (tensorAccess == TensorAccess::WriteOnly),
+        /*isDiscard=*/(tensorAccess == TensorAccess::WriteOnly));
+  } else {
+    return IREE::Util::ValueAccess(/*isRead=*/!arg.use_empty(),
+                                   /*isWrite=*/false,
+                                   /*isDiscard=*/false);
+  }
 }
 
 IREE::Util::ValueAccess DispatchCollectivesOp::getResultAccess(
     unsigned resultIndex) {
-  assert(false);
+  unsigned startIndex = getBody()->getNumArguments() - getNumResults();
+  BlockArgument arg =
+      getCollectivesBody().front().getArgument(startIndex + resultIndex);
+  if (auto tensorType = arg.getType().dyn_cast<DispatchTensorType>()) {
+    auto tensorAccess = refineTensorAccess(arg, tensorType);
+    return IREE::Util::ValueAccess(
+        /*isRead=*/(tensorAccess == TensorAccess::ReadOnly) ||
+            (tensorAccess == TensorAccess::ReadWrite),
+        /*isWrite=*/(tensorAccess == TensorAccess::ReadWrite) ||
+            (tensorAccess == TensorAccess::WriteOnly),
+        /*isDiscard=*/(tensorAccess == TensorAccess::WriteOnly));
+  } else {
+    return IREE::Util::ValueAccess(/*isRead=*/!arg.use_empty(),
+                                   /*isWrite=*/false,
+                                   /*isDiscard=*/false);
+  }
 }
 
 }  // namespace Flow

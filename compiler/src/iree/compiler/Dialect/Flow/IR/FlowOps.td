@@ -358,8 +358,13 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
   ];
 
   let extraClassDeclaration = [{
-    ValueRange getOperandDynamicDims(unsigned idx) { return getArgumentDims(); }
-    ValueRange getResultDynamicDims(unsigned idx) { return getResultDims(); }
+    ValueRange getOperandDynamicDims(unsigned idx) {
+      return IREE::Util::findVariadicDynamicDims(idx, getArguments(), getArgumentDims());
+    }
+
+    ValueRange getResultDynamicDims(unsigned idx) {
+      return IREE::Util::findVariadicDynamicDims(idx, getResults(), getResultDims());
+    }
 
     /// Returns the BlockArguments corresponding to the inputs in the type
     /// signature.
@@ -392,8 +397,10 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
                                 type($results), $result_dims,
                                $tied_operands)
     attr-dict-with-keyword
-    ``
-    regions
+    `=` `\n` ` ` ` ` ` `
+    custom<DispatchWorkgroupBody>(ref(type($arguments)),
+                                  ref(type($results)),
+                                  $collectives_body)
   }];
 }
 

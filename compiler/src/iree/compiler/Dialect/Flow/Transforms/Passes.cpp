@@ -246,6 +246,7 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
                          createInterchangeTransposeGenericOpsPass)
       ////////////////////////////////////////////////////////////////////////
       // Dispatch region formation.
+      .addPass(createDispatchCCLPass)
       .addPredicatedPass(!clDispatchTransformFileName.empty(),
                          [&]() {
                            return createDispatchWithTransformDialect(

@@ -4,13 +4,14 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Dialect/Flow/Transforms/Passes.h"
 #include "iree/compiler/Dialect/Flow/Transforms/PassDetail.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Transforms/RegionUtils.h"
-#include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "iree/compiler/Dialect/Flow/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/RegionUtils.h"
 
 #define DEBUG_TYPE "iree-flow-dispatch-ccl"
 
@@ -22,8 +23,8 @@ namespace Flow {
 namespace {
 
 /// Returns true if the operation has only uses in `tensor.dim` ops.
-bool hasComputeUsesOutsideDispatch(
-    Operation *op, ArrayRef<Operation *> dispatchOps = {}) {
+bool hasComputeUsesOutsideDispatch(Operation *op,
+                                   ArrayRef<Operation *> dispatchOps = {}) {
   return !llvm::all_of(op->getUsers(), [&](Operation *user) {
     return isa<tensor::DimOp>(user) || llvm::is_contained(dispatchOps, user);
   });
@@ -39,15 +40,19 @@ static LogicalResult computeDispatchResultTypeAndDynamicDims(
   auto currResultTypes = dispatchOp->getResultTypes();
   resultTypes.append(currResultTypes.begin(), currResultTypes.end());
 
-
+  ImplicitLocOpBuilder builder(dispatchOp->getLoc(), rewriter);
   // Get the values for the result dims.
   for (auto outputType : llvm::enumerate(currResultTypes)) {
     auto shapedOutputType = outputType.value().dyn_cast<ShapedType>();
     if (!shapedOutputType) continue;
     for (auto dim : llvm::enumerate(shapedOutputType.getShape())) {
       if (ShapedType::isDynamic(dim.value())) {
-        return rewriter.notifyMatchFailure(dispatchOp,
-                                           "dynamic dimensions are not implemented.");
+        return rewriter.notifyMatchFailure(
+            dispatchOp, "dynamic dimensions are not implemented.");
+
+        auto dynDim = builder.create<tensor::DimOp>(
+            dispatchOp->getOpResult(outputType.index()), dim.index());
+        resultDynamicDims.push_back(dynDim.getResult());
       }
     }
   }
@@ -57,9 +62,9 @@ static LogicalResult computeDispatchResultTypeAndDynamicDims(
 /// Creates a flow.dispatch.workgroup op without arguments.
 /// All the necessary operands are transiently captured and rewritten late as
 /// operands. This greatly simplifies transformations into the resulting op.
-FailureOr<SmallVector<Operation *>>
-buildOperandLessFlowDispatchCollectivesOp(PatternRewriter &rewriter, Location loc,
-                                        ArrayRef<Operation *> dispatchOps) {
+FailureOr<SmallVector<Operation *>> buildOperandLessFlowDispatchCollectivesOp(
+    PatternRewriter &rewriter, Location loc,
+    ArrayRef<Operation *> dispatchOps) {
   SmallVector<Value> resultDynamicDims;
   SmallVector<Type> resultTypes;
 
@@ -104,14 +109,19 @@ buildOperandLessFlowDispatchCollectivesOp(PatternRewriter &rewriter, Location lo
     rewriter.setInsertionPoint(clonedOp);
     if (!hasComputeUsesOutsideDispatch(op, dispatchOps)) continue;
 
+    // TODO(boian): Why does replaceOpWithIf fail to replace all uses
+    // even when there are no dynamic dims?
     // 3a. Replace all non-dim uses of the original operation with the
     //     corresponding result of the dispatch.
-    rewriter.replaceOpWithIf(op,
-                             ArrayRef<Value>(dispatchOpResults)
-                                 .slice(resultPos, op->getNumResults()),
-                             [&](OpOperand &operand) {
-                               return !isa<tensor::DimOp>(operand.getOwner());
-                             });
+    //    rewriter.replaceOpWithIf(op,
+    //                             ArrayRef<Value>(dispatchOpResults)
+    //                                 .slice(resultPos, op->getNumResults()),
+    //                             [&](OpOperand &operand) {
+    //                               return
+    //                               !isa<tensor::DimOp>(operand.getOwner());
+    //                             });
+    rewriter.replaceOp(op, ArrayRef<Value>(dispatchOpResults)
+                               .slice(resultPos, op->getNumResults()));
 
     // 3b. For each of the result create a `flow.dispatch.tensor.store`
     //     operation to publish the result of the cloned operation (from within
@@ -146,7 +156,7 @@ struct CreateCollectivesDispatchRegionOp : Base<OpType> {
       return failure();
     }
 
-    SmallVector<Operation *> dispatchOps = { op };
+    SmallVector<Operation *> dispatchOps = {op};
     auto clonedOps = buildOperandLessFlowDispatchCollectivesOp(
         rewriter, op.getLoc(), dispatchOps);
     if (failed(clonedOps)) {
@@ -254,7 +264,7 @@ LogicalResult legalizeDispatchCollectivesOperands(
 
     value.replaceUsesWithIf(repl, [&](OpOperand &use) {
       return use.getOwner()
-                 ->getParentOfType<IREE::Flow::DispatchWorkgroupsOp>() ==
+                 ->getParentOfType<IREE::Flow::DispatchCollectivesOp>() ==
              dispatchOp;
     });
   }
@@ -263,8 +273,8 @@ LogicalResult legalizeDispatchCollectivesOperands(
   auto operandSegmentSizes = dispatchOp->getAttrOfType<DenseI32ArrayAttr>(
       dispatchOp.getOperandSegmentSizesAttrName());
   auto newValues = llvm::to_vector<4>(operandSegmentSizes.asArrayRef());
-  newValues[1] = numOperands;
-  newValues[2] = numOperandDims;
+  newValues[0] = numOperands;
+  newValues[1] = numOperandDims;
   dispatchOp->setAttr(dispatchOp.getOperandSegmentSizesAttrName(),
                       b.getDenseI32ArrayAttr(newValues));
   return success();
@@ -325,7 +335,7 @@ static void tryToTieOperandsAndResults(
   // Go over each result to tie operand when possible, by:
   // 1. Update the tied operand argument to take readwrite tensors.
   // 2. Erase the result argument.
-  // 3. Attach the tie information to the DispatchWorkgroupsOp.
+  // 3. Attach the tie information to the DispatchCollectivesOp.
   for (auto result : llvm::enumerate(dispatchOp.getResults())) {
     if (dispatchOp.getTiedResultOperand(result.value())) continue;
     BlockArgument outputArgument =
@@ -416,11 +426,9 @@ LogicalResult createDispatchRegionsFromRootOps(mlir::Operation *funcOp,
 }
 
 /// Pass declaration.
-struct DispatchCCLPass
-    : public DispatchCCLBase<DispatchCCLPass> {
+struct DispatchCCLPass : public DispatchCCLBase<DispatchCCLPass> {
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry
-        .insert<ccl::CCLDialect, FlowDialect>();
+    registry.insert<ccl::CCLDialect, FlowDialect, tensor::TensorDialect>();
   }
   DispatchCCLPass() = default;
   DispatchCCLPass(const DispatchCCLPass &pass) {}
@@ -428,25 +436,26 @@ struct DispatchCCLPass
     MLIRContext *context = &getContext();
     auto funcOp = getOperation();
     RewritePatternSet rewritePatterns(context);
-    rewritePatterns.add<
-      CreateCollectivesDispatchRegionOp<ccl::CCLOp, OpInterfaceRewritePattern>>(
-        context);
-    if (failed(createDispatchRegionsFromRootOps(
-        funcOp, std::move(rewritePatterns)))) {
+    rewritePatterns.add<CreateCollectivesDispatchRegionOp<
+        ccl::CCLOp, OpInterfaceRewritePattern>>(context);
+    if (failed(createDispatchRegionsFromRootOps(funcOp,
+                                                std::move(rewritePatterns)))) {
       return signalPassFailure();
     }
 
     LLVM_DEBUG({
-      llvm::dbgs() << "\n--- After first step of dispatch region formation ---\n";
+      llvm::dbgs()
+          << "\n--- After first step of dispatch region formation ---\n";
       funcOp->print(llvm::dbgs(), OpPrintingFlags().useLocalScope());
       llvm::dbgs() << "\n\n";
     });
   }
 };
 
-} // namespace
+}  // namespace
 
-std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>> createDispatchCCLPass() {
+std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
+createDispatchCCLPass() {
   return std::make_unique<DispatchCCLPass>();
 }
 
