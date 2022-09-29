@@ -15,6 +15,13 @@ def ConvertConv2DToImg2Col :
   let constructor = "mlir::iree_compiler::IREE::createConvertConv2DToImg2ColPass()";
 }
 
+def ConvertConvNchwToNhwc :
+    InterfacePass<"iree-flow-convert-conv-nchw-to-nhwc", "mlir::FunctionOpInterface"> {
+  let summary = "Convert linalg NCHW Convolutions to NHWC";
+  let constructor =
+      "mlir::iree_compiler::IREE::createConvertConvNchwToNhwcPass()";
+}
+
 def MakeSingleDispatchForFunction :
     Pass<"iree-preprocessing-make-single-dispatch-for-function", "func::FuncOp"> {
   let summary = "Convert entire function into a single dispatch";
