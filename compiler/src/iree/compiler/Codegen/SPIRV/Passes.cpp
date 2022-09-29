@@ -362,6 +362,8 @@ void addSPIRVSubgroupReducePassPipeline(OpPassManager &pm) {
 void buildSPIRVCodegenPassPipeline(OpPassManager &pm, bool enableFastMath,
                                    bool use64bitIndex) {
   pm.nest<ModuleOp>().nest<func::FuncOp>().addPass(createTypePropagationPass());
+  pm.nest<ModuleOp>().nest<func::FuncOp>().addPass(
+      arith::createArithExpandOpsPass());
   pm.nest<ModuleOp>().addPass(createBufferizeCopyOnlyDispatchesPass());
   pm.addPass(createSPIRVLowerExecutableTargetPass());
 
