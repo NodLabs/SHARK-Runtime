@@ -14,6 +14,7 @@ iree_lit_test_suite(
   NAME
     lit
   SRCS
+    "conv2d_nchw_to_nhwc.mlir"
     "conv2d_to_img2col.mlir"
     "make_single_dispatch_for_function.mlir"
     "pad_linalg_ops.mlir"

@@ -38,6 +38,13 @@ def InterpreterPass : Pass<"iree-preprocessing-transform-interpreter"> {
   ];
 }
 
+def ConvertConvNchwToNhwc :
+    InterfacePass<"iree-flow-convert-conv-nchw-to-nhwc", "mlir::FunctionOpInterface"> {
+  let summary = "Convert linalg NCHW Convolutions to NHWC";
+  let constructor =
+      "mlir::iree_compiler::IREE::createConvertConvNchwToNhwcPass()";
+}
+
 def MakeSingleDispatchForFunction :
     InterfacePass<"iree-preprocessing-make-single-dispatch-for-function", "mlir::FunctionOpInterface"> {
   let summary = "Convert entire function into a single dispatch";
