@@ -34,6 +34,7 @@ iree_cc_library(
     "CleanupTensorShapes.cpp"
     "CollapseReductionDims.cpp"
     "Convert1X1FilterConv2DToMatmul.cpp"
+    "ConvertConvNchwToNhwc.cpp"
     "ConvertConv2DToImg2Col.cpp"
     "ConvertLinalgMatmulToMmt4D.cpp"
     "ConvertRegionToWorkgroups.cpp"
