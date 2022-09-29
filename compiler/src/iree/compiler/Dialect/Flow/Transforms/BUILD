@@ -36,6 +36,7 @@ iree_compiler_cc_library(
         "CleanupTensorShapes.cpp",
         "ConvertConv2D1x1ToMatmul.cpp",
         "ConvertConv2DToImg2Col.cpp",
+        "ConvertConvNchwToNhwc.cpp",
         "ConvertLinalgMatmulToMmt4D.cpp",
         "ConvertRegionToWorkgroups.cpp",
         "ConvertToFlow.cpp",

@@ -32,6 +32,7 @@ iree_cc_library(
     "CaptureDispatchDynamicDims.cpp"
     "CleanupNumericNarrowing.cpp"
     "CleanupTensorShapes.cpp"
+    "ConvertConvNchwToNhwc.cpp"
     "ConvertConv2D1x1ToMatmul.cpp"
     "ConvertConv2DToImg2Col.cpp"
     "ConvertLinalgMatmulToMmt4D.cpp"
