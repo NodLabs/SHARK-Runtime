@@ -33,6 +33,7 @@ iree_cc_library(
     "CleanupNumericNarrowing.cpp"
     "CleanupTensorShapes.cpp"
     "Convert1X1FilterConv2DToMatmul.cpp"
+    "ConvertConvNchwToNhwc.cpp"
     "ConvertConv2DToImg2Col.cpp"
     "ConvertLinalgMatmulToMmt4D.cpp"
     "ConvertRegionToWorkgroups.cpp"
