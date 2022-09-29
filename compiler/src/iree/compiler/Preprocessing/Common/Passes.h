@@ -10,6 +10,7 @@
 #include <functional>
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "iree/compiler/Dialect/Flow/IR/FlowOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 
@@ -20,6 +21,10 @@ namespace IREE {
 // Creates a pass to convert linalg convolution ops into linalg.matmul ops
 // using im2col tranformation.
 std::unique_ptr<Pass> createConvertConv2DToImg2ColPass();
+
+// Creates a pass to convert linalg NCHW Convolutions to NHWC.
+std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
+createConvertConvNchwToNhwcPass();
 
 // A pass to pad linalg ops to the next integer multiple of `paddingSize`.
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
