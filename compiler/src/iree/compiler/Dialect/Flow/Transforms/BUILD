@@ -38,6 +38,7 @@ iree_compiler_cc_library(
         "CollapseReductionDims.cpp",
         "Convert1X1FilterConv2DToMatmul.cpp",
         "ConvertConv2DToImg2Col.cpp",
+        "ConvertConvNchwToNhwc.cpp",
         "ConvertRegionToWorkgroups.cpp",
         "ConvertToFlow.cpp",
         "DeduplicateExecutables.cpp",
