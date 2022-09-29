@@ -184,6 +184,9 @@ std::unique_ptr<OperationPass<mlir::ModuleOp>> createExportBenchmarkFuncsPass();
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass(
     int paddingSize = 4);
 
+// A pass to partition linalg ops based on user annotations
+std::unique_ptr<Pass> createPartitionLinalgOpsUsingAnnotationsPass();
+
 //===----------------------------------------------------------------------===//
 // Optimizations
 //===----------------------------------------------------------------------===//

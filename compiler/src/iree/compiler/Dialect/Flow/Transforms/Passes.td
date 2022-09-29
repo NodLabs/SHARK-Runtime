@@ -166,6 +166,12 @@ def PadLinalgOps :
   let constructor = "mlir::iree_compiler::IREE::Flow::createPadLinalgOpsToIntegerMultiplePass()";
 }
 
+def PartitionLinalgOps :
+    Pass<"iree-flow-partition-linalg-ops", ""> {
+  let summary = "Partition linalg ops based on user annotations";
+  let constructor = "mlir::iree_compiler::IREE::Flow::createPartitionLinalgOpsUsingAnnotationsPass()";
+}
+
 def ConvertLinalgMatmulToMmt4D :
     Pass<"iree-flow-convert-linalg-matmul-to-mmt4d", ""> {
   let summary = "Convert linalg.matmul to linalg.mmt4d";

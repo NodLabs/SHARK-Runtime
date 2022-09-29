@@ -55,6 +55,7 @@ iree_cc_library(
     "OptimizeNumerics.cpp"
     "OutlineDispatchRegions.cpp"
     "PadLinalgOps.cpp"
+    "PartitionLinalgOps.cpp"
     "PassDetail.h"
     "Passes.cpp"
     "RegionOpUtils.cpp"
