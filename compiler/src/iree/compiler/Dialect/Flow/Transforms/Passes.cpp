@@ -180,12 +180,6 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
     passManager.addPass(IREE::Util::createDemoteI64ToI32Pass());
   }
 
-  // Preprocessing passes to get the program into a canonical state.
-  FunctionLikeNest(passManager)
-      .addPass(IREE::Flow::createDetachElementwiseFromNamedOpsPass)
-      .addPass(mlir::createLinalgNamedOpConversionPass)
-      .addPass(IREE::Flow::createConvert1X1FilterConv2DToMatmulPass);
-
   // Start of Flow pipeline, verify input legality.
   passManager.addPass(IREE::Flow::createVerifyInputLegalityPass());
 
