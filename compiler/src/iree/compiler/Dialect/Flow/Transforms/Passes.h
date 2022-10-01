@@ -187,6 +187,8 @@ std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass(
 // A pass to partition linalg ops based on user annotations
 std::unique_ptr<Pass> createPartitionLinalgOpsUsingAnnotationsPass();
 
+void populateExtractFromInsertSliceDestOpPatterns(RewritePatternSet &patterns);
+
 //===----------------------------------------------------------------------===//
 // Optimizations
 //===----------------------------------------------------------------------===//

@@ -46,6 +46,7 @@ iree_cc_library(
     "DumpDispatchGraph.cpp"
     "ExpandTensorShapes.cpp"
     "ExportBenchmarkFuncs.cpp"
+    "ExtractFromInsertSliceDest.cpp"
     "FusionOfTensorOps.cpp"
     "InferNumericNarrowing.cpp"
     "InitializeEmptyTensors.cpp"

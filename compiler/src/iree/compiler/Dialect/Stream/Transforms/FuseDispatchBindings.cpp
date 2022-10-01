@@ -300,6 +300,8 @@ static void updateDispatchSite(IREE::Stream::CmdDispatchOp dispatchOp,
       dispatchOp.getEntryPointAttr(), newOperands, newResources,
       newResourceSizes, newOffsets, newLengths,
       builder.getArrayAttr(newAccesses));
+  if (dispatchOp->hasAttr("device"))
+    newOp->setAttr("device", dispatchOp->getAttr("device"));
   (void)newOp;
   LLVM_DEBUG({
     llvm::dbgs() << "updated dispatch:\n";

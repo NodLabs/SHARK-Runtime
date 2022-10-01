@@ -311,6 +311,9 @@ buildOperandLessFlowDispatchWorkgroupOp(PatternRewriter &rewriter, Location loc,
     rewriter.replaceOpWithinBlock(op, clonedOp->getResults(), block);
     rewriter.setInsertionPoint(clonedOp);
     if (!hasComputeUsesOutsideDispatch(op, dispatchOps)) continue;
+    if (op->hasAttr("device")) {
+      dispatchOp->setAttr("device", op->getAttr("device"));
+    }
 
     // 3a. Replace all non-dim uses of the original operation with the
     //     corresponding result of the dispatch.
