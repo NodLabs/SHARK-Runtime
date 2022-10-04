@@ -48,6 +48,28 @@ def HAL_ExSharedDeviceOp : HAL_PureOp<"ex.shared_device", [
   ];
 }
 
+def HAL_ExSharedMultiDeviceOp : HAL_PureOp<"ex.shared_multi_device", [
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>,
+  ]> {
+  let arguments = (ins
+    I32: $id
+  );
+  let results = (outs
+    HAL_Device:$result
+  );
+
+  let assemblyFormat = "$id attr-dict `:` type($result)";
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$id) ,
+    [{
+      $_state.addOperands(id);
+      $_state.addTypes({DeviceType::get($_builder.getContext())});
+    }]>,
+  ];
+}
+
 //===----------------------------------------------------------------------===//
 // Pseudo ops for conversion support
 //===----------------------------------------------------------------------===//

@@ -66,6 +66,7 @@ EXPORT_FN("device.queue.execute", iree_hal_module_device_queue_execute, rIrrCrD,
 EXPORT_FN("device.queue.flush", iree_hal_module_device_queue_flush, rI, v)
 
 EXPORT_FN("ex.shared_device", iree_hal_module_ex_shared_device, v, r)
+EXPORT_FN("ex.shared_multi_device", iree_hal_module_ex_shared_multi_device, i, r)
 
 EXPORT_FN("executable.create", iree_hal_module_executable_create, rrrrCrD, r)
 

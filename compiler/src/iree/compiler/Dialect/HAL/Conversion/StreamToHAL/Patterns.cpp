@@ -19,15 +19,48 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/Transforms/DialectConversion.h"
 
+#include <unordered_map>
+
 namespace mlir {
 namespace iree_compiler {
 
 namespace {
 
+std::unordered_map<int, Value> deviceMap;
+
 static Value lookupDeviceFor(Operation *op, OpBuilder &builder) {
   // TODO(benvanik): make this do multi-device lookup and other fancy things.
-  auto lookupOp = builder.create<IREE::HAL::ExSharedDeviceOp>(op->getLoc());
-  return lookupOp.getResult();
+  int device{-1};
+  // First see if op has attribute (executeOp)
+  if (op->hasAttr("device"))
+    device = op->getAttr("device").cast<IntegerAttr>().getValue().getSExtValue();
+  if (device == -1) {
+    // Then see if users have attribute (alloc)
+    for (auto user : op->getUsers()) {
+      if (user->hasAttr("device"))
+        device = user->getAttr("device").cast<IntegerAttr>().getValue().getSExtValue();
+    }
+  }
+  if (device == -1) {
+    // Then see if I am a consumer of an op with an annotation (dealloc)
+    for (auto operand : op->getOperands()) {
+      if (auto definingOp = operand.getDefiningOp()) {
+        if (definingOp->hasAttr("device"))
+          device = definingOp->getAttr("device").cast<IntegerAttr>().getValue().getSExtValue();
+      }
+    }
+  }
+  if (device == -1) {
+    auto lookupOp = builder.create<IREE::HAL::ExSharedDeviceOp>(op->getLoc());
+    return lookupOp.getResult();
+  } else {
+    if (!deviceMap.count(device)) {
+      Value d = builder.create<arith::ConstantIntOp>(op->getLoc(), device, 32);
+      auto lookupOp = builder.create<IREE::HAL::ExSharedMultiDeviceOp>(op->getLoc(), d);
+      deviceMap[device] = lookupOp.getResult();
+    }
+    return deviceMap.at(device);
+  }
 }
 
 // Returns the device queue affinity mask indicating which device queues the

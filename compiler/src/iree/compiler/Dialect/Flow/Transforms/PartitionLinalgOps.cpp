@@ -20,6 +20,32 @@ namespace IREE {
 namespace Flow {
 
 namespace {
+
+/// A pattern to propagate device annotations to consumers
+class PropagateAnnotations : public OpInterfaceRewritePattern<linalg::LinalgOp> {
+ public:
+  using OpInterfaceRewritePattern::OpInterfaceRewritePattern;
+  LogicalResult matchAndRewrite(linalg::LinalgOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->hasAttr("device")) {
+      bool annotated{false};
+      for (auto *user : op->getUsers()) {
+        if (!user->hasAttr("device")) {
+          user->setAttr("device", op->getAttr("device"));  
+          annotated = true;
+        }
+        if (!annotated)
+          return failure();
+      }
+      return success();
+    }
+    return failure();
+  }
+};
+
+}
+
+namespace {
 /// A pattern to partition linalg ops based on user annotations
 class PartitionUsingAnnotations : public OpInterfaceRewritePattern<linalg::LinalgOp> {
  public:
@@ -92,6 +118,7 @@ class PartitionLinalgOpsPass : public PartitionLinalgOpsBase<PartitionLinalgOpsP
     RewritePatternSet patterns(context);
     patterns.insert<PartitionUsingAnnotations>(context);
     populateExtractFromInsertSliceDestOpPatterns(patterns);
+    patterns.insert<PropagateAnnotations>(context);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       return signalPassFailure();

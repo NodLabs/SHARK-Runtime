@@ -11,6 +11,11 @@ vm.module @hal {
 vm.import @ex.shared_device() -> !vm.ref<!hal.device>
 attributes {nosideeffects}
 
+vm.import @ex.shared_multi_device(
+  %device : i32
+) -> !vm.ref<!hal.device>
+attributes {nosideeffects}
+
 vm.import @ex.submit_and_wait(
   %device : !vm.ref<!hal.device>,
   %command_buffer : !vm.ref<!hal.command_buffer>

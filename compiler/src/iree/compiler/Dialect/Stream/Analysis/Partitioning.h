@@ -120,6 +120,10 @@ PartitionSet partitionRegionConcurrency(
 PartitionSet partitionStreamableOpsReference(
     IREE::Stream::PartitioningConfigAttr config, Block *block);
 
+// User-annotated partitioning
+PartitionSet partitionStreamableOpsUserAnnotated(
+    IREE::Stream::PartitioningConfigAttr config, Block *block);
+
 // Similarly poor algorithm to partitionStreamableOpsReference but for use
 // within partitioned streams to produce waves of concurrently executable work.
 PartitionSet partitionRegionConcurrencyReference(

@@ -1288,6 +1288,8 @@ static LogicalResult allocateExecutionRegion(
   if (executeOp.getAffinity().has_value()) {
     newExecuteOp.setAffinityAttr(executeOp.getAffinityAttr());
   }
+  if (executeOp->hasAttr("device"))
+    newExecuteOp->setAttr("device", executeOp->getAttr("device"));
   newExecuteOp.getBody().takeBody(executeOp.getBody());
   executeOp.getResultTimepoint().replaceAllUsesWith(
       newExecuteOp.getResultTimepoint());

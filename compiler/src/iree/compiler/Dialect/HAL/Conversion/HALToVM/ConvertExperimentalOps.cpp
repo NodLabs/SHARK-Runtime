@@ -17,6 +17,8 @@ void populateHALExperimentalToVMPatterns(MLIRContext *context,
                                          RewritePatternSet &patterns) {
   patterns.insert<VMImportOpConversion<IREE::HAL::ExSharedDeviceOp>>(
       context, importSymbols, typeConverter, "hal.ex.shared_device");
+  patterns.insert<VMImportOpConversion<IREE::HAL::ExSharedMultiDeviceOp>>(
+      context, importSymbols, typeConverter, "hal.ex.shared_multi_device");
 }
 
 }  // namespace iree_compiler

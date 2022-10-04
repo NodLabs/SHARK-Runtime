@@ -128,6 +128,11 @@ void ExSharedDeviceOp::getAsmResultNames(
   setNameFn(getResult(), "device");
 }
 
+void ExSharedMultiDeviceOp::getAsmResultNames(
+    function_ref<void(Value, StringRef)> setNameFn) {
+  setNameFn(getResult(), "device");
+}
+
 //===----------------------------------------------------------------------===//
 // hal.return
 //===----------------------------------------------------------------------===//

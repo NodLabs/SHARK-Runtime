@@ -237,7 +237,8 @@ class ScheduleExecutionPass
     for (auto *block : sortBlocksInDominanceOrder(region)) {
       // Compute a set of partitions covering all of the streamable ops in the
       // block.
-      auto partitionSet = partitionStreamableOps(configAttr, block);
+      //auto partitionSet = partitionStreamableOps(configAttr, block);
+      auto partitionSet = partitionStreamableOpsUserAnnotated(configAttr, block);
       if (partitionSet.empty()) continue;
       if (failed(partitionSet.verify(parentOp.getLoc()))) {
         return signalPassFailure();
@@ -275,6 +276,16 @@ class ScheduleExecutionPass
       for (auto &partitionBuilder : partitionBuilders) {
         // Finish construction and insert the yield.
         auto executeOp = partitionBuilder.finish();
+
+        // Annotate execute Op with device annotation
+        executeOp.getBody().walk([&](IREE::Stream::AsyncDispatchOp op) {
+          if (op->hasAttr("device")) {
+            // Just need to do this once
+            executeOp->setAttr("device", op->getAttr("device"));
+            return WalkResult::interrupt();
+          }
+          return WalkResult::advance();
+        });
 
         OpBuilder builder(executeOp);
         builder.setInsertionPointAfter(executeOp);

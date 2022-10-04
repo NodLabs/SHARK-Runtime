@@ -19,6 +19,7 @@ iree_cc_library(
   SRCS
     "Partitioning.cpp"
     "Partitioning/ReferencePartitioning.cpp"
+    "Partitioning/UserAnnotatedPartitioning.cpp"
     "ResourceUsage.cpp"
   DEPS
     LLVMSupport

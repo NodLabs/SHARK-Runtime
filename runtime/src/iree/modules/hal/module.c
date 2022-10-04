@@ -141,6 +141,13 @@ IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_device,  //
   return iree_ok_status();
 }
 
+IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_multi_device,  //
+                   iree_hal_module_state_t,           //
+                   i, r) {
+  rets->r0 = iree_hal_device_retain_ref(state->shared_device);
+  return iree_ok_status();
+}
+
 //===----------------------------------------------------------------------===//
 // Utilities
 //===----------------------------------------------------------------------===//
