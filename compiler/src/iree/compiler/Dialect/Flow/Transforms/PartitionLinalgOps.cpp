@@ -63,7 +63,7 @@ class PartitionUsingAnnotations : public OpInterfaceRewritePattern<linalg::Linal
       for (Attribute val : devicesAttr.getValue()) {
         auto np = val.cast<ArrayAttr>();
         if (np.size() > 0) numPartitions.push_back(np.size());
-        for (Attribute device : np)
+        for (Attribute device : llvm::reverse(np))
           devices.push_back(device.cast<IntegerAttr>().getValue().getSExtValue());
       }
       op->removeAttr("partition_sizes");
