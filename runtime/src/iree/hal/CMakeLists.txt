@@ -34,6 +34,8 @@ iree_cc_library(
     "detail.h"
     "device.c"
     "device.h"
+    "device_set.c"
+    "device_set.h"
     "driver.c"
     "driver.h"
     "driver_registry.c"
