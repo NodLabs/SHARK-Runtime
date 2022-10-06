@@ -168,6 +168,24 @@ cc_binary(
 )
 
 cc_binary(
+    name = "iree-run-module-multi-device",
+    srcs = ["iree-run-module-multi-device-main.cc"],
+    deps = [
+        "//runtime/src/iree/base",
+        "//runtime/src/iree/base:cc",
+        "//runtime/src/iree/base:tracing",
+        "//runtime/src/iree/base/internal:flags",
+        "//runtime/src/iree/hal",
+        "//runtime/src/iree/modules/hal:types",
+        "//runtime/src/iree/tooling:comparison",
+        "//runtime/src/iree/tooling:context_util",
+        "//runtime/src/iree/tooling:vm_util",
+        "//runtime/src/iree/vm",
+        "//runtime/src/iree/vm:cc",
+    ],
+)
+
+cc_binary(
     name = "iree-run-trace",
     srcs = ["iree-run-trace-main.c"],
     deps = [

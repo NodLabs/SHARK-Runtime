@@ -136,6 +136,25 @@ iree_cc_binary(
 
 iree_cc_binary(
   NAME
+    iree-run-module-multi-device
+  SRCS
+    "iree-run-module-multi-device-main.cc"
+  DEPS
+    iree::base
+    iree::base::cc
+    iree::base::internal::flags
+    iree::base::tracing
+    iree::hal
+    iree::modules::hal::types
+    iree::tooling::comparison
+    iree::tooling::context_util
+    iree::tooling::vm_util
+    iree::vm
+    iree::vm::cc
+)
+
+iree_cc_binary(
+  NAME
     iree-run-trace
   SRCS
     "iree-run-trace-main.c"
