@@ -507,3 +507,73 @@ iree_status_t iree_tooling_create_context_from_flags(
   IREE_TRACE_ZONE_END(z0);
   return status;
 }
+
+iree_status_t iree_tooling_create_context_set_from_flags(
+    iree_vm_instance_t* instance, iree_host_size_t user_module_count,
+    iree_vm_module_t** user_modules, iree_string_view_t default_device_uri,
+    iree_allocator_t host_allocator, iree_vm_context_t** out_context,
+    iree_hal_device_set_t* out_devices) {
+  IREE_ASSERT_ARGUMENT(instance);
+  IREE_ASSERT_ARGUMENT(!user_module_count || user_modules);
+  IREE_ASSERT_ARGUMENT(out_context);
+  *out_context = NULL;
+  if (out_devices) out_devices = NULL;
+  iree_host_size_t num_devices = iree_hal_device_set_num_devices(out_devices);
+  IREE_TRACE_ZONE_BEGIN(z0);
+
+  // Resolve all module dependencies into an ordered list.
+  // All modules are retained in the list.
+  iree_hal_device_t* device = NULL;
+  iree_hal_allocator_t* device_allocator = NULL;
+  for (int n = 0; n < num_devices; n++) {
+    iree_tooling_module_list_t resolved_list;
+    iree_tooling_module_list_initialize(&resolved_list);
+    iree_hal_device_set_get(out_devices, n, device);
+    device_allocator = iree_hal_device_allocator(device);
+    IREE_RETURN_AND_END_ZONE_IF_ERROR(
+      z0, iree_tooling_resolve_modules(
+              instance, user_module_count, user_modules, default_device_uri,
+              host_allocator, &resolved_list, &device, &device_allocator));
+    
+    iree_vm_context_flags_t flags = IREE_VM_CONTEXT_FLAG_NONE;
+    if (FLAG_trace_execution) {
+      // This enables tracing for all invocations but even if not set each
+      // invocation can have the flag specified to trace.
+      flags |= IREE_VM_CONTEXT_FLAG_TRACE_EXECUTION;
+    }
+
+    // Create the context with the full list of resolved modules.
+    // The context retains the modules and we can release them afterward.
+    iree_vm_context_t* context = NULL;
+    iree_status_t status = iree_vm_context_create_with_modules(
+        instance, flags, resolved_list.count, resolved_list.values,
+        host_allocator, &context);
+    iree_tooling_module_list_reset(&resolved_list);
+
+    // If no device allocator was created we'll create a default one just so that
+    // callers have something to create buffer views from. This isn't strictly
+    // required but a lot of tests do things like pass in buffers even if no HAL
+    // methods are used and the HAL module is not needed.
+    if (iree_status_is_ok(status) && !device_allocator) {
+      status = iree_tooling_create_inline_device_allocator_from_flags(
+          host_allocator, &device_allocator);
+    }
+
+    if (iree_status_is_ok(status)) {
+      *out_context = context;
+      if (!device_allocator) {
+        iree_hal_allocator_release(device_allocator);
+      }
+      if (!device) {
+        iree_hal_device_release(device);
+      }
+    } else {
+      iree_hal_allocator_release(device_allocator);
+      iree_hal_device_release(device);
+      iree_vm_context_release(context);
+      return status;
+    }
+    IREE_TRACE_ZONE_END(z0);
+  }
+  return iree_ok_status();
+}

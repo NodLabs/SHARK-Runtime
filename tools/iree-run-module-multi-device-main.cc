@@ -107,10 +107,10 @@ iree_status_t Run(int* out_exit_code) {
 
   iree_hal_device_t* device = NULL;
   iree_hal_allocator_t* device_allocator = NULL;
-  IREE_RETURN_IF_ERROR(iree_tooling_create_context_from_flags(
+  IREE_RETURN_IF_ERROR(iree_tooling_create_context_set_from_flags(
       instance, /*user_module_count=*/1, /*user_modules=*/&main_module,
       /*default_device_uri=*/iree_string_view_empty(), host_allocator, &context,
-      &device, &device_allocator));
+      devices));
 
   std::string function_name = std::string(FLAG_entry_function);
   iree_vm_function_t function;
