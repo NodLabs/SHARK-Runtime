@@ -18,10 +18,12 @@
 #include "iree/base/status_cc.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/modules/hal/types.h"
 #include "iree/tooling/comparison.h"
 #include "iree/tooling/context_util.h"
 #include "iree/tooling/vm_util.h"
+#include "iree/tooling/vm_util_cc.h"
 #include "iree/vm/api.h"
 #include "iree/vm/ref_cc.h"
 
@@ -100,6 +102,10 @@ iree_status_t Run(int* out_exit_code) {
       instance, host_allocator, &main_module));
 
   iree_vm_context_t* context = NULL;
+
+  iree_hal_device_set_t* devices = (iree_hal_device_set_t*)iree_alloca(sizeof(iree_hal_device_set_t));
+  iree_hal_device_set_initialize(devices);
+
   iree_hal_device_t* device = NULL;
   iree_hal_allocator_t* device_allocator = NULL;
   IREE_RETURN_IF_ERROR(iree_tooling_create_context_from_flags(
@@ -122,8 +128,8 @@ iree_status_t Run(int* out_exit_code) {
   }
 
   vm::ref<iree_vm_list_t> inputs;
-  IREE_RETURN_IF_ERROR(ParseToVariantList(
-      device_allocator,
+  IREE_RETURN_IF_ERROR(ParseToVariantListMultipleDevices(
+      devices,
       iree::span<const std::string>{FLAG_function_inputs.data(),
                                     FLAG_function_inputs.size()},
       host_allocator, &inputs));

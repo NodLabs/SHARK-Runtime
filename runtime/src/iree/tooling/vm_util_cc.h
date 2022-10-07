@@ -13,6 +13,7 @@
 #include "iree/base/api.h"
 #include "iree/base/internal/span.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/tooling/vm_util.h"
 #include "iree/vm/api.h"
 
@@ -49,6 +50,12 @@ inline Status PrintVariantList(iree_vm_list_t* variant_list,
   return iree_tooling_variant_list_fprint(variant_list, max_element_count,
                                           stdout);
 }
+
+// Variant of the above for multiple devices
+Status ParseToVariantListMultipleDevices(iree_hal_device_set_t* devices,
+                                         iree::span<const std::string> input_strings,
+                                         iree_allocator_t host_allocator,
+                                         iree_vm_list_t** out_list);
 
 }  // namespace iree
 
