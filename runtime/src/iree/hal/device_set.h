@@ -42,7 +42,7 @@ IREE_API_EXPORT iree_status_t iree_hal_device_set_initialize(iree_hal_device_set
 // Get number of devices in the set
 IREE_API_EXPORT iree_host_size_t iree_hal_device_set_num_devices(iree_hal_device_set_t *devices);
 
-// Inserts a device into the set of devices
+// Inserts a device into the set of devices and retains a reference. Should release reference to device after this call.
 IREE_API_EXPORT iree_status_t iree_hal_device_set_insert(iree_hal_device_set_t* devices, iree_hal_device_t *device);
 
 // Retrieves the ith device from the set of devices
