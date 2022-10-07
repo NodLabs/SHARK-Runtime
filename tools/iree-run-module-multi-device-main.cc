@@ -88,7 +88,7 @@ namespace iree {
 namespace {
 
 iree_status_t Run(int* out_exit_code) {
-  IREE_TRACE_SCOPE0("iree-run-module");
+  IREE_TRACE_SCOPE0("iree-run-module-multi-device");
 
   iree_allocator_t host_allocator = iree_allocator_system();
   iree_vm_instance_t* instance = nullptr;
@@ -186,7 +186,7 @@ iree_status_t Run(int* out_exit_code) {
 extern "C" int main(int argc, char** argv) {
   iree_flags_parse_checked(IREE_FLAGS_PARSE_MODE_DEFAULT, &argc, &argv);
   if (argc > 1) {
-    // Avoid iree-run-module spinning endlessly on stdin if the user uses single
+    // Avoid iree-run-module-multi-device spinning endlessly on stdin if the user uses single
     // dashes for flags.
     std::cout << "[ERROR] unexpected positional argument (expected none)."
                  " Did you use pass a flag with a single dash ('-')?"
