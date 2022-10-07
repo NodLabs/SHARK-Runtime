@@ -27,8 +27,8 @@ IREE_API_EXPORT iree_host_size_t iree_hal_device_set_num_devices(iree_hal_device
 IREE_API_EXPORT iree_status_t iree_hal_device_set_insert(iree_hal_device_set_t* device_set, iree_hal_device_t *device) {
   if (device_set->count == MAX_DEVICES - 1)
     return iree_status_from_code(IREE_STATUS_RESOURCE_EXHAUSTED);
-  device_set->devices[device_set->count++] = device;
   iree_hal_device_retain(device);
+  device_set->devices[device_set->count++] = device;
   return iree_ok_status();
 }
 
