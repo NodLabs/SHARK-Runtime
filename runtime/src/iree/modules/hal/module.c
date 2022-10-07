@@ -41,6 +41,7 @@ typedef struct iree_hal_module_t {
   iree_allocator_t host_allocator;
   iree_hal_module_flags_t flags;
   iree_hal_device_t* shared_device;
+  iree_hal_device_set_t* shared_devices;
   // TODO(benvanik): types.
 } iree_hal_module_t;
 
@@ -69,6 +70,9 @@ typedef struct iree_hal_module_state_t {
   // We could have multiple to allow for modules to create distinct sets of
   // executables like ones for training vs inference in the same model, or just
   // always use this.
+  // This doesn't seem to be used so we will allow this to be only associated
+  // with the active device
+  // TODO: Revisit this assumption
   iree_hal_executable_cache_t* executable_cache;
 } iree_hal_module_state_t;
 
@@ -91,7 +95,13 @@ iree_hal_module_alloc_state(void* self, iree_allocator_t host_allocator,
   state->host_allocator = host_allocator;
   state->flags = module->flags;
   state->shared_device = module->shared_device;
-  iree_hal_device_retain(state->shared_device);
+  if (module->shared_devices) {
+    state->shared_devices = module->shared_devices;
+    // Retains all the devices (since shared devices contains all)
+    iree_hal_device_set_retain(module->shared_devices);
+  } else {
+    iree_hal_device_retain(module->shared_device);
+  }
 
   state->loop_status = iree_ok_status();
   IREE_RETURN_AND_END_ZONE_IF_ERROR(
@@ -111,7 +121,11 @@ iree_hal_module_free_state(void* self, iree_vm_module_state_t* module_state) {
   iree_hal_module_state_t* state = (iree_hal_module_state_t*)module_state;
   iree_hal_executable_cache_release(state->executable_cache);
   iree_status_ignore(state->loop_status);
-  iree_hal_device_release(state->shared_device);
+  if (state->shared_devices) {
+    iree_hal_device_set_release(state->shared_devices);
+  } else {
+    iree_hal_device_release(state->shared_device);
+  }
   iree_allocator_free(state->host_allocator, state);
 
   IREE_TRACE_ZONE_END(z0);
@@ -145,9 +159,11 @@ IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_device,  //
 IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_multi_device,  //
                    iree_hal_module_state_t,           //
                    i, r) {
-  iree_status_t status = iree_hal_device_set_get(state->shared_devices, args->i0, state->shared_device);
-  if (!iree_status_is_ok(status))
-    return status;
+  if (state->shared_devices) {
+    iree_status_t status = iree_hal_device_set_get(state->shared_devices, args->i0, state->shared_device);
+    if (!iree_status_is_ok(status))
+      return status;
+  }
   rets->r0 = iree_hal_device_retain_ref(state->shared_device);
   return iree_ok_status();
 }
