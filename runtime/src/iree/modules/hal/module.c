@@ -14,6 +14,7 @@
 #include "iree/base/api.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/modules/hal/utils/buffer_diagnostics.h"
 #include "iree/vm/api.h"
 
@@ -53,11 +54,11 @@ typedef struct iree_hal_module_state_t {
   // application. All instantiations of a module share the same flags.
   iree_hal_module_flags_t flags;
 
-  // HACK: today we only support a single device per context - in the future
-  // this should be a set of available devices that the module is able to pick
-  // from - the module will then hang on to them and use them as native globals
-  // instead of storing anything in module state here.
+  // This represents the current active device
   iree_hal_device_t* shared_device;
+
+  // This is a list of all the devices used in the module
+  iree_hal_device_set_t* shared_devices;
 
   // TODO(benvanik): add iree_loop_t to module constructor.
   // Status of the nested loop we run for executable creation today. We should
@@ -144,6 +145,9 @@ IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_device,  //
 IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_multi_device,  //
                    iree_hal_module_state_t,           //
                    i, r) {
+  iree_status_t status = iree_hal_device_set_get(state->shared_devices, args->i0, state->shared_device);
+  if (!iree_status_is_ok(status))
+    return status;
   rets->r0 = iree_hal_device_retain_ref(state->shared_device);
   return iree_ok_status();
 }

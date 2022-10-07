@@ -15,12 +15,12 @@
 #include "iree/hal/resource.h"
 
 
-IREE_API_EXPORT iree_status_t iree_hal_device_set_initialize(iree_hal_device_set_t *devices) {
+IREE_API_EXPORT iree_status_t iree_hal_device_set_initialize(iree_hal_device_set_t* devices) {
   memset(devices, 0, sizeof(*devices));
   return iree_ok_status();
 }
 
-IREE_API_EXPORT iree_host_size_t iree_hal_device_set_num_devices(iree_hal_device_set_t *devices) {
+IREE_API_EXPORT iree_host_size_t iree_hal_device_set_num_devices(iree_hal_device_set_t* devices) {
   return devices->count;
 }
 
