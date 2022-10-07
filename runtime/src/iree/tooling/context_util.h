@@ -9,6 +9,7 @@
 
 #include "iree/base/api.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/vm/api.h"
 
 #ifdef __cplusplus
@@ -86,6 +87,21 @@ iree_status_t iree_tooling_create_context_from_flags(
     iree_allocator_t host_allocator, iree_vm_context_t** out_context,
     iree_hal_device_t** out_device,
     iree_hal_allocator_t** out_device_allocator);
+
+// Creates a new VM context with the provided |user_modules| and dependent
+// system modules. The provided user module order is preserved.
+// The context is returned frozen.
+//
+// |default_device_uri| can be specified to provide a default if a device flag
+// is not provided by the user.
+// |out_device| will contain the created device if using the full HAL.
+// |out_device_allocator| can be used to allocate buffers for use with the
+// context and is available in all execution models.
+iree_status_t iree_tooling_create_context_set_from_flags(
+    iree_vm_instance_t* instance, iree_host_size_t user_module_count,
+    iree_vm_module_t** user_modules, iree_string_view_t default_device_uri,
+    iree_allocator_t host_allocator, iree_vm_context_t** out_context,
+    iree_hal_device_set_t* out_device_set);
 
 #ifdef __cplusplus
 }  // extern "C"
