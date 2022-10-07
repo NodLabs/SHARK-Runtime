@@ -15,6 +15,7 @@
 #include "iree/base/internal/span.h"
 #include "iree/base/status_cc.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/vm/api.h"
 #include "iree/vm/ref_cc.h"
 
@@ -35,6 +36,12 @@ Status ParseToVariantList(iree_hal_allocator_t* device_allocator,
                           iree::span<const std::string> input_strings,
                           iree_allocator_t host_allocator,
                           iree_vm_list_t** out_list);
+
+// Variant of the above for multiple devices
+Status ParseToVariantListMultipleDevices(iree_hal_device_set_t* devices,
+                                         iree::span<const std::string> input_strings,
+                                         iree_allocator_t host_allocator,
+                                         iree_vm_list_t** out_list);
 
 // Prints a variant list of VM scalars and buffers to |os|.
 // Prints scalars in the format:
