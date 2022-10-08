@@ -267,7 +267,7 @@ Status ParseToVariantListMultipleDevices(iree_hal_device_set_t* devices,
   iree_hal_device_t* device = NULL;
   iree_hal_allocator_t* device_allocator = NULL;
   for (size_t n = 0; n < num_devices; ++n) {
-    iree_hal_device_set_get(devices, n, device);
+    iree_hal_device_set_get(devices, n, &device);
     device_allocator = iree_hal_device_allocator(device);
     for (size_t i = 0; i < input_strings.size(); ++i) {
       iree_string_view_t input_view = iree_string_view_trim(iree_make_string_view(

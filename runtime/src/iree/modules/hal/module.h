@@ -11,6 +11,7 @@
 
 #include "iree/base/api.h"
 #include "iree/hal/api.h"
+#include "iree/hal/device_set.h"
 #include "iree/modules/hal/types.h"
 #include "iree/vm/api.h"
 
@@ -31,6 +32,11 @@ typedef uint32_t iree_hal_module_flags_t;
 // allocations.
 IREE_API_EXPORT iree_status_t iree_hal_module_create(
     iree_vm_instance_t* instance, iree_hal_device_t* device,
+    iree_hal_module_flags_t flags, iree_allocator_t host_allocator,
+    iree_vm_module_t** out_module);
+
+IREE_API_EXPORT iree_status_t iree_hal_module_set_create(
+    iree_vm_instance_t* instance, iree_hal_device_set_t* devices,
     iree_hal_module_flags_t flags, iree_allocator_t host_allocator,
     iree_vm_module_t** out_module);
 
