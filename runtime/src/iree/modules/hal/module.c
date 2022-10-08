@@ -104,10 +104,23 @@ iree_hal_module_alloc_state(void* self, iree_allocator_t host_allocator,
   }
 
   state->loop_status = iree_ok_status();
-  IREE_RETURN_AND_END_ZONE_IF_ERROR(
-      z0, iree_hal_executable_cache_create(
-              state->shared_device, iree_string_view_empty(),
-              iree_loop_inline(&state->loop_status), &state->executable_cache));
+  if (module->shared_devices) {
+    iree_host_size_t num_devices = 
+      iree_hal_device_set_num_devices(state->shared_devices);
+    for (int i = 0; i < num_devices; i++) {
+      iree_hal_device_t* device = NULL;
+      iree_hal_device_set_get(state->shared_devices, i, &device);
+      IREE_RETURN_AND_END_ZONE_IF_ERROR(
+          z0, iree_hal_executable_cache_create(
+                  device, iree_string_view_empty(),
+                  iree_loop_inline(&state->loop_status), &state->executable_cache));
+    }
+  } else {
+      IREE_RETURN_AND_END_ZONE_IF_ERROR(
+          z0, iree_hal_executable_cache_create(
+                  state->shared_device, iree_string_view_empty(),
+                  iree_loop_inline(&state->loop_status), &state->executable_cache));
+  }
 
   *out_module_state = (iree_vm_module_state_t*)state;
   IREE_TRACE_ZONE_END(z0);
@@ -160,7 +173,7 @@ IREE_VM_ABI_EXPORT(iree_hal_module_ex_shared_multi_device,  //
                    iree_hal_module_state_t,           //
                    i, r) {
   if (state->shared_devices) {
-    iree_status_t status = iree_hal_device_set_get(state->shared_devices, args->i0, state->shared_device);
+    iree_status_t status = iree_hal_device_set_get(state->shared_devices, args->i0, &state->shared_device);
     if (!iree_status_is_ok(status))
       return status;
   }
@@ -1415,6 +1428,52 @@ IREE_API_EXPORT iree_status_t iree_hal_module_create(
   module->flags = flags | IREE_HAL_MODULE_FLAG_SYNCHRONOUS;
   module->shared_device = device;
   iree_hal_device_retain(module->shared_device);
+
+  *out_module = base_module;
+  return iree_ok_status();
+}
+
+IREE_API_EXPORT iree_status_t iree_hal_module_set_create(
+    iree_vm_instance_t* instance, iree_hal_device_set_t* devices,
+    iree_hal_module_flags_t flags, iree_allocator_t host_allocator,
+    iree_vm_module_t** out_module) {
+  IREE_ASSERT_ARGUMENT(instance);
+  IREE_ASSERT_ARGUMENT(devices);
+  IREE_ASSERT_ARGUMENT(out_module);
+  *out_module = NULL;
+
+  // Setup the interface with the functions we implement ourselves. Any function
+  // we omit will be handled by the base native module.
+  static const iree_vm_module_t interface = {
+      .destroy = iree_hal_module_destroy,
+      .alloc_state = iree_hal_module_alloc_state,
+      .free_state = iree_hal_module_free_state,
+      .notify = iree_hal_module_notify,
+  };
+
+  // Allocate shared module state.
+  iree_host_size_t total_size =
+      iree_vm_native_module_size() + sizeof(iree_hal_module_t);
+  iree_vm_module_t* base_module = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_allocator_malloc(host_allocator, total_size, (void**)&base_module));
+  memset(base_module, 0, total_size);
+  iree_status_t status =
+      iree_vm_native_module_initialize(&interface, &iree_hal_module_descriptor_,
+                                       instance, host_allocator, base_module);
+  if (!iree_status_is_ok(status)) {
+    iree_allocator_free(host_allocator, base_module);
+    return status;
+  }
+
+  iree_hal_module_t* module = IREE_HAL_MODULE_CAST(base_module);
+  module->host_allocator = host_allocator;
+  // TODO(benvanik): fix vm yield with result storage.
+  module->flags = flags | IREE_HAL_MODULE_FLAG_SYNCHRONOUS;
+  module->shared_devices = devices;
+  // Set first device as active device
+  iree_hal_device_set_get(module->shared_devices, 0, &module->shared_device);
+  iree_hal_device_set_retain(module->shared_devices);
 
   *out_module = base_module;
   return iree_ok_status();

@@ -46,7 +46,7 @@ IREE_API_EXPORT iree_host_size_t iree_hal_device_set_num_devices(iree_hal_device
 IREE_API_EXPORT iree_status_t iree_hal_device_set_insert(iree_hal_device_set_t* devices, iree_hal_device_t *device);
 
 // Retrieves the ith device from the set of devices
-IREE_API_EXPORT iree_status_t iree_hal_device_set_get(iree_hal_device_set_t* devices, int i, iree_hal_device_t *device);
+IREE_API_EXPORT iree_status_t iree_hal_device_set_get(iree_hal_device_set_t* devices, int i, iree_hal_device_t **device);
 
 // Retains the given set of devices for the caller.
 IREE_API_EXPORT void iree_hal_device_set_retain(iree_hal_device_set_t* devices);

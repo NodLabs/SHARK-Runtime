@@ -32,12 +32,13 @@ IREE_API_EXPORT iree_status_t iree_hal_device_set_insert(iree_hal_device_set_t* 
   return iree_ok_status();
 }
 
-IREE_API_EXPORT iree_status_t iree_hal_device_set_get(iree_hal_device_set_t* device_set, int i, iree_hal_device_t *device) {
+IREE_API_EXPORT iree_status_t iree_hal_device_set_get(iree_hal_device_set_t* device_set, int i, iree_hal_device_t **device) {
   if (i >= device_set->count) {
     return iree_make_status(IREE_STATUS_OUT_OF_RANGE,
                             "index %d out of bounds (%zu)", i, device_set->count);
   }
-  device = device_set->devices[i];
+  if (device)
+    *device = device_set->devices[i];
   return iree_ok_status();
 }
 

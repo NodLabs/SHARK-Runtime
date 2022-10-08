@@ -12,6 +12,7 @@
 
 #include "iree/base/internal/file_io.h"
 #include "iree/base/internal/flags.h"
+#include "iree/base/internal/path.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/local/loaders/registration/init.h"
 #include "iree/modules/hal/inline/module.h"
@@ -131,6 +132,79 @@ static iree_status_t iree_tooling_load_hal_async_module(
   } else {
     iree_hal_allocator_release(device_allocator);
     iree_hal_device_release(device);
+    iree_vm_module_release(module);
+  }
+  IREE_TRACE_ZONE_END(z0);
+  return status;
+}
+
+static iree_status_t iree_tooling_load_hal_async_module_with_driver(
+    iree_vm_instance_t* instance, 
+    iree_host_size_t device_uri_count,
+    iree_string_view_t* device_uris,
+    iree_allocator_t host_allocator, iree_vm_module_t** out_module,
+    iree_hal_device_set_t** out_devices) {
+  IREE_ASSERT_ARGUMENT(instance);
+  IREE_ASSERT_ARGUMENT(out_module);
+  IREE_ASSERT_ARGUMENT(out_devices);
+  if (*out_devices) {
+    return iree_make_status(
+        IREE_STATUS_FAILED_PRECONDITION,
+        "async HAL module can not be used with other primary HAL module types");
+  }
+  *out_module = NULL;
+  *out_devices = NULL;
+  IREE_TRACE_ZONE_BEGIN(z0);
+
+  // Register required types before creating the module.
+  IREE_RETURN_AND_END_ZONE_IF_ERROR(
+      z0, iree_hal_module_register_all_types(instance));
+
+  // Create the driver to use.
+  assert(device_uri_count >= 1);
+  iree_hal_driver_registry_t *registry = iree_hal_available_driver_registry();
+  iree_string_view_t driver_name = iree_uri_schema(device_uris[0]);
+  iree_hal_driver_t* driver = NULL;
+  IREE_RETURN_AND_END_ZONE_IF_ERROR(
+      z0,
+      iree_hal_driver_registry_try_create(registry, driver_name, host_allocator,
+                                          &driver),
+      "creating driver for device '%.*s'", (int)device_uris[0].size,
+      device_uris[0].data);
+
+  // Create the device set to hold all the devices
+  iree_hal_device_set_t *devices;
+  IREE_RETURN_IF_ERROR(
+      iree_allocator_malloc(host_allocator, sizeof(iree_hal_device_set_t), (void**)&devices));
+  iree_hal_device_set_initialize(devices);
+
+  // Use the driver to create the devices by uri
+  for (int i = 0; i < device_uri_count; i++) {
+    iree_hal_device_t* device = NULL;
+    iree_status_t status = iree_hal_driver_create_device_by_uri(
+        driver, device_uris[i], host_allocator, &device);
+    if (!iree_status_is_ok(status))
+      return status;
+    status = iree_hal_device_set_insert(devices, device);
+    if (!iree_status_is_ok(status))
+      return status;
+  }
+
+  iree_hal_driver_release(driver);
+
+  IREE_TRACE_ZONE_END(z0);
+
+  // Create HAL module wrapping the devices created above.
+  iree_hal_module_flags_t flags = IREE_HAL_MODULE_FLAG_NONE;
+  iree_vm_module_t* module = NULL;
+  iree_status_t status =
+      iree_hal_module_set_create(instance, devices, flags, host_allocator, &module);
+
+  if (iree_status_is_ok(status)) {
+    *out_module = module;
+    *out_devices = devices;
+  } else {
+    iree_hal_device_set_release(devices);
     iree_vm_module_release(module);
   }
   IREE_TRACE_ZONE_END(z0);
@@ -296,7 +370,12 @@ typedef struct {
   iree_string_view_t default_device_uri;
   iree_hal_device_t* device;
   iree_hal_allocator_t* device_allocator;
+  // Multi-device
+  iree_hal_device_set_t* devices;
+  iree_host_size_t device_uri_count;
+  iree_string_view_t* device_uris;
 } iree_tooling_resolve_state_t;
+
 static iree_status_t iree_tooling_resolve_module_dependency(
     void* user_data_ptr, const iree_vm_module_dependency_t* dependency) {
   iree_tooling_resolve_state_t* state =
@@ -325,6 +404,42 @@ static iree_status_t iree_tooling_resolve_module_dependency(
   } else if (iree_string_view_equal(dependency->name, IREE_SV("vmvx"))) {
     IREE_RETURN_IF_ERROR(iree_vmvx_module_create(
         state->instance, state->host_allocator, &module));
+  } else if (iree_all_bits_set(dependency->flags,
+                               IREE_VM_MODULE_DEPENDENCY_FLAG_REQUIRED)) {
+    // Required but not found; fail.
+    return iree_make_status(
+        IREE_STATUS_NOT_FOUND,
+        "required module '%.*s' not registered on the context",
+        (int)dependency->name.size, dependency->name.data);
+  } else {
+    // Optional and not found; skip.
+    return iree_ok_status();
+  }
+
+  iree_status_t status =
+      iree_tooling_module_list_push_back(state->resolved_list, module);
+  iree_vm_module_release(module);
+  return status;
+}
+
+static iree_status_t iree_tooling_resolve_module_set_dependency(
+    void* user_data_ptr, const iree_vm_module_dependency_t* dependency) {
+  iree_tooling_resolve_state_t* state =
+      (iree_tooling_resolve_state_t*)user_data_ptr;
+  if (iree_tooling_module_list_contains(state->resolved_list,
+                                        dependency->name)) {
+    // Already registered (redundant system dep or another user module).
+    return iree_ok_status();
+  }
+
+  // Register one of the known modules. If we had a factory mechanism for
+  // resolving the modules we'd call out to that. Note that today this is not
+  // recursive but it could be in the future.
+  iree_vm_module_t* module = NULL;
+  if (iree_string_view_equal(dependency->name, IREE_SV("hal"))) {
+    IREE_RETURN_IF_ERROR(iree_tooling_load_hal_async_module_with_driver(
+        state->instance, state->device_uri_count, state->device_uris,
+        state->host_allocator, &module, &state->devices));
   } else if (iree_all_bits_set(dependency->flags,
                                IREE_VM_MODULE_DEPENDENCY_FLAG_REQUIRED)) {
     // Required but not found; fail.
@@ -404,6 +519,56 @@ iree_status_t iree_tooling_resolve_modules(
   } else {
     iree_hal_allocator_release(resolve_state.device_allocator);
     iree_hal_device_release(resolve_state.device);
+  }
+  IREE_TRACE_ZONE_END(z0);
+  return status;
+}
+
+iree_status_t iree_tooling_resolve_set_modules(
+    iree_vm_instance_t* instance, iree_host_size_t user_module_count,
+    iree_vm_module_t** user_modules, iree_host_size_t device_uri_count,
+    iree_string_view_t* device_uris,
+    iree_allocator_t host_allocator, iree_tooling_module_list_t* resolved_list,
+    iree_hal_device_set_t** out_devices) {
+  IREE_ASSERT_ARGUMENT(instance);
+  IREE_ASSERT_ARGUMENT(!user_module_count || user_modules);
+  IREE_ASSERT_ARGUMENT(resolved_list);
+  if (out_devices) *out_devices = NULL;
+  IREE_TRACE_ZONE_BEGIN(z0);
+
+  iree_tooling_resolve_state_t resolve_state = {
+      .instance = instance,
+      .host_allocator = host_allocator,
+      .resolved_list = resolved_list,
+      .device_uri_count = device_uri_count,
+      .device_uris = device_uris,
+      .devices = NULL,
+  };
+  iree_status_t status = iree_ok_status();
+  for (iree_host_size_t i = 0; i < user_module_count; ++i) {
+    iree_vm_module_t* user_module = user_modules[i];
+    status = iree_vm_module_enumerate_dependencies(
+        user_module, iree_tooling_resolve_module_set_dependency, &resolve_state);
+    if (!iree_status_is_ok(status)) {
+      iree_string_view_t module_name = iree_vm_module_name(user_module);
+      (void)module_name;
+      status =
+          iree_status_annotate_f(status, "resolving dependencies for '%.*s'",
+                                 (int)module_name.size, module_name.data);
+      break;
+    }
+    status = iree_tooling_module_list_push_back(resolved_list, user_modules[i]);
+    if (!iree_status_is_ok(status)) break;
+  }
+
+  if (iree_status_is_ok(status)) {
+    if (out_devices) {
+      *out_devices = resolve_state.devices;
+    } else {
+      iree_hal_device_set_release(resolve_state.devices);
+    }
+  } else {
+    iree_hal_device_set_release(resolve_state.devices);
   }
   IREE_TRACE_ZONE_END(z0);
   return status;
@@ -510,70 +675,69 @@ iree_status_t iree_tooling_create_context_from_flags(
 
 iree_status_t iree_tooling_create_context_set_from_flags(
     iree_vm_instance_t* instance, iree_host_size_t user_module_count,
-    iree_vm_module_t** user_modules, iree_string_view_t default_device_uri,
+    iree_vm_module_t** user_modules, iree_host_size_t device_uri_count, 
+    iree_string_view_t* device_uris,
     iree_allocator_t host_allocator, iree_vm_context_t** out_context,
-    iree_hal_device_set_t* out_devices) {
+    iree_hal_device_set_t** out_devices) {
   IREE_ASSERT_ARGUMENT(instance);
   IREE_ASSERT_ARGUMENT(!user_module_count || user_modules);
   IREE_ASSERT_ARGUMENT(out_context);
   *out_context = NULL;
-  if (out_devices) out_devices = NULL;
-  iree_host_size_t num_devices = iree_hal_device_set_num_devices(out_devices);
+  if (out_devices) *out_devices = NULL;
   IREE_TRACE_ZONE_BEGIN(z0);
 
   // Resolve all module dependencies into an ordered list.
   // All modules are retained in the list.
-  iree_hal_device_t* device = NULL;
-  iree_hal_allocator_t* device_allocator = NULL;
-  for (int n = 0; n < num_devices; n++) {
-    iree_tooling_module_list_t resolved_list;
-    iree_tooling_module_list_initialize(&resolved_list);
-    iree_hal_device_set_get(out_devices, n, device);
-    device_allocator = iree_hal_device_allocator(device);
-    IREE_RETURN_AND_END_ZONE_IF_ERROR(
-      z0, iree_tooling_resolve_modules(
-              instance, user_module_count, user_modules, default_device_uri,
-              host_allocator, &resolved_list, &device, &device_allocator));
-    
-    iree_vm_context_flags_t flags = IREE_VM_CONTEXT_FLAG_NONE;
-    if (FLAG_trace_execution) {
-      // This enables tracing for all invocations but even if not set each
-      // invocation can have the flag specified to trace.
-      flags |= IREE_VM_CONTEXT_FLAG_TRACE_EXECUTION;
-    }
+  iree_hal_device_set_t *devices;
+  iree_tooling_module_list_t resolved_list;
+  iree_tooling_module_list_initialize(&resolved_list);
+  IREE_RETURN_AND_END_ZONE_IF_ERROR(
+    z0, iree_tooling_resolve_set_modules(
+            instance, user_module_count, user_modules, 
+            device_uri_count, device_uris,
+            host_allocator, &resolved_list, &devices));
 
-    // Create the context with the full list of resolved modules.
-    // The context retains the modules and we can release them afterward.
-    iree_vm_context_t* context = NULL;
-    iree_status_t status = iree_vm_context_create_with_modules(
-        instance, flags, resolved_list.count, resolved_list.values,
-        host_allocator, &context);
-    iree_tooling_module_list_reset(&resolved_list);
+  iree_vm_context_flags_t flags = IREE_VM_CONTEXT_FLAG_NONE;
+  if (FLAG_trace_execution) {
+    // This enables tracing for all invocations but even if not set each
+    // invocation can have the flag specified to trace.
+    flags |= IREE_VM_CONTEXT_FLAG_TRACE_EXECUTION;
+  }
 
-    // If no device allocator was created we'll create a default one just so that
-    // callers have something to create buffer views from. This isn't strictly
-    // required but a lot of tests do things like pass in buffers even if no HAL
-    // methods are used and the HAL module is not needed.
+  // Create the context with the full list of resolved modules.
+  // The context retains the modules and we can release them afterward.
+  iree_vm_context_t* context = NULL;
+  iree_status_t status = iree_vm_context_create_with_modules(
+      instance, flags, resolved_list.count, resolved_list.values,
+      host_allocator, &context);
+  iree_tooling_module_list_reset(&resolved_list);
+
+  // If no device allocator was created we'll create a default one just so that
+  // callers have something to create buffer views from. This isn't strictly
+  // required but a lot of tests do things like pass in buffers even if no HAL
+  // methods are used and the HAL module is not needed.
+  for (int i = 0; i < device_uri_count; i++) {
+    iree_hal_device_t* device = NULL;
+    iree_hal_device_set_get(devices, i, &device);
+    iree_hal_allocator_t* device_allocator = iree_hal_device_allocator(device);
     if (iree_status_is_ok(status) && !device_allocator) {
       status = iree_tooling_create_inline_device_allocator_from_flags(
           host_allocator, &device_allocator);
     }
-
-    if (iree_status_is_ok(status)) {
-      *out_context = context;
-      if (!device_allocator) {
-        iree_hal_allocator_release(device_allocator);
-      }
-      if (!device) {
-        iree_hal_device_release(device);
-      }
-    } else {
-      iree_hal_allocator_release(device_allocator);
-      iree_hal_device_release(device);
-      iree_vm_context_release(context);
-      return status;
-    }
-    IREE_TRACE_ZONE_END(z0);
   }
+
+  if (iree_status_is_ok(status)) {
+    *out_context = context;
+    if (out_devices) {
+      *out_devices = devices;
+    } else {
+      iree_hal_device_set_release(devices);
+    }
+  } else {
+    iree_hal_device_set_release(devices);
+    iree_vm_context_release(context);
+    return status;
+  }
+  IREE_TRACE_ZONE_END(z0);
   return iree_ok_status();
 }

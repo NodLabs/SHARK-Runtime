@@ -22,6 +22,7 @@
 #include "iree/modules/hal/types.h"
 #include "iree/tooling/comparison.h"
 #include "iree/tooling/context_util.h"
+#include "iree/tooling/device_util.h"
 #include "iree/tooling/vm_util.h"
 #include "iree/tooling/vm_util_cc.h"
 #include "iree/vm/api.h"
@@ -103,15 +104,17 @@ iree_status_t Run(int* out_exit_code) {
 
   iree_vm_context_t* context = NULL;
 
-  iree_hal_device_set_t* devices = (iree_hal_device_set_t*)iree_alloca(sizeof(iree_hal_device_set_t));
-  iree_hal_device_set_initialize(devices);
+  iree_host_size_t device_uri_count = 0;
+  iree_string_view_t* device_uris = NULL;
+  iree_hal_get_devices_flag_list(&device_uri_count, &device_uris);
 
+  iree_hal_device_set_t* devices = NULL;
   iree_hal_device_t* device = NULL;
   iree_hal_allocator_t* device_allocator = NULL;
   IREE_RETURN_IF_ERROR(iree_tooling_create_context_set_from_flags(
       instance, /*user_module_count=*/1, /*user_modules=*/&main_module,
-      /*default_device_uri=*/iree_string_view_empty(), host_allocator, &context,
-      devices));
+      device_uri_count, device_uris, host_allocator, &context,
+      &devices));
 
   std::string function_name = std::string(FLAG_entry_function);
   iree_vm_function_t function;
