@@ -266,86 +266,85 @@ Status ParseToVariantListMultipleDevices(iree_hal_device_set_t* devices,
       &variant_list));
   iree_hal_device_t* device = NULL;
   iree_hal_allocator_t* device_allocator = NULL;
-  for (size_t n = 0; n < num_devices; ++n) {
-    iree_hal_device_set_get(devices, n, &device);
-    device_allocator = iree_hal_device_allocator(device);
-    for (size_t i = 0; i < input_strings.size(); ++i) {
-      iree_string_view_t input_view = iree_string_view_trim(iree_make_string_view(
-          input_strings[i].data(), input_strings[i].size()));
-      if (iree_string_view_consume_prefix(&input_view, IREE_SV("@"))) {
-        IREE_RETURN_IF_ERROR(iree_tooling_load_ndarrays_from_file(
-            input_view, device_allocator, variant_list.get()));
-        continue;
-      } else if (iree_string_view_equal(input_view, IREE_SV("(null)")) ||
-                 iree_string_view_equal(input_view, IREE_SV("(ignored)"))) {
-        iree_vm_ref_t null_ref = iree_vm_ref_null();
-        IREE_RETURN_IF_ERROR(
-            iree_vm_list_push_ref_retain(variant_list.get(), &null_ref));
-        continue;
+  // Use active device for any device allocations
+  iree_hal_device_set_get(devices, 0, &device);
+  device_allocator = iree_hal_device_allocator(device);
+  for (size_t i = 0; i < input_strings.size(); ++i) {
+    iree_string_view_t input_view = iree_string_view_trim(iree_make_string_view(
+        input_strings[i].data(), input_strings[i].size()));
+    if (iree_string_view_consume_prefix(&input_view, IREE_SV("@"))) {
+      IREE_RETURN_IF_ERROR(iree_tooling_load_ndarrays_from_file(
+          input_view, device_allocator, variant_list.get()));
+      continue;
+    } else if (iree_string_view_equal(input_view, IREE_SV("(null)")) ||
+               iree_string_view_equal(input_view, IREE_SV("(ignored)"))) {
+      iree_vm_ref_t null_ref = iree_vm_ref_null();
+      IREE_RETURN_IF_ERROR(
+          iree_vm_list_push_ref_retain(variant_list.get(), &null_ref));
+      continue;
+    }
+    bool has_equal =
+        iree_string_view_find_char(input_view, '=', 0) != IREE_STRING_VIEW_NPOS;
+    bool has_x =
+        iree_string_view_find_char(input_view, 'x', 0) != IREE_STRING_VIEW_NPOS;
+    if (has_equal || has_x) {
+      // Buffer view (either just a shape or a shape=value) or buffer.
+      bool is_storage_reference = iree_string_view_consume_prefix(
+          &input_view, iree_make_cstring_view("&"));
+      iree_hal_buffer_view_t* buffer_view = nullptr;
+      bool has_at = iree_string_view_find_char(input_view, '@', 0) !=
+                    IREE_STRING_VIEW_NPOS;
+      if (has_at) {
+        // Referencing an external file; split into the portion used to
+        // initialize the buffer view and the file contents.
+        iree_string_view_t metadata, file_path;
+        iree_string_view_split(input_view, '@', &metadata, &file_path);
+        iree_string_view_consume_suffix(&metadata, iree_make_cstring_view("="));
+        IREE_RETURN_IF_ERROR(CreateBufferViewFromFile(
+            metadata, file_path, device_allocator, &buffer_view));
+      } else {
+        IREE_RETURN_IF_ERROR(iree_hal_buffer_view_parse(
+                                 input_view, device_allocator, &buffer_view),
+                             "parsing value '%.*s'", (int)input_view.size,
+                             input_view.data);
       }
-      bool has_equal =
-          iree_string_view_find_char(input_view, '=', 0) != IREE_STRING_VIEW_NPOS;
-      bool has_x =
-          iree_string_view_find_char(input_view, 'x', 0) != IREE_STRING_VIEW_NPOS;
-      if (has_equal || has_x) {
-        // Buffer view (either just a shape or a shape=value) or buffer.
-        bool is_storage_reference = iree_string_view_consume_prefix(
-            &input_view, iree_make_cstring_view("&"));
-        iree_hal_buffer_view_t* buffer_view = nullptr;
-        bool has_at = iree_string_view_find_char(input_view, '@', 0) !=
-                      IREE_STRING_VIEW_NPOS;
-        if (has_at) {
-          // Referencing an external file; split into the portion used to
-          // initialize the buffer view and the file contents.
-          iree_string_view_t metadata, file_path;
-          iree_string_view_split(input_view, '@', &metadata, &file_path);
-          iree_string_view_consume_suffix(&metadata, iree_make_cstring_view("="));
-          IREE_RETURN_IF_ERROR(CreateBufferViewFromFile(
-              metadata, file_path, device_allocator, &buffer_view));
-        } else {
-          IREE_RETURN_IF_ERROR(iree_hal_buffer_view_parse(
-                                   input_view, device_allocator, &buffer_view),
-                               "parsing value '%.*s'", (int)input_view.size,
-                               input_view.data);
-        }
-        if (is_storage_reference) {
-          // Storage buffer reference; just take the storage for the buffer view -
-          // it'll still have whatever contents were specified (or 0) but we'll
-          // discard the metadata.
-          auto buffer_ref = iree_hal_buffer_retain_ref(
-              iree_hal_buffer_view_buffer(buffer_view));
-          iree_hal_buffer_view_release(buffer_view);
-          IREE_RETURN_IF_ERROR(
-              iree_vm_list_push_ref_move(variant_list.get(), &buffer_ref));
-        } else {
-          auto buffer_view_ref = iree_hal_buffer_view_move_ref(buffer_view);
-          IREE_RETURN_IF_ERROR(
-              iree_vm_list_push_ref_move(variant_list.get(), &buffer_view_ref));
+      if (is_storage_reference) {
+        // Storage buffer reference; just take the storage for the buffer view -
+        // it'll still have whatever contents were specified (or 0) but we'll
+        // discard the metadata.
+        auto buffer_ref = iree_hal_buffer_retain_ref(
+            iree_hal_buffer_view_buffer(buffer_view));
+        iree_hal_buffer_view_release(buffer_view);
+        IREE_RETURN_IF_ERROR(
+            iree_vm_list_push_ref_move(variant_list.get(), &buffer_ref));
+      } else {
+        auto buffer_view_ref = iree_hal_buffer_view_move_ref(buffer_view);
+        IREE_RETURN_IF_ERROR(
+            iree_vm_list_push_ref_move(variant_list.get(), &buffer_view_ref));
+      }
+    } else {
+      // Scalar.
+      bool has_dot = iree_string_view_find_char(input_view, '.', 0) !=
+                     IREE_STRING_VIEW_NPOS;
+      iree_vm_value_t val;
+      if (has_dot) {
+        // Float.
+        val = iree_vm_value_make_f32(0.0f);
+        if (!iree_string_view_atof(input_view, &val.f32)) {
+          return iree_make_status(IREE_STATUS_INVALID_ARGUMENT,
+                                  "parsing value '%.*s' as f32",
+                                  (int)input_view.size, input_view.data);
         }
       } else {
-        // Scalar.
-        bool has_dot = iree_string_view_find_char(input_view, '.', 0) !=
-                       IREE_STRING_VIEW_NPOS;
-        iree_vm_value_t val;
-        if (has_dot) {
-          // Float.
-          val = iree_vm_value_make_f32(0.0f);
-          if (!iree_string_view_atof(input_view, &val.f32)) {
-            return iree_make_status(IREE_STATUS_INVALID_ARGUMENT,
-                                    "parsing value '%.*s' as f32",
-                                    (int)input_view.size, input_view.data);
-          }
-        } else {
-          // Integer.
-          val = iree_vm_value_make_i32(0);
-          if (!iree_string_view_atoi_int32(input_view, &val.i32)) {
-            return iree_make_status(IREE_STATUS_INVALID_ARGUMENT,
-                                    "parsing value '%.*s' as i32",
-                                    (int)input_view.size, input_view.data);
-          }
+        // Integer.
+        val = iree_vm_value_make_i32(0);
+        if (!iree_string_view_atoi_int32(input_view, &val.i32)) {
+          return iree_make_status(IREE_STATUS_INVALID_ARGUMENT,
+                                  "parsing value '%.*s' as i32",
+                                  (int)input_view.size, input_view.data);
         }
-        IREE_RETURN_IF_ERROR(iree_vm_list_push_value(variant_list.get(), &val));
       }
+      IREE_RETURN_IF_ERROR(iree_vm_list_push_value(variant_list.get(), &val));
     }
   }
   *out_list = variant_list.release();
