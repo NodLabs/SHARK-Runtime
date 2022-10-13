@@ -156,7 +156,8 @@ static ExecutableOp createExecutable(Location loc, StringRef executableName,
 }
 
 // Converts a dispatch region op into a dispatch op to the outlined region.
-static LogicalResult convertToDispatchOp(DispatchWorkgroupsOp regionOp,
+template <typename DispatchOpType>
+static LogicalResult convertToDispatchOp(DispatchOpType regionOp,
                                          ExecutableOp executableOp,
                                          ExecutableExportOp exportOp) {
   // Insert at the same place as the original region.
@@ -251,6 +252,36 @@ static LogicalResult outlineDispatchWorkgroupsOp(
   return convertToDispatchOp(regionOp, executableOp, exportOp);
 }
 
+// Outlines a dispatch region into a flow.executable and replaces the region op
+// with a dispatch to that outlined executable.
+static LogicalResult outlineDispatchCollectivesOp(
+    std::string executableOpName, std::string exportOpName,
+    DispatchCollectivesOp regionOp) {
+  // Convert the region to a free-floating function.
+  auto collectivesFuncOp = createWorkgroupFunc(regionOp.getLoc(), exportOpName,
+                                               regionOp.getCollectivesBody());
+  if (!collectivesFuncOp) {
+    return failure();
+  }
+
+  // Create the executable with the region cloned into it.
+  auto parentFuncOp = regionOp->getParentOfType<FunctionOpInterface>();
+  auto executableOp =
+      createExecutable(regionOp.getLoc(), executableOpName, {collectivesFuncOp},
+                       parentFuncOp->getParentOfType<mlir::ModuleOp>());
+  executableOp.getOperation()->moveBefore(parentFuncOp);
+  executableOp.setPrivate();
+
+  // Add an export pointing at the entry point function.
+  OpBuilder builder(executableOp.getBody());
+  auto exportOp = builder.create<ExecutableExportOp>(
+      regionOp.getLoc(), collectivesFuncOp.getName(),
+      SymbolRefAttr::get(collectivesFuncOp));
+
+  // Finally convert the dispatch region into a dispatch to the outlined func.
+  return convertToDispatchOp(regionOp, executableOp, exportOp);
+}
+
 }  // namespace
 
 class OutlineDispatchRegionsPass
@@ -298,6 +329,23 @@ class OutlineDispatchRegionsPass
         std::string exportOpName = executableOpName + opSuffix;
         if (failed(outlineDispatchWorkgroupsOp(executableOpName, exportOpName,
                                                dispatchWorkgroupsOps[i]))) {
+          return signalPassFailure();
+        }
+      }
+
+      auto dispatchCollectivesOps =
+          llvm::to_vector<8>(bodyRegion.getOps<DispatchCollectivesOp>());
+      for (int i = 0; i < dispatchCollectivesOps.size(); ++i) {
+        std::string executableOpName =
+            (namePrefix + "_dispatch_collectives_" + llvm::Twine(i)).str();
+        // Add a summary of the op as a suffix, if one can be generated.
+        // Note: the executable names omit this suffix so their names are more
+        // predictable.
+        LLVM_DEBUG(llvm::dbgs()
+                   << "//--- summarizing '" << executableOpName << "' ---//\n");
+        if (failed(outlineDispatchCollectivesOp(executableOpName,
+                                                executableOpName,
+                                                dispatchCollectivesOps[i]))) {
           return signalPassFailure();
         }
       }
