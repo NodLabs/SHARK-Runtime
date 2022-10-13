@@ -336,6 +336,7 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
   let summary = [{dispatch that contains only collective communication operations}];
 
   let arguments = (ins
+    Variadic<FLOW_Dim>:$workload,
     Variadic<AnyType>:$arguments,
     FLOW_ShapeDynamicDims:$argument_dims,
     FLOW_ShapeDynamicDims:$result_dims,
@@ -351,6 +352,7 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
 
   let builders = [
     OpBuilder<(ins
+      "ValueRange":$workload,
       "TypeRange":$resultTypes, "ValueRange":$resultDims,
       "ValueRange":$arguments, "ValueRange":$argumentDims,
       "ArrayRef<int64_t>":$tiedOperands,
@@ -359,7 +361,7 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
 
   let extraClassDeclaration = [{
     ValueRange getOperandDynamicDims(unsigned idx) {
-      return IREE::Util::findVariadicDynamicDims(idx, getArguments(), getArgumentDims());
+      return IREE::Util::findVariadicDynamicDims(idx - getWorkload().size(), getArguments(), getArgumentDims());
     }
 
     ValueRange getResultDynamicDims(unsigned idx) {
@@ -391,6 +393,7 @@ def FLOW_DispatchCollectivesOp : FLOW_PureOp<"dispatch.collectives", [
   }];
 
   let assemblyFormat = [{
+    (`[` $workload^ `]`)? ``
     `(` $arguments `)` `:`
     custom<ShapedFunctionType>(ref($arguments),
                                 type($arguments), $argument_dims,

@@ -7,6 +7,7 @@
 #include "iree/compiler/Dialect/Flow/Transforms/PassDetail.h"
 #include "iree/compiler/Dialect/Flow/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
@@ -63,7 +64,7 @@ static LogicalResult computeDispatchResultTypeAndDynamicDims(
 /// All the necessary operands are transiently captured and rewritten late as
 /// operands. This greatly simplifies transformations into the resulting op.
 FailureOr<SmallVector<Operation *>> buildOperandLessFlowDispatchCollectivesOp(
-    PatternRewriter &rewriter, Location loc,
+    PatternRewriter &rewriter, Location loc, ArrayRef<Value> workload,
     ArrayRef<Operation *> dispatchOps) {
   SmallVector<Value> resultDynamicDims;
   SmallVector<Type> resultTypes;
@@ -83,7 +84,7 @@ FailureOr<SmallVector<Operation *>> buildOperandLessFlowDispatchCollectivesOp(
 
   // 2. Create a dispatch op with just the `flow.return` terminator.
   auto dispatchOp = rewriter.create<IREE::Flow::DispatchCollectivesOp>(
-      loc, resultTypes, resultDynamicDims,
+      loc, workload, resultTypes, resultDynamicDims,
       /*arguments=*/ArrayRef<Value>{},
       /*argument_dims=*/ArrayRef<Value>{},
       /*tiedOperands=*/ArrayRef<int64_t>{});
@@ -145,6 +146,13 @@ FailureOr<SmallVector<Operation *>> buildOperandLessFlowDispatchCollectivesOp(
   return clonedOps;
 }
 
+static SmallVector<Value> getWorkloadForRootOp(OpBuilder &builder,
+                                               Operation *rootOp) {
+  Location loc = rootOp->getLoc();
+  Value count = builder.create<arith::ConstantIndexOp>(loc, 1);
+  return {count};
+}
+
 template <typename OpType, template <typename> class Base>
 struct CreateCollectivesDispatchRegionOp : Base<OpType> {
   using Base<OpType>::Base;
@@ -156,9 +164,16 @@ struct CreateCollectivesDispatchRegionOp : Base<OpType> {
       return failure();
     }
 
+    // Get the workload to use for the dispatch.
+    FailureOr<SmallVector<Value>> workload =
+        getWorkloadForRootOp(rewriter, op.getOperation());
+    if (failed(workload)) {
+      return failure();
+    }
+
     SmallVector<Operation *> dispatchOps = {op};
     auto clonedOps = buildOperandLessFlowDispatchCollectivesOp(
-        rewriter, op.getLoc(), dispatchOps);
+        rewriter, op.getLoc(), workload.value(), dispatchOps);
     if (failed(clonedOps)) {
       return failure();
     }
@@ -273,8 +288,8 @@ LogicalResult legalizeDispatchCollectivesOperands(
   auto operandSegmentSizes = dispatchOp->getAttrOfType<DenseI32ArrayAttr>(
       dispatchOp.getOperandSegmentSizesAttrName());
   auto newValues = llvm::to_vector<4>(operandSegmentSizes.asArrayRef());
-  newValues[0] = numOperands;
-  newValues[1] = numOperandDims;
+  newValues[1] = numOperands;
+  newValues[2] = numOperandDims;
   dispatchOp->setAttr(dispatchOp.getOperandSegmentSizesAttrName(),
                       b.getDenseI32ArrayAttr(newValues));
   return success();
