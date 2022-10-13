@@ -1,4 +1,4 @@
-// RUN: iree-opt --split-input-file --verify-diagnostics --iree-flow-enable-multi-result-dispatches --pass-pipeline="func.func(iree-flow-dispatch-ccl-pass), cse, canonicalize, cse" %s | FileCheck %s
+// RUN: iree-opt --split-input-file --verify-diagnostics --pass-pipeline="func.func(iree-flow-dispatch-ccl-pass), cse, canonicalize, cse" %s | FileCheck %s
 
 func.func @receive(
     %rank : index,
@@ -12,7 +12,9 @@ func.func @receive(
 // CHECK-SAME:   %[[rank:[a-zA-Z0-9_]+]]: index
 // CHECK-SAME:   %[[communicator:[a-zA-Z0-9_]+]]: !ccl.communicator
 // CHECK-SAME:   %[[chain:[a-zA-Z0-9_]+]]: !ccl.chain
+//      CHECK:     %[[one:[a-zA-Z0-9_]+]] = arith.constant 1 : index
 //      CHECK:     %[[res:[a-zA-Z0-9_]+]]:2 = flow.dispatch.collectives
+// CHECK-SAME:     [%[[one]]]
 // CHECK-SAME:     (%[[rank]], %[[communicator]], %[[chain]])
 // CHECK-NEXT:     %[[rank0:[a-zA-Z0-9_]+]]: index
 // CHECK-SAME:     %[[communicator0:[a-zA-Z0-9_]+]]: !ccl.communicator

@@ -1574,11 +1574,13 @@ void populateTensorSliceOpWithDispatchTensorOpFoldingPatterns(
 }
 
 void DispatchCollectivesOp::build(OpBuilder &builder, OperationState &state,
-                                  TypeRange resultTypes, ValueRange resultDims,
-                                  ValueRange arguments, ValueRange argumentDims,
+                                  ValueRange workload, TypeRange resultTypes,
+                                  ValueRange resultDims, ValueRange arguments,
+                                  ValueRange argumentDims,
                                   ArrayRef<int64_t> tiedOperands,
                                   ArrayRef<NamedAttribute> attributes) {
   state.addTypes(resultTypes);
+  state.addOperands(workload);
   state.addOperands(arguments);
   state.addOperands(argumentDims);
   state.addOperands(resultDims);
@@ -1589,6 +1591,7 @@ void DispatchCollectivesOp::build(OpBuilder &builder, OperationState &state,
   state.attributes.erase(getOperandSegmentSizeAttr());
   state.addAttribute(getOperandSegmentSizeAttr(),
                      builder.getDenseI32ArrayAttr({
+                         static_cast<int32_t>(workload.size()),
                          static_cast<int32_t>(arguments.size()),
                          static_cast<int32_t>(argumentDims.size()),
                          static_cast<int32_t>(resultDims.size()),
@@ -1710,8 +1713,8 @@ DispatchCollectivesOp::cloneReplacementExcludingOperandsAndResults(
       excludedOperandIndices, excludedResultIndices, newTiedOperandIndices);
 
   auto newOp = rewriter.create<DispatchCollectivesOp>(
-      getLoc(), newResultTypes, newResultDims, newArguments, newArgumentDims,
-      newTiedOperandIndices, getOperation()->getAttrs());
+      getLoc(), getWorkload(), newResultTypes, newResultDims, newArguments,
+      newArgumentDims, newTiedOperandIndices, getOperation()->getAttrs());
   auto &newBody = newOp.getClosureBodyRegion();
   newBody.takeBody(getClosureBodyRegion());
 
