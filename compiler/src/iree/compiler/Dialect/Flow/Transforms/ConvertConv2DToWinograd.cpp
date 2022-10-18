@@ -82,7 +82,6 @@ class ConvertConv2DNhwcHwcf final
     }
 
     SmallVector<AffineExpr> first, second;
-    ValueRange inputs;
     if (tensorRank == 4) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
@@ -105,7 +104,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[5]);
       first = inputExprs;
       second = transformExprs;
-      inputs = ValueRange({tensor, transform});
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -125,7 +123,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[6]);
       first = transformExprs;
       second = inputExprs;
-      inputs = ValueRange({transform, tensor});
 
     }
      
@@ -142,7 +139,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     return rewriter.create<linalg::GenericOp>(loc, transformedType, 
-      inputs, accumulator,
+      ValueRange({tensor, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
         Value result = createMatmulBody(args, elementTy, loc, rewriter);
@@ -160,15 +157,12 @@ class ConvertConv2DNhwcHwcf final
                                   Location loc, PatternRewriter &rewriter) {
 
     auto tensorType = tensor.getType().cast<ShapedType>();
-    auto tensorShape = tensorType.getShape();
+    auto tensorRank = tensorType.getRank();
     auto elementTy = tensorType.getElementType();
     auto transformedType = RankedTensorType::get(outputShape, elementTy);
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, outputShape, elementTy);
     Value zero = rewriter.create<arith::ConstantOp>(loc, rewriter.getZeroAttr(elementTy));
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
-
-    auto transformType = transform.getType().cast<ShapedType>();
-    auto transformShape = transformType.getShape();
 
     SmallVector<AffineExpr> idExprs;
     int64_t iterationSpaceDim = 5;
@@ -182,8 +176,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     SmallVector<AffineExpr> first, second;
-    ValueRange inputs;
-    if (transformShape[0] == tensorShape[3]) {
+    if (tensorRank == 4) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
       //              C   F   H   T   H
@@ -197,7 +190,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[3]);
       first = inputExprs;
       second = transformExprs;
-      inputs = ValueRange({tensor, transform});
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -213,7 +205,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[4]);
       first = transformExprs;
       second = inputExprs;
-      inputs = ValueRange({transform, tensor});
     }
      
     SmallVector<AffineMap> indexingMaps = {
@@ -247,13 +238,12 @@ class ConvertConv2DNhwcHwcf final
                                  Location loc, PatternRewriter &rewriter) {
 
     auto tensorType = tensor.getType().cast<ShapedType>();
+    auto tensorRank = tensorType.getRank();
     auto elementTy = tensorType.getElementType();
     auto transformedType = RankedTensorType::get(outputShape, elementTy);
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, outputShape, elementTy);
     Value zero = rewriter.create<arith::ConstantOp>(loc, rewriter.getZeroAttr(elementTy));
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
-    auto transformType = transform.getType().cast<ShapedType>();
-    auto transformShape = transformType.getShape();
 
     SmallVector<AffineExpr> idExprs;
     int64_t iterationSpaceDim = 7;
@@ -267,8 +257,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     SmallVector<AffineExpr> first, second;
-    ValueRange inputs;
-    if (transformShape[1] == outputTileSize) {
+    if (tensorRank == 6) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
       //              N   H   W   C   T   P   T
@@ -283,7 +272,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[5]);
       first = inputExprs;
       second = transformExprs;
-      inputs = ValueRange({tensor, transform});
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -300,7 +288,6 @@ class ConvertConv2DNhwcHwcf final
       transformExprs.push_back(idExprs[6]);
       first = transformExprs;
       second = inputExprs;
-      inputs = ValueRange({transform, tensor});
 
     }
      
@@ -317,7 +304,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     return rewriter.create<linalg::GenericOp>(loc, transformedType, 
-      inputs, accumulator,
+      ValueRange({tensor, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
         Value result = createMatmulBody(args, elementTy, loc, rewriter);
@@ -370,20 +357,18 @@ class ConvertConv2DNhwcHwcf final
     SmallVector<AffineExpr> inputExprs, outputExprs;
     for (unsigned i = 0; i < tensorRank; i++) {
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
-      outputExprs.push_back(idExprs[i]);
+      inputExprs.push_back(idExprs[i]);
     }
 
     // ------------------------------------------------------------------------------
-    //              N   H   W   C 
+    //              N   H   W   C   T   T 
     // ------------------------------------------------------------------------------
-    // Input Map (d0, d1, d2, d3) -> (d0, d1/outputTile, d2/outputTile, d3, d1 % outputTile, d2 % outputTile)
-    // Output Map  (d0, d1, d2, d3) -> (d0, d1, d2, d3)
-    inputExprs.push_back(idExprs[0]);
-    inputExprs.push_back(idExprs[1].floorDiv(outputTileSize));
-    inputExprs.push_back(idExprs[2].floorDiv(outputTileSize));
-    inputExprs.push_back(idExprs[3]);
-    inputExprs.push_back(idExprs[1] % outputTileSize);
-    inputExprs.push_back(idExprs[2] % outputTileSize);
+    // Input Map   (d0, d1, d2, d3, d4, d5) -> (d0, d1, d2, d3, d4, d5)
+    // Output Map  (d0, d1, d2, d3, d4, d5) -> (d0, outputTile * d1 + d4, outputTile * d2 + d5, d3)
+    outputExprs.push_back(idExprs[0]);
+    outputExprs.push_back(idExprs[1] * outputTileSize + idExprs[4]);
+    outputExprs.push_back(idExprs[2] * outputTileSize + idExprs[5]);
+    outputExprs.push_back(idExprs[3]);
 
     SmallVector<AffineMap> indexingMaps = {
       AffineMap::get(tensorRank, 0, inputExprs, rewriter.getContext()),
@@ -402,40 +387,22 @@ class ConvertConv2DNhwcHwcf final
 
   static Value createCollapse(Value tensor, Location loc, PatternRewriter &rewriter,
                               SmallVectorImpl<int64_t> &outputShape,
-                              std::vector<std::vector<int>> &reassociations) {
+                              SmallVectorImpl<ReassociationIndices> &reassociations) {
     auto tensorType = tensor.getType().cast<ShapedType>();
     auto elementTy = tensorType.getElementType();
-    SmallVector<ReassociationExprs, 4> reassociationMap;
-    reassociationMap.resize(reassociations.size());
-    for (int i = 0; i < reassociations.size(); i++) {
-      SmallVector<AffineExpr, 2> exprs;
-      for (int j = 0; j < reassociationMap[i].size(); j++) {
-        exprs.push_back(rewriter.getAffineDimExpr(reassociations[i][j]));
-      }
-      reassociationMap[i] = exprs;
-    }
     auto resultType = RankedTensorType::get(outputShape, elementTy);
     return rewriter.create<tensor::CollapseShapeOp>(loc, resultType,
-            tensor, reassociationMap);
+            tensor, reassociations);
   }
 
   static Value createExpand(Value tensor, Location loc, PatternRewriter &rewriter,
                             SmallVectorImpl<int64_t> &outputShape,
-                            std::vector<std::vector<int>> &reassociations) {
+                            SmallVectorImpl<ReassociationIndices> &reassociations) {
     auto tensorType = tensor.getType().cast<ShapedType>();
     auto elementTy = tensorType.getElementType();
-    SmallVector<ReassociationExprs, 4> reassociationMap;
-    reassociationMap.resize(reassociations.size());
-    for (int i = 0; i < reassociations.size(); i++) {
-      SmallVector<AffineExpr, 2> exprs;
-      for (int j = 0; j < reassociationMap[i].size(); j++) {
-        exprs.push_back(rewriter.getAffineDimExpr(reassociations[i][j]));
-      }
-      reassociationMap[i] = exprs;
-    }
     auto resultType = RankedTensorType::get(outputShape, elementTy);
     return rewriter.create<tensor::ExpandShapeOp>(loc, resultType,
-            tensor, reassociationMap);
+            tensor, reassociations);
   }
 
   LogicalResult matchAndRewrite(linalg::Conv2DNhwcHwcfOp convOp,
@@ -555,21 +522,21 @@ class ConvertConv2DNhwcHwcf final
     auto permutedShape = permutedFilter.getType().cast<ShapedType>().getShape();
     const int oc = permutedShape[0];
     SmallVector<int64_t> newFilterShape{oc, ic, kh, inputTileSize};
-    auto FGT = createFilterMatmul(filter, GTValue, newFilterShape, loc, rewriter);
+    auto FGT = createFilterMatmul(permutedFilter, GTValue, newFilterShape, loc, rewriter);
     newFilterShape[2] = inputTileSize;
-    auto transformedFilter = createFilterMatmul(FGT, GValue, newFilterShape, loc, rewriter);
+    auto transformedFilter = createFilterMatmul(GValue, FGT, newFilterShape, loc, rewriter);
 
     // Construct the batch matrix multiplication (element-wise multiply)
     // Input shape: (N, H', W', Cin, T, T) -> (N*H'*W', Cin, T*T) -> (T*T, Cin, N*H'*W')
     // 
     // Filter shape: (Cout, Cin, T, T) -> (Cout, Cin, T*T) -> (T*T, Cout, Cin)
     SmallVector<int64_t> collapsedShape{in * ihm * iwm, ic, inputTileSize * inputTileSize};
-    std::vector<std::vector<int>> reassociations = {{0, 1, 2}, {3}, {4, 5}};
+    SmallVector<ReassociationIndices> reassociations = {{0, 1, 2}, {3}, {4, 5}};
     auto collapsedInput = createCollapse(transformedInput, loc, rewriter, collapsedShape, reassociations);
     auto batchInput = createPermutation(collapsedInput, loc, rewriter, {2, 1, 0});
 
     SmallVector<int64_t> collapsedFilterShape{oc, ic, inputTileSize * inputTileSize};
-    std::vector<std::vector<int>> filterReassociations = {{0}, {1}, {2, 3}};
+    SmallVector<ReassociationIndices> filterReassociations = {{0}, {1}, {2, 3}};
     auto collapsedFilter = createCollapse(transformedFilter, loc, rewriter, collapsedFilterShape, filterReassociations);
     auto batchFilter = createPermutation(collapsedFilter, loc, rewriter, {2, 0, 1});
 
@@ -584,7 +551,7 @@ class ConvertConv2DNhwcHwcf final
     // Output shape: (T*T, Cout, N*H'*W') -> (T, T, Cout, N, H', W')
     //             -> (N, H', W', Cout, T, T)
     SmallVector<int64_t> expandedShape{inputTileSize, inputTileSize, oc, in, ihm, iwm};
-    std::vector<std::vector<int>> resultReassociations{{0, 1}, {2}, {3, 4, 5}};
+    SmallVector<ReassociationIndices> resultReassociations = {{0, 1}, {2}, {3, 4, 5}};
     auto expandedResult = createExpand(result, loc, rewriter, expandedShape, resultReassociations);
     auto permutedResult = createPermutation(expandedResult, loc, rewriter, {3, 4, 5, 2, 0, 1});
 
@@ -594,12 +561,20 @@ class ConvertConv2DNhwcHwcf final
     auto transformedOutput = createOutputMatmul(ATValue, OA, transformedOutputShape, loc, rewriter);
 
     // Construct the output
-    Value output = convOp.getOutputs()[0];
-    auto outputType = output.getType().cast<ShapedType>();
-    auto finalOutputShape = outputType.getShape();
-    auto finalOutput = constructOutput(transformedOutput, loc, rewriter, finalOutputShape);
+    SmallVector<int64_t> finalOutputShape{in, ih + padH, iw + padW, oc};
+    Value finalOutput = constructOutput(transformedOutput, loc, rewriter, finalOutputShape);
 
-    convOp->getParentOfType<ModuleOp>().dump();
+    // Extract the relevant slice (only required if padding was applied)
+    if ((padW > 0) || (padH > 0)) {
+      Value output = convOp.getOutputs()[0];
+      auto desiredOutputShape = output.getType().cast<ShapedType>().getShape();
+      finalOutput = rewriter.create<tensor::ExtractSliceOp>(loc, output.getType(), finalOutput, 
+        ValueRange({}), ValueRange({}), ValueRange({}), 
+        rewriter.getI64ArrayAttr({0, 0, 0, 0}),
+        rewriter.getI64ArrayAttr(desiredOutputShape),
+        rewriter.getI64ArrayAttr({1, 1, 1, 1}));
+    }
+
     rewriter.replaceOp(convOp, ArrayRef<Value>{finalOutput});
     return success();
   }
