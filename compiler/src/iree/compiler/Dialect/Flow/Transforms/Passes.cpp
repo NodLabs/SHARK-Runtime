@@ -60,6 +60,11 @@ static llvm::cl::opt<bool> clEnableConvToImg2Col(
     llvm::cl::desc("Enable converting convolution ops to img2col form."),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clEnableConvToWinograd(
+    "iree-flow-enable-conv-winograd-transform",
+    llvm::cl::desc("Enable converting convolution ops to winograd form."),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<bool> clEnablePaddingLinalgOps(
     "iree-flow-enable-padding-linalg-ops",
     llvm::cl::desc("Enable padding linalg ops to an integer multiple of "
@@ -205,6 +210,8 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
       .addPass(IREE::Flow::createConvert1X1FilterConv2DToMatmulPass)
       .addPredicatedPass(clEnableConvToImg2Col,
                          IREE::Flow::createConvertConv2DToImg2ColPass)
+      .addPredicatedPass(clEnableConvToWinograd,
+                         IREE::Flow::createConvertConv2DToWinogradPass)
       .addPredicatedPass(
           clDispatchTransformFileName.empty() && !clDispatchViaRegionOps,
           IREE::Flow::createDetachElementwiseFromNamedOpsPass)
