@@ -103,7 +103,7 @@ static SmallVector<OpOperand *> computeTransposeInfo(
     return transposeOperands;
   }
 
-  if (isTransposeMap(outputInversedMap) &&
+  if (outputInversedMap && isTransposeMap(outputInversedMap) &&
       transposeMapFilter(outputInversedMap)) {
     transposeOperands.push_back(linalgOp.getOutputOperand(0));
   }

@@ -482,8 +482,6 @@ class ConvertConv2DNhwcHwcf final
     const int ih = inputShape[1];
     const int iw = inputShape[2];
     const int ic = inputShape[3];
-    const int ihm = std::ceil((ih - kh + 1) / outputTileSize);
-    const int iwm = std::ceil((iw - kw + 1) / outputTileSize);
 
     // First, pad the input (if required)
     int padH = outputTileSize * std::ceil((float) (ih - inputTileSize) / outputTileSize) 
@@ -508,6 +506,9 @@ class ConvertConv2DNhwcHwcf final
     } else {
       paddedInput = input;
     }
+
+    const int ihm = std::ceil((ih + padH - kh + 1) / outputTileSize);
+    const int iwm = std::ceil((iw + padW - kw + 1) / outputTileSize);
 
     // Next, compute the transformed input
     SmallVector<int64_t, 4> outputShape({in, ihm, iwm, ic, inputTileSize, inputTileSize});
