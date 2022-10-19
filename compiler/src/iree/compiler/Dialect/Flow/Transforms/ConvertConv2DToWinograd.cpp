@@ -21,6 +21,7 @@ namespace IREE {
 namespace Flow {
 
 static int constexpr outputTileSize = 6;
+static int operatorId = 0;
 
 static bool hasAllOneValues(DenseIntElementsAttr attr) {
   return llvm::all_of(
@@ -79,6 +80,7 @@ class ConvertConv2DNhwcHwcf final
     SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
 
     SmallVector<AffineExpr> first, second;
+    std::string prefix;
     if (tensorRank == 4) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
@@ -96,6 +98,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[6], idExprs[5]};
       first = inputExprs;
       second = transformExprs;
+      prefix = "IB";
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -114,6 +117,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[0], idExprs[6]};
       first = transformExprs;
       second = inputExprs;
+      prefix = "BTIB";
 
     }
      
@@ -129,13 +133,18 @@ class ConvertConv2DNhwcHwcf final
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
-    return rewriter.create<linalg::GenericOp>(loc, transformedType, 
+    auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
       ValueRange({tensor, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
         Value result = createMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
-      }).getResult(0);
+      });
+
+    const std::string identifier = "winograd_" + prefix + "_" + std::to_string(operatorId);
+    linalgOp->setAttr("id", rewriter.getStringAttr(identifier));
+
+    return linalgOp.getResult(0);
   }
 
   // Creates:
@@ -164,6 +173,7 @@ class ConvertConv2DNhwcHwcf final
     SmallVector<AffineExpr> outputExprs = {idExprs[2], idExprs[3], idExprs[0], idExprs[1]};
 
     SmallVector<AffineExpr> first, second;
+    std::string prefix;
     if (tensorRank == 4) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
@@ -177,6 +187,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[4], idExprs[3]};
       first = inputExprs;
       second = transformExprs;
+      prefix = "FGT";
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -191,6 +202,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[2], idExprs[4]};
       first = transformExprs;
       second = inputExprs;
+      prefix = "GFGT";
     }
      
     SmallVector<AffineMap> indexingMaps = {
@@ -205,13 +217,18 @@ class ConvertConv2DNhwcHwcf final
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
-    return rewriter.create<linalg::GenericOp>(loc, transformedType, 
+    auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
       ValueRange({tensor, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
         Value result = createMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
-      }).getResult(0);
+      });
+
+    const std::string identifier = "winograd_" + prefix + "_" + std::to_string(operatorId);
+    linalgOp->setAttr("id", rewriter.getStringAttr(identifier));
+
+    return linalgOp.getResult(0);
   }
 
   // Creates:
@@ -238,6 +255,7 @@ class ConvertConv2DNhwcHwcf final
 
     SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
     SmallVector<AffineExpr> first, second;
+    std::string prefix;
     if (tensorRank == 6) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
@@ -252,6 +270,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[6], idExprs[1]};
       first = inputExprs;
       second = transformExprs;
+      prefix = "OA";
 
     } else {
       // Here we are doing matmul(transform, input)
@@ -271,6 +290,7 @@ class ConvertConv2DNhwcHwcf final
       transformExprs = {idExprs[4], idExprs[6]};
       first = transformExprs;
       second = inputExprs;
+      prefix = "ATOA";
 
     }
      
@@ -286,13 +306,17 @@ class ConvertConv2DNhwcHwcf final
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
-    return rewriter.create<linalg::GenericOp>(loc, transformedType, 
+    auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
       ValueRange({tensor, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
         Value result = createMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
-      }).getResult(0);
+      });
+
+    const std::string identifier = "winograd_" + prefix + "_" + std::to_string(operatorId);
+    linalgOp->setAttr("id", rewriter.getStringAttr(identifier));
+    return linalgOp.getResult(0);
   }
 
   static Value createPermutation(Value tensor, Location loc, PatternRewriter &rewriter,
@@ -358,13 +382,15 @@ class ConvertConv2DNhwcHwcf final
       AffineMap::get(tensorRank, 0, outputExprs, rewriter.getContext()),
     };
 
-    return rewriter.create<linalg::GenericOp>(
+    auto linalgOp = rewriter.create<linalg::GenericOp>(
                              loc, empty.getType(), tensor, empty,
                              indexingMaps, iteratorTypes,
                              [&](OpBuilder &b, Location loc, ValueRange args) {
                                b.create<linalg::YieldOp>(loc, args[0]);
-                             })
-                         .getResult(0);
+                             });
+    linalgOp->setAttr("id", rewriter.getStringAttr("winograd_construct_output_" + std::to_string(operatorId)));
+                         
+    return linalgOp.getResult(0);
 
   }
 
@@ -523,8 +549,10 @@ class ConvertConv2DNhwcHwcf final
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, bmmShape, elementTy);
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
     auto bmmType = RankedTensorType::get(bmmShape, elementTy);
-    auto result = rewriter.create<linalg::BatchMatmulOp>(loc, bmmType,
-      ValueRange({batchFilter, batchInput}), ValueRange({accumulator})).getResult(0);
+    auto bmmOp = rewriter.create<linalg::BatchMatmulOp>(loc, bmmType,
+      ValueRange({batchFilter, batchInput}), ValueRange({accumulator}));
+    bmmOp->setAttr("id", rewriter.getStringAttr("winograd_bmm_" + std::to_string(operatorId)));
+    auto result = bmmOp.getResult(0);
 
     // Transform the output
     // Output shape: (T*T, Cout, N*H'*W') -> (T, T, Cout, N, H', W')
@@ -553,6 +581,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     rewriter.replaceOp(convOp, ArrayRef<Value>{finalOutput});
+    operatorId++;
     return success();
   }
 };
