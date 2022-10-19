@@ -216,7 +216,7 @@ class ConvertConv2DNhwcHwcf final
 
   // Creates:
   // matmul(output, transform)
-  // where input: NxH'xW'xCxTxT and transform:TxP to produce output: NxH'xW'xCxTxP
+  // where input: TxTxCxNxH'xW' and transform:TxP to produce output: NxH'xW'xCxTxP
   // or
   // matmul(transform, output)
   // where transform: PxT and input: NxH'xW'xCxTxP to produce output: NxH'xW'xCxPxP
@@ -237,25 +237,19 @@ class ConvertConv2DNhwcHwcf final
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
     SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
-    for (int i = 0; i < 6; i++) {
-      if (i < 4) inputExprs.push_back(idExprs[i]);
-      outputExprs.push_back(idExprs[i]);
-    }
-
     SmallVector<AffineExpr> first, second;
     if (tensorRank == 6) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
-      //              N   H   W   C   T   P   T
+      //              T   P   C   N   H   W   T
       // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d6)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d6, d5)
+      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, d6, d2, d3, d4, d5)
+      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d3, d4, d5, d2, d0, d1)
+      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d6, d1)
 
-      inputExprs.push_back(idExprs[4]);
-      inputExprs.push_back(idExprs[6]);
-      transformExprs.push_back(idExprs[6]);
-      transformExprs.push_back(idExprs[5]);
+      inputExprs = {idExprs[0], idExprs[6], idExprs[2], idExprs[3], idExprs[4], idExprs[5]};
+      outputExprs = {idExprs[3], idExprs[4], idExprs[5], idExprs[2], idExprs[0], idExprs[1]};
+      transformExprs = {idExprs[6], idExprs[1]};
       first = inputExprs;
       second = transformExprs;
 
@@ -268,10 +262,13 @@ class ConvertConv2DNhwcHwcf final
       // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
       // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d4, d6)
 
+      for (int i = 0; i < 6; i++) {
+        if (i < 4) inputExprs.push_back(idExprs[i]);
+        outputExprs.push_back(idExprs[i]);
+      }
       inputExprs.push_back(idExprs[6]);
       inputExprs.push_back(idExprs[5]);
-      transformExprs.push_back(idExprs[4]);
-      transformExprs.push_back(idExprs[6]);
+      transformExprs = {idExprs[4], idExprs[6]};
       first = transformExprs;
       second = inputExprs;
 
@@ -531,14 +528,12 @@ class ConvertConv2DNhwcHwcf final
 
     // Transform the output
     // Output shape: (T*T, Cout, N*H'*W') -> (T, T, Cout, N, H', W')
-    //             -> (N, H', W', Cout, T, T)
     SmallVector<int64_t> expandedShape{inputTileSize, inputTileSize, oc, in, ihm, iwm};
     SmallVector<ReassociationIndices> resultReassociations = {{0, 1}, {2}, {3, 4, 5}};
     auto expandedResult = createExpand(result, loc, rewriter, expandedShape, resultReassociations);
-    auto permutedResult = createPermutation(expandedResult, loc, rewriter, {3, 4, 5, 2, 0, 1});
 
     SmallVector<int64_t, 4> transformedOutputShape({in, ihm, iwm, oc, inputTileSize, outputTileSize});
-    auto OA = createOutputMatmul(permutedResult, AValue, transformedOutputShape, loc, rewriter);
+    auto OA = createOutputMatmul(expandedResult, AValue, transformedOutputShape, loc, rewriter);
     transformedOutputShape[4] = outputTileSize;
     auto transformedOutput = createOutputMatmul(ATValue, OA, transformedOutputShape, loc, rewriter);
 
