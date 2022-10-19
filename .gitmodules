@@ -47,3 +47,6 @@
 [submodule "third_party/musl"]
 	path = third_party/musl
 	url = https://github.com/powderluv/musl.git
+[submodule "third_party/numactl"]
+	path = third_party/numactl
+	url = https://github.com/numactl/numactl
