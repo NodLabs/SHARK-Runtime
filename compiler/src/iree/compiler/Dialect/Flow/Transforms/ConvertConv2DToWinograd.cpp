@@ -149,10 +149,10 @@ class ConvertConv2DNhwcHwcf final
 
   // Creates:
   // matmul(filter, transform)
-  // where filter: CxFxHxH and transform:HxT to produce output: CxFxHxT
+  // where filter: HxHxCxF and transform:HxT to produce output: HxTxFxC
   // or
   // matmul(transform, filter)
-  // where transform: TxH and filter: CxFxHxT to produce output: CxFxTxT
+  // where transform: TxH and filter: HxTxFxC to produce output: TxTxFxC
   static Value createFilterMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                   Location loc, PatternRewriter &rewriter) {
 
@@ -169,40 +169,35 @@ class ConvertConv2DNhwcHwcf final
     for (auto i = 0; i < iterationSpaceDim; i++)
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
-    SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
-    for (int i = 0; i < 4; i++) {
-      if (i < 2) inputExprs.push_back(idExprs[i]);
-      outputExprs.push_back(idExprs[i]);
-    }
+    SmallVector<AffineExpr> inputExprs, transformExprs;
+    SmallVector<AffineExpr> outputExprs = {idExprs[2], idExprs[3], idExprs[0], idExprs[1]};
 
     SmallVector<AffineExpr> first, second;
     if (tensorRank == 4) {
       // Here we are doing matmul(input, transform)
       // ------------------------------------------------------------------------------
-      //              C   F   H   T   H
+      //              F   C   H   T   H
       // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4) -> (d0, d1, d2, d4)
-      // Output Map (d0, d1, d2, d3, d4) -> (d0, d1, d2, d3)
+      // Input Map  (d0, d1, d2, d3, d4) -> (d2, d4, d1, d0)
+      // Output Map (d0, d1, d2, d3, d4) -> (d2, d3, d0, d1)
       // Filter Map (d0, d1, d2, d3, d4) -> (d4, d3)
-      inputExprs.push_back(idExprs[2]);
-      inputExprs.push_back(idExprs[4]);
-      transformExprs.push_back(idExprs[4]);
-      transformExprs.push_back(idExprs[3]);
+
+      inputExprs = {idExprs[2], idExprs[4], idExprs[1], idExprs[0]};
+      transformExprs = {idExprs[4], idExprs[3]};
       first = inputExprs;
       second = transformExprs;
 
     } else {
       // Here we are doing matmul(transform, input)
       // ------------------------------------------------------------------------------
-      //              C   F   T   T   H 
+      //              F   C   T   T   H 
       // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4) -> (d0, d1, d4, d3)
-      // Output Map (d0, d1, d2, d3, d4) -> (d0, d1, d2, d3)
+      // Input Map  (d0, d1, d2, d3, d4) -> (d4, d3, d0, d1)
+      // Output Map (d0, d1, d2, d3, d4) -> (d2, d3, d0, d1)
       // Filter Map (d0, d1, d2, d3, d4) -> (d2, d4)
-      inputExprs.push_back(idExprs[4]);
-      inputExprs.push_back(idExprs[3]);
-      transformExprs.push_back(idExprs[2]);
-      transformExprs.push_back(idExprs[4]);
+
+      inputExprs = {idExprs[4], idExprs[3], idExprs[0], idExprs[1]};
+      transformExprs = {idExprs[2], idExprs[4]};
       first = transformExprs;
       second = inputExprs;
     }
@@ -517,29 +512,26 @@ class ConvertConv2DNhwcHwcf final
 
     // Construct the transformed filter
     Value filter = convOp.getInputs()[1];
+    auto filterShape = filter.getType().cast<ShapedType>().getShape();
 
-    // First permute the filter to make it CFHW
-    Value permutedFilter = createPermutation(filter, loc, rewriter, {2, 3, 0, 1});
-    auto permutedShape = permutedFilter.getType().cast<ShapedType>().getShape();
-    const int oc = permutedShape[0];
-    SmallVector<int64_t> newFilterShape{oc, ic, kh, inputTileSize};
-    auto FGT = createFilterMatmul(permutedFilter, GTValue, newFilterShape, loc, rewriter);
-    newFilterShape[2] = inputTileSize;
+    const int oc = filterShape[3];
+    SmallVector<int64_t> newFilterShape{kh, inputTileSize, oc, ic};
+    auto FGT = createFilterMatmul(filter, GTValue, newFilterShape, loc, rewriter);
+    newFilterShape[0] = inputTileSize;
     auto transformedFilter = createFilterMatmul(GValue, FGT, newFilterShape, loc, rewriter);
 
     // Construct the batch matrix multiplication (element-wise multiply)
     // Input shape: (N, H', W', Cin, T, T) -> (N*H'*W', Cin, T*T) -> (T*T, Cin, N*H'*W')
     // 
-    // Filter shape: (Cout, Cin, T, T) -> (Cout, Cin, T*T) -> (T*T, Cout, Cin)
+    // Filter shape: (T, T, Cout, Cin) -> (T*T, Cout, Cin)
     SmallVector<int64_t> collapsedShape{in * ihm * iwm, ic, inputTileSize * inputTileSize};
     SmallVector<ReassociationIndices> reassociations = {{0, 1, 2}, {3}, {4, 5}};
     auto collapsedInput = createCollapse(transformedInput, loc, rewriter, collapsedShape, reassociations);
     auto batchInput = createPermutation(collapsedInput, loc, rewriter, {2, 1, 0});
 
-    SmallVector<int64_t> collapsedFilterShape{oc, ic, inputTileSize * inputTileSize};
-    SmallVector<ReassociationIndices> filterReassociations = {{0}, {1}, {2, 3}};
-    auto collapsedFilter = createCollapse(transformedFilter, loc, rewriter, collapsedFilterShape, filterReassociations);
-    auto batchFilter = createPermutation(collapsedFilter, loc, rewriter, {2, 0, 1});
+    SmallVector<int64_t> collapsedFilterShape{inputTileSize * inputTileSize, oc, ic};
+    SmallVector<ReassociationIndices> filterReassociations = {{0, 1}, {2}, {3}};
+    auto batchFilter = createCollapse(transformedFilter, loc, rewriter, collapsedFilterShape, filterReassociations);
 
     SmallVector<int64_t> bmmShape{inputTileSize * inputTileSize, oc, in * ihm * iwm};
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, bmmShape, elementTy);
