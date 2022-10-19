@@ -139,6 +139,22 @@ struct FuseElementwiseOpsWithMultipleUses
   }
 };
 
+static bool hasExp(linalg::GenericOp op) {
+  bool hasExp = false;
+  op->walk([&](math::ExpOp exp) { hasExp = true; });
+  return hasExp;
+}
+
+static bool hasReduction(Operation *op) {
+  auto linalg = dyn_cast<linalg::GenericOp>(op);
+  if (!linalg) return false;
+  SmallVector<unsigned> dims;
+  linalg.getReductionDims(dims);
+  return dims.size() == 1 &&
+         (linalg.getStaticLoopRanges()[dims[0]] % 64 == 0) &&
+         (linalg.getStaticLoopRanges()[dims[0]] <= 4096);
+}
+
 static FailureOr<unsigned> fuseMultiUseProducers(Operation *funcOp,
                                                  MLIRContext *context,
                                                  DominanceInfo &dominanceInfo) {
@@ -158,12 +174,17 @@ static FailureOr<unsigned> fuseMultiUseProducers(Operation *funcOp,
         genericOp->hasAttr(producerAttrName)) {
       return;
     }
-
     Optional<OpOperand *> fusableUse = getFusableUse(genericOp, dominanceInfo);
     if (!fusableUse) return;
     if (!linalg::areElementwiseOpsFusable(fusableUse.value())) return;
 
+
     Operation *consumer = fusableUse.value()->getOwner();
+
+    if(!hasExp(genericOp) || !hasReduction(consumer)) {
+      return;
+    }
+
     genericOp->setAttr(producerAttrName,
                        builder.getI64IntegerAttr(numCandidates));
     consumer->setAttr(consumerAttrName,
@@ -321,7 +342,7 @@ struct FusionOfTensorOpsPass
       });
     }
 
-    if (fuseMultiUse) {
+    if (true) {
       // Run fusion of producer with consumer when producer has multiple uses.
       // For now run this sequence a fixed times (2 by default). Ideally we
       // would run it till no candidates exist.
