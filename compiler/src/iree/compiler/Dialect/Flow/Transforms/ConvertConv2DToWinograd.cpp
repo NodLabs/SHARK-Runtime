@@ -56,10 +56,10 @@ class ConvertConv2DNhwcHwcf final
 
   // Creates:
   // matmul(input, transform)
-  // where input: NxHxWxC and transform:TxT to produce output: NxH'xW'xCxTxT
+  // where input: NxHxWxC and transform:TxT to produce output: TxTxCxNxH'xW'
   // or
   // matmul(transform, input)
-  // where transform: TxT and input: NxH'xW'xCxTxT to produce output: NxH'xW'xCxTxT
+  // where transform: TxT and input: TxTxCxNxH'xW' to produce output: TxTxCxNxH'xW'
   static Value createInputMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                  Location loc, PatternRewriter &rewriter) {
 
@@ -77,9 +77,6 @@ class ConvertConv2DNhwcHwcf final
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
     SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
-    for (int i = 0; i < 6; i++) {
-      outputExprs.push_back(idExprs[i]);
-    }
 
     SmallVector<AffineExpr> first, second;
     if (tensorRank == 4) {
@@ -88,39 +85,33 @@ class ConvertConv2DNhwcHwcf final
       //              N   H   W   C   T   T   T
       // ------------------------------------------------------------------------------
       // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, outputTile * d1 + d4, outputTile * d2 + d6, d3)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
+      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d4, d5, d3, d0, d1, d2)
       // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d6, d5)
 
-      for (int i = 0; i < 4; i++) {
-        if ((i == 0) || (i == 3)) {
-          inputExprs.push_back(idExprs[i]);
-        } else if (i == 1) {
-          inputExprs.push_back(outputTileSize * idExprs[i] + idExprs[i + 3]);
-        } else if (i == 2) {
-          inputExprs.push_back(outputTileSize * idExprs[i] + idExprs[i + 4]);
-        }
-      }
-      transformExprs.push_back(idExprs[6]);
-      transformExprs.push_back(idExprs[5]);
+      inputExprs = {idExprs[0], 
+                    outputTileSize * idExprs[1] + idExprs[4],
+                    outputTileSize * idExprs[2] + idExprs[6],
+                    idExprs[3]};
+      outputExprs = {idExprs[4], idExprs[5], idExprs[3], idExprs[0], idExprs[1], idExprs[2]};
+      transformExprs = {idExprs[6], idExprs[5]};
       first = inputExprs;
       second = transformExprs;
 
     } else {
       // Here we are doing matmul(transform, input)
       // ------------------------------------------------------------------------------
-      //              N   H   W   C   T   T   T
+      //              T   T   C   N   H   W   T
       // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d6, d5)
+      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d6, d1, d2, d3, d4, d5)
       // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d4, d6)
+      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d6)
 
-      for (int i = 0; i < 4; i++) {
-        inputExprs.push_back(idExprs[i]);
-      }
       inputExprs.push_back(idExprs[6]);
-      inputExprs.push_back(idExprs[5]);
-      transformExprs.push_back(idExprs[4]);
-      transformExprs.push_back(idExprs[6]);
+      for (int i = 0; i < 6; i++) {
+        outputExprs.push_back(idExprs[i]);
+        if (i > 0) inputExprs.push_back(idExprs[i]);
+      }
+      transformExprs = {idExprs[0], idExprs[6]};
       first = transformExprs;
       second = inputExprs;
 
@@ -506,7 +497,7 @@ class ConvertConv2DNhwcHwcf final
     const int iwm = std::ceil((iw + padW - kw + 1) / outputTileSize);
 
     // Next, compute the transformed input
-    SmallVector<int64_t, 4> outputShape({in, ihm, iwm, ic, inputTileSize, inputTileSize});
+    SmallVector<int64_t, 4> outputShape({inputTileSize, inputTileSize, ic, in, ihm, iwm});
     auto IB = createInputMatmul(paddedInput, BValue, outputShape, loc, rewriter);
     auto transformedInput = createInputMatmul(BTValue, IB, outputShape, loc, rewriter);
 
@@ -521,13 +512,11 @@ class ConvertConv2DNhwcHwcf final
     auto transformedFilter = createFilterMatmul(GValue, FGT, newFilterShape, loc, rewriter);
 
     // Construct the batch matrix multiplication (element-wise multiply)
-    // Input shape: (N, H', W', Cin, T, T) -> (N*H'*W', Cin, T*T) -> (T*T, Cin, N*H'*W')
-    // 
+    // Input shape: (T, T, Cin, N, H', W') -> (T*T, Cin, N*H'*W')
     // Filter shape: (T, T, Cout, Cin) -> (T*T, Cout, Cin)
-    SmallVector<int64_t> collapsedShape{in * ihm * iwm, ic, inputTileSize * inputTileSize};
-    SmallVector<ReassociationIndices> reassociations = {{0, 1, 2}, {3}, {4, 5}};
-    auto collapsedInput = createCollapse(transformedInput, loc, rewriter, collapsedShape, reassociations);
-    auto batchInput = createPermutation(collapsedInput, loc, rewriter, {2, 1, 0});
+    SmallVector<int64_t> collapsedShape{inputTileSize * inputTileSize, ic, in * ihm * iwm};
+    SmallVector<ReassociationIndices> reassociations = {{0, 1}, {2}, {3, 4, 5}};
+    auto batchInput = createCollapse(transformedInput, loc, rewriter, collapsedShape, reassociations);
 
     SmallVector<int64_t> collapsedFilterShape{inputTileSize * inputTileSize, oc, ic};
     SmallVector<ReassociationIndices> filterReassociations = {{0, 1}, {2}, {3}};
