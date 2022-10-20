@@ -70,11 +70,8 @@ class ConvertConv2DNhwcHwcf final
   }
 
   // Creates:
-  // matmul(input, transform)
-  // where input: NxHxWxC and transform:TxT to produce output: TxTxCxNxH'xW'
-  // or
-  // matmul(transform, input)
-  // where transform: TxT and input: TxTxCxNxH'xW' to produce output: TxTxCxNxH'xW'
+  // matmul(transform, matmul(input, transform.T))
+  // where input: NxHxWxC and transform: TxT to produce output: TxTxCxNxH'xW'
   static Value createInputMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                  Location loc, PatternRewriter &rewriter) {
 
@@ -86,72 +83,45 @@ class ConvertConv2DNhwcHwcf final
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
 
     SmallVector<AffineExpr> idExprs;
-    auto tensorRank = tensorType.getRank();
-    int64_t iterationSpaceDim = 7;
+    int64_t iterationSpaceDim = 8;
     for (auto i = 0; i < iterationSpaceDim; i++)
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
-    SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
+    std::string prefix{"BTIB"};
 
-    SmallVector<AffineExpr> first, second;
-    std::string prefix;
-    if (tensorRank == 4) {
-      // Here we are doing matmul(input, transform)
-      // ------------------------------------------------------------------------------
-      //              N   H   W   C   T   T   T
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, outputTile * d1 + d4, outputTile * d2 + d6, d3)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d4, d5, d3, d0, d1, d2)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d6, d5)
+    // Here we are doing matmul(transform1, matmul(input, transform0.T))
+    // ------------------------------------------------------------------------------
+    //                  T   T   C   N   H   W   T   T
+    // ------------------------------------------------------------------------------
+    // Input Map      (d0, d1, d2, d3, d4, d5, d6, d7) -> (d3, outputTile * d4 + d6, outputTile * d5 + d7, d2)
+    // Output Map     (d0, d1, d2, d3, d4, d5, d6, d7) -> (d0, d1, d2, d3, d4, d5)
+    // Transform0 Map (d0, d1, d2, d3, d4, d5, d6, d7) -> (d1, d7)
+    // Transform1 Map (d0, d1, d2, d3, d4, d5, d6, d7) -> (d0, d6)
 
-      inputExprs = {idExprs[0], 
-                    outputTileSize * idExprs[1] + idExprs[4],
-                    outputTileSize * idExprs[2] + idExprs[6],
-                    idExprs[3]};
-      outputExprs = {idExprs[4], idExprs[5], idExprs[3], idExprs[0], idExprs[1], idExprs[2]};
-      transformExprs = {idExprs[6], idExprs[5]};
-      first = inputExprs;
-      second = transformExprs;
-      prefix = "IB";
+    SmallVector<AffineExpr> inputExprs = {idExprs[3], outputTileSize * idExprs[4] + idExprs[6],
+                                          outputTileSize * idExprs[5] + idExprs[7], idExprs[2]};
+    SmallVector<AffineExpr> outputExprs = {idExprs[0], idExprs[1], idExprs[2], idExprs[3], idExprs[4], idExprs[5]};
+    SmallVector<AffineExpr> transform0Exprs = {idExprs[1], idExprs[7]};
+    SmallVector<AffineExpr> transform1Exprs = {idExprs[0], idExprs[6]};
 
-    } else {
-      // Here we are doing matmul(transform, input)
-      // ------------------------------------------------------------------------------
-      //              T   T   C   N   H   W   T
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d6, d1, d2, d3, d4, d5)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d6)
-
-      inputExprs.push_back(idExprs[6]);
-      for (int i = 0; i < 6; i++) {
-        outputExprs.push_back(idExprs[i]);
-        if (i > 0) inputExprs.push_back(idExprs[i]);
-      }
-      transformExprs = {idExprs[0], idExprs[6]};
-      first = transformExprs;
-      second = inputExprs;
-      prefix = "BTIB";
-
-    }
-     
     SmallVector<AffineMap> indexingMaps = {
-      AffineMap::get(iterationSpaceDim, 0, first, rewriter.getContext()),
-      AffineMap::get(iterationSpaceDim, 0, second, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, inputExprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform0Exprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform1Exprs, rewriter.getContext()),
       AffineMap::get(iterationSpaceDim, 0, outputExprs, rewriter.getContext()),
     };
 
     SmallVector<StringRef> iteratorTypes;
     for (auto i = 0; i < iterationSpaceDim; i++) {
-      iteratorTypes.push_back(i < iterationSpaceDim - 1 ?
+      iteratorTypes.push_back(i < iterationSpaceDim - 2 ?
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
     auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
-      ValueRange({tensor, transform}), accumulator,
+      ValueRange({tensor, transform, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
-        Value result = createMatmulBody(args, elementTy, loc, rewriter);
+        Value result = createDoubleMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
       });
 
@@ -162,7 +132,7 @@ class ConvertConv2DNhwcHwcf final
   }
 
   // Creates:
-  // matmul(transform.T, matmul(filter, transform))
+  // matmul(transform, matmul(filter, transform.T))
   // where filter: HxHxCxF and transform:HxT to produce output: TxTxFxC
   static Value createFilterMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                   Location loc, PatternRewriter &rewriter) {
@@ -181,7 +151,7 @@ class ConvertConv2DNhwcHwcf final
 
     std::string prefix{"GFGT"};
 
-    // Here we are doing matmul(transform, matmul(filter, transform.T))
+    // Here we are doing matmul(transform1, matmul(filter, transform0.T))
     // ------------------------------------------------------------------------------
     //                  T   T   C   F   H   H
     // ------------------------------------------------------------------------------
@@ -456,14 +426,11 @@ class ConvertConv2DNhwcHwcf final
   
     // Transpose the values above
     int inputTileSize = outputTileSize + kh - 1;
-    SmallVector<float> B, A;
-    transpose(BT, B, inputTileSize, inputTileSize);
+    SmallVector<float> A;
     transpose(AT, A, outputTileSize, inputTileSize);
 
     auto BTValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({inputTileSize, inputTileSize}, rewriter.getF32Type()), BT));
-    auto BValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
-      RankedTensorType::get({inputTileSize, inputTileSize}, rewriter.getF32Type()), B));
     auto GValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({inputTileSize, kh}, rewriter.getF32Type()), G));
     auto ATValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
@@ -509,13 +476,11 @@ class ConvertConv2DNhwcHwcf final
 
     // Next, compute the transformed input
     SmallVector<int64_t, 4> outputShape({inputTileSize, inputTileSize, ic, in, ihm, iwm});
-    auto IB = createInputMatmul(paddedInput, BValue, outputShape, loc, rewriter);
-    auto transformedInput = createInputMatmul(BTValue, IB, outputShape, loc, rewriter);
+    auto transformedInput = createInputMatmul(paddedInput, BTValue, outputShape, loc, rewriter);
 
     // Construct the transformed filter
     Value filter = convOp.getInputs()[1];
     auto filterShape = filter.getType().cast<ShapedType>().getShape();
-
     const int oc = filterShape[3];
     SmallVector<int64_t> newFilterShape{inputTileSize, inputTileSize, oc, ic};
     auto transformedFilter = createFilterMatmul(filter, GValue, newFilterShape, loc, rewriter);
