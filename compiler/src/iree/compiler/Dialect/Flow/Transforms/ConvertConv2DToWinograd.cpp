@@ -55,6 +55,20 @@ class ConvertConv2DNhwcHwcf final
     return Value();
   }
 
+  static Value createDoubleMatmulBody(ValueRange args, Type elementTy, Location loc, PatternRewriter &rewriter) {
+    if (elementTy.isa<FloatType>()) {
+      auto res = rewriter.create<arith::MulFOp>(loc, args[0], args[1]);
+      res = rewriter.create<arith::MulFOp>(loc, res, args[2]);
+      return rewriter.create<arith::AddFOp>(loc, args[3], res);
+    }
+    if (elementTy.isa<IntegerType>()) {
+      auto res = rewriter.create<arith::MulIOp>(loc, args[0], args[1]);
+      res = rewriter.create<arith::MulIOp>(loc, res, args[2]);
+      return rewriter.create<arith::AddIOp>(loc, args[3], res);
+    }
+    return Value();
+  }
+
   // Creates:
   // matmul(input, transform)
   // where input: NxHxWxC and transform:TxT to produce output: TxTxCxNxH'xW'
@@ -148,16 +162,12 @@ class ConvertConv2DNhwcHwcf final
   }
 
   // Creates:
-  // matmul(filter, transform)
-  // where filter: HxHxCxF and transform:HxT to produce output: HxTxFxC
-  // or
-  // matmul(transform, filter)
-  // where transform: TxH and filter: HxTxFxC to produce output: TxTxFxC
+  // matmul(transform.T, matmul(filter, transform))
+  // where filter: HxHxCxF and transform:HxT to produce output: TxTxFxC
   static Value createFilterMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                   Location loc, PatternRewriter &rewriter) {
 
     auto tensorType = tensor.getType().cast<ShapedType>();
-    auto tensorRank = tensorType.getRank();
     auto elementTy = tensorType.getElementType();
     auto transformedType = RankedTensorType::get(outputShape, elementTy);
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, outputShape, elementTy);
@@ -165,63 +175,44 @@ class ConvertConv2DNhwcHwcf final
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
 
     SmallVector<AffineExpr> idExprs;
-    int64_t iterationSpaceDim = 5;
+    int64_t iterationSpaceDim = 6;
     for (auto i = 0; i < iterationSpaceDim; i++)
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
-    SmallVector<AffineExpr> inputExprs, transformExprs;
-    SmallVector<AffineExpr> outputExprs = {idExprs[2], idExprs[3], idExprs[0], idExprs[1]};
+    std::string prefix{"GFGT"};
 
-    SmallVector<AffineExpr> first, second;
-    std::string prefix;
-    if (tensorRank == 4) {
-      // Here we are doing matmul(input, transform)
-      // ------------------------------------------------------------------------------
-      //              F   C   H   T   H
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4) -> (d2, d4, d1, d0)
-      // Output Map (d0, d1, d2, d3, d4) -> (d2, d3, d0, d1)
-      // Filter Map (d0, d1, d2, d3, d4) -> (d4, d3)
+    // Here we are doing matmul(transform, matmul(filter, transform.T))
+    // ------------------------------------------------------------------------------
+    //                  T   T   C   F   H   H
+    // ------------------------------------------------------------------------------
+    // Filter Map     (d0, d1, d2, d3, d4, d5) -> (d4, d5, d2, d3)
+    // Output Map     (d0, d1, d2, d3, d4, d5) -> (d0, d1, d2, d3)
+    // Transform0 Map (d0, d1, d2, d3, d4, d5) -> (d1, d5)
+    // Transform1 Map (d0, d1, d2, d3, d4, d5) -> (d0, d4)
 
-      inputExprs = {idExprs[2], idExprs[4], idExprs[1], idExprs[0]};
-      transformExprs = {idExprs[4], idExprs[3]};
-      first = inputExprs;
-      second = transformExprs;
-      prefix = "FGT";
+    SmallVector<AffineExpr> filterExprs = {idExprs[4], idExprs[5], idExprs[2], idExprs[3]};
+    SmallVector<AffineExpr> outputExprs = {idExprs[0], idExprs[1], idExprs[2], idExprs[3]};
+    SmallVector<AffineExpr> transform0Exprs = {idExprs[1], idExprs[5]};
+    SmallVector<AffineExpr> transform1Exprs = {idExprs[0], idExprs[4]};
 
-    } else {
-      // Here we are doing matmul(transform, input)
-      // ------------------------------------------------------------------------------
-      //              F   C   T   T   H 
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4) -> (d4, d3, d0, d1)
-      // Output Map (d0, d1, d2, d3, d4) -> (d2, d3, d0, d1)
-      // Filter Map (d0, d1, d2, d3, d4) -> (d2, d4)
-
-      inputExprs = {idExprs[4], idExprs[3], idExprs[0], idExprs[1]};
-      transformExprs = {idExprs[2], idExprs[4]};
-      first = transformExprs;
-      second = inputExprs;
-      prefix = "GFGT";
-    }
-     
     SmallVector<AffineMap> indexingMaps = {
-      AffineMap::get(iterationSpaceDim, 0, first, rewriter.getContext()),
-      AffineMap::get(iterationSpaceDim, 0, second, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, filterExprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform0Exprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform1Exprs, rewriter.getContext()),
       AffineMap::get(iterationSpaceDim, 0, outputExprs, rewriter.getContext()),
     };
 
     SmallVector<StringRef> iteratorTypes;
     for (auto i = 0; i < iterationSpaceDim; i++) {
-      iteratorTypes.push_back(i < iterationSpaceDim - 1 ?
+      iteratorTypes.push_back(i < iterationSpaceDim - 2 ?
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
     auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
-      ValueRange({tensor, transform}), accumulator,
+      ValueRange({tensor, transform, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
-        Value result = createMatmulBody(args, elementTy, loc, rewriter);
+        Value result = createDoubleMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
       });
 
@@ -465,9 +456,8 @@ class ConvertConv2DNhwcHwcf final
   
     // Transpose the values above
     int inputTileSize = outputTileSize + kh - 1;
-    SmallVector<float> B, GT, A;
+    SmallVector<float> B, A;
     transpose(BT, B, inputTileSize, inputTileSize);
-    transpose(G, GT, inputTileSize, kh);
     transpose(AT, A, outputTileSize, inputTileSize);
 
     auto BTValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
@@ -476,8 +466,6 @@ class ConvertConv2DNhwcHwcf final
       RankedTensorType::get({inputTileSize, inputTileSize}, rewriter.getF32Type()), B));
     auto GValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({inputTileSize, kh}, rewriter.getF32Type()), G));
-    auto GTValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
-      RankedTensorType::get({kh, inputTileSize}, rewriter.getF32Type()), GT));
     auto ATValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({outputTileSize, inputTileSize}, rewriter.getF32Type()), AT));
     auto AValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
@@ -529,10 +517,8 @@ class ConvertConv2DNhwcHwcf final
     auto filterShape = filter.getType().cast<ShapedType>().getShape();
 
     const int oc = filterShape[3];
-    SmallVector<int64_t> newFilterShape{kh, inputTileSize, oc, ic};
-    auto FGT = createFilterMatmul(filter, GTValue, newFilterShape, loc, rewriter);
-    newFilterShape[0] = inputTileSize;
-    auto transformedFilter = createFilterMatmul(GValue, FGT, newFilterShape, loc, rewriter);
+    SmallVector<int64_t> newFilterShape{inputTileSize, inputTileSize, oc, ic};
+    auto transformedFilter = createFilterMatmul(filter, GValue, newFilterShape, loc, rewriter);
 
     // Construct the batch matrix multiplication (element-wise multiply)
     // Input shape: (T, T, Cin, N, H', W') -> (T*T, Cin, N*H'*W')
