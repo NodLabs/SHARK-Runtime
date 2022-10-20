@@ -193,16 +193,12 @@ class ConvertConv2DNhwcHwcf final
   }
 
   // Creates:
-  // matmul(output, transform)
-  // where input: TxTxCxNxH'xW' and transform:TxP to produce output: NxH'xW'xCxTxP
-  // or
-  // matmul(transform, output)
-  // where transform: PxT and input: NxH'xW'xCxTxP to produce output: NxH'xW'xCxPxP
+  // matmul(transform, matmul(output, transform.T))
+  // where transform: PxT and input: TxTxCxNxH'xW' to produce output: NxH'xW'xCxPxP
   static Value createOutputMatmul(Value tensor, Value transform, SmallVectorImpl<int64_t> &outputShape,
                                  Location loc, PatternRewriter &rewriter) {
 
     auto tensorType = tensor.getType().cast<ShapedType>();
-    auto tensorRank = tensorType.getRank();
     auto elementTy = tensorType.getElementType();
     auto transformedType = RankedTensorType::get(outputShape, elementTy);
     Value emptyTensor = rewriter.create<tensor::EmptyOp>(loc, outputShape, elementTy);
@@ -210,68 +206,44 @@ class ConvertConv2DNhwcHwcf final
     Value accumulator = rewriter.create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{emptyTensor}).result();
 
     SmallVector<AffineExpr> idExprs;
-    int64_t iterationSpaceDim = 7;
+    int64_t iterationSpaceDim = 8;
     for (auto i = 0; i < iterationSpaceDim; i++)
       idExprs.push_back(getAffineDimExpr(i, rewriter.getContext()));
 
-    SmallVector<AffineExpr> inputExprs, transformExprs, outputExprs;
-    SmallVector<AffineExpr> first, second;
-    std::string prefix;
-    if (tensorRank == 6) {
-      // Here we are doing matmul(input, transform)
-      // ------------------------------------------------------------------------------
-      //              T   P   C   N   H   W   T
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, d6, d2, d3, d4, d5)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d3, d4, d5, d2, d0, d1)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d6, d1)
+    std::string prefix{"ATOA"};
 
-      inputExprs = {idExprs[0], idExprs[6], idExprs[2], idExprs[3], idExprs[4], idExprs[5]};
-      outputExprs = {idExprs[3], idExprs[4], idExprs[5], idExprs[2], idExprs[0], idExprs[1]};
-      transformExprs = {idExprs[6], idExprs[1]};
-      first = inputExprs;
-      second = transformExprs;
-      prefix = "OA";
+    // Here we are doing matmul(input, transform)
+    // ------------------------------------------------------------------------------
+    //                  N   H   W   C   P   P   T   T
+    // ------------------------------------------------------------------------------
+    // Input Map      (d0, d1, d2, d3, d4, d5, d6, d7) -> (d6, d7, d3, d0, d1, d2)
+    // Output Map     (d0, d1, d2, d3, d4, d5, d6, d7) -> (d0, d1, d2, d3, d4, d5)
+    // Transform0 Map (d0, d1, d2, d3, d4, d5, d6, d7) -> (d7, d5)
+    // Transform1 Map (d0, d1, d2, d3, d4, d5, d6, d7) -> (d4, d6)
 
-    } else {
-      // Here we are doing matmul(transform, input)
-      // ------------------------------------------------------------------------------
-      //              N   H   W   C   P   P   T
-      // ------------------------------------------------------------------------------
-      // Input Map  (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d6, d5)
-      // Output Map (d0, d1, d2, d3, d4, d5, d6) -> (d0, d1, d2, d3, d4, d5)
-      // Filter Map (d0, d1, d2, d3, d4, d5, d6) -> (d4, d6)
+    SmallVector<AffineExpr> inputExprs = {idExprs[6], idExprs[7], idExprs[3], idExprs[0], idExprs[1], idExprs[2]};
+    SmallVector<AffineExpr> outputExprs = {idExprs[0], idExprs[1], idExprs[2], idExprs[3], idExprs[4], idExprs[5]};
+    SmallVector<AffineExpr> transform0Exprs = {idExprs[5], idExprs[7]};
+    SmallVector<AffineExpr> transform1Exprs = {idExprs[4], idExprs[6]};
 
-      for (int i = 0; i < 6; i++) {
-        if (i < 4) inputExprs.push_back(idExprs[i]);
-        outputExprs.push_back(idExprs[i]);
-      }
-      inputExprs.push_back(idExprs[6]);
-      inputExprs.push_back(idExprs[5]);
-      transformExprs = {idExprs[4], idExprs[6]};
-      first = transformExprs;
-      second = inputExprs;
-      prefix = "ATOA";
-
-    }
-     
     SmallVector<AffineMap> indexingMaps = {
-      AffineMap::get(iterationSpaceDim, 0, first, rewriter.getContext()),
-      AffineMap::get(iterationSpaceDim, 0, second, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, inputExprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform0Exprs, rewriter.getContext()),
+      AffineMap::get(iterationSpaceDim, 0, transform1Exprs, rewriter.getContext()),
       AffineMap::get(iterationSpaceDim, 0, outputExprs, rewriter.getContext()),
     };
 
     SmallVector<StringRef> iteratorTypes;
     for (auto i = 0; i < iterationSpaceDim; i++) {
-      iteratorTypes.push_back(i < iterationSpaceDim - 1 ?
+      iteratorTypes.push_back(i < iterationSpaceDim - 2 ?
         getParallelIteratorTypeName() : getReductionIteratorTypeName());
     }
 
     auto linalgOp = rewriter.create<linalg::GenericOp>(loc, transformedType, 
-      ValueRange({tensor, transform}), accumulator,
+      ValueRange({tensor, transform, transform}), accumulator,
       indexingMaps, iteratorTypes, 
       [&](OpBuilder &b, Location loc, ValueRange args) {
-        Value result = createMatmulBody(args, elementTy, loc, rewriter);
+        Value result = createDoubleMatmulBody(args, elementTy, loc, rewriter);
         b.create<linalg::YieldOp>(loc, result);
       });
 
@@ -426,8 +398,6 @@ class ConvertConv2DNhwcHwcf final
   
     // Transpose the values above
     int inputTileSize = outputTileSize + kh - 1;
-    SmallVector<float> A;
-    transpose(AT, A, outputTileSize, inputTileSize);
 
     auto BTValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({inputTileSize, inputTileSize}, rewriter.getF32Type()), BT));
@@ -435,8 +405,6 @@ class ConvertConv2DNhwcHwcf final
       RankedTensorType::get({inputTileSize, kh}, rewriter.getF32Type()), G));
     auto ATValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
       RankedTensorType::get({outputTileSize, inputTileSize}, rewriter.getF32Type()), AT));
-    auto AValue = rewriter.create<arith::ConstantOp>(loc, DenseFPElementsAttr::get(
-      RankedTensorType::get({inputTileSize, outputTileSize}, rewriter.getF32Type()), A));
     
     // Construct the transformed input
     Value input = convOp.getInputs()[0];
@@ -511,10 +479,8 @@ class ConvertConv2DNhwcHwcf final
     SmallVector<ReassociationIndices> resultReassociations = {{0, 1}, {2}, {3, 4, 5}};
     auto expandedResult = createExpand(result, loc, rewriter, expandedShape, resultReassociations);
 
-    SmallVector<int64_t, 4> transformedOutputShape({in, ihm, iwm, oc, inputTileSize, outputTileSize});
-    auto OA = createOutputMatmul(expandedResult, AValue, transformedOutputShape, loc, rewriter);
-    transformedOutputShape[4] = outputTileSize;
-    auto transformedOutput = createOutputMatmul(ATValue, OA, transformedOutputShape, loc, rewriter);
+    SmallVector<int64_t, 4> transformedOutputShape({in, ihm, iwm, oc, outputTileSize, outputTileSize});
+    auto transformedOutput = createOutputMatmul(expandedResult, ATValue, transformedOutputShape, loc, rewriter);
 
     // Construct the output
     SmallVector<int64_t> finalOutputShape{in, ih + padH, iw + padW, oc};
