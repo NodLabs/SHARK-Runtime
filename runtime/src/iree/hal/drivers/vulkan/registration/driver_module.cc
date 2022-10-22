@@ -34,6 +34,8 @@ IREE_FLAG(bool, vulkan_tracing, true,
 IREE_FLAG(
     bool, vulkan_dedicated_compute_queue, false,
     "Use a dedicated queue with VK_QUEUE_COMPUTE_BIT for dispatch workloads.");
+IREE_FLAG(bool, enable_rgp, false,
+          "Wraps queue submits with debug labels for the rgp profiler");
 
 static iree_status_t iree_hal_vulkan_create_driver_with_flags(
     iree_string_view_t identifier, iree_allocator_t host_allocator,
@@ -71,6 +73,9 @@ static iree_status_t iree_hal_vulkan_create_driver_with_flags(
   if (FLAG_vulkan_dedicated_compute_queue) {
     driver_options.device_options.flags |=
         IREE_HAL_VULKAN_DEVICE_FLAG_DEDICATED_COMPUTE_QUEUE;
+  }
+  if (FLAG_enable_rgp) {
+    driver_options.device_options.flags = 1u;
   }
 
   // Load the Vulkan library. This will fail if the library cannot be found or
