@@ -77,7 +77,8 @@ std::unique_ptr<Pass> createConvert1X1FilterConv2DToMatmulPass();
 
 // Creates a pass to convert linalg convolution ops into linalg.matmul ops
 // using im2col tranformation.
-std::unique_ptr<Pass> createConvertConv2DToImg2ColPass();
+std::unique_ptr<Pass> createConvertConv2DToImg2ColPass(
+    bool useBatchMatmul = false);
 
 /// Creates a pass to convert linalg NCHW Convolutions to NHWC.
 std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
