@@ -60,6 +60,12 @@ static llvm::cl::opt<bool> clEnableConvToImg2Col(
     llvm::cl::desc("Enable converting convolution ops to img2col form."),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clImg2ColBatchMatmul(
+    "iree-flow-enable-img2col-batch-matmul",
+    llvm::cl::desc(
+        "Enable broadcasting the filter when converting to img2col form."),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<bool> clEnableConvNchwToNhwc(
     "iree-flow-enable-conv-nchw-to-nhwc-transform",
     llvm::cl::desc("Enable converting convolution ops in nchw format."),
@@ -212,7 +218,10 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
                          IREE::Flow::createConvertConvNchwToNhwcPass)
       .addPass(IREE::Flow::createConvert1X1FilterConv2DToMatmulPass)
       .addPredicatedPass(clEnableConvToImg2Col,
-                         IREE::Flow::createConvertConv2DToImg2ColPass)
+                         []() {
+                           return IREE::Flow::createConvertConv2DToImg2ColPass(
+                               clImg2ColBatchMatmul);
+                         })
       .addPredicatedPass(
           clDispatchTransformFileName.empty() && !clDispatchViaRegionOps,
           IREE::Flow::createDetachElementwiseFromNamedOpsPass)
