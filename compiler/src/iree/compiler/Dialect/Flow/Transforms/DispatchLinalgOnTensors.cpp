@@ -916,15 +916,6 @@ static bool isFusableWithConsumer(OpOperand &fusedOperand,
     return false;
   }
 
-  // Check if the iteration spaces of the producer and consumer are same.
-  // TODO: This is unnecessary requirement, but needed to pass tests right now
-  if (!aggressiveFusion) {
-    auto producerIterationSpace = producerLinalgOp.getStaticLoopRanges();
-    auto consumerIterationSpace = consumerLinalgOp.getStaticLoopRanges();
-    if (producerIterationSpace.size() < consumerIterationSpace.size()) {
-      return false;
-    }
-  }
   return true;
 }
 
