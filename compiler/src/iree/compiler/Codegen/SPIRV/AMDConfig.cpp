@@ -34,7 +34,7 @@ static LogicalResult setAMDMatmulConfig(linalg::LinalgOp op,
   if (inputType.getElementType().getIntOrFloatBitWidth() == 16) {
     threadMNK = {8, 8, 32};
   } else {
-    threadMNK = {8, 4, 16};
+    threadMNK = {4, 4, 32};
   }
   return setMatmulOpConfig(limits, op, workgroupXY, threadMNK,
                            /*enablePromotion=*/true);
