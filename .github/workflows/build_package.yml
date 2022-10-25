@@ -57,6 +57,13 @@ jobs:
             build-family: macos
             build-package: py-runtime-pkg
             experimental: true
+
+          # Windows packages.
+          - runs-on: windows-latest
+            build-family: windows
+            build-package: py-compiler-pkg
+            experimental: true
+
     env:
       MANYLINUX_X86_64_IMAGE: gcr.io/iree-oss/manylinux2014_x86_64-release@sha256:b09c10868f846308bad2eab253a77d0a3f097816c40342bc289d8e62509bc5f9
 
@@ -66,6 +73,15 @@ jobs:
           path: "main_checkout"
           submodules: true
           ref: ${{ github.event.inputs.commit }}
+
+      ##########################################################################
+      # OS specific setup
+      ##########################################################################
+      - name: Install Windows VS Deps
+        if: "matrix.build-family == 'windows'"
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
 
       ##########################################################################
       # OS specific setup
@@ -81,13 +97,14 @@ jobs:
       # Various tools will read this in order to embed release information.
       ##########################################################################
       - name: Write version info (release)
+        if: "matrix.build-family != 'windows'"
         shell: bash
         run: |
           cat << EOF > ./main_checkout/version_info.json
           {
             "package-suffix": "${{ github.event.inputs.package_suffix }}",
             "package-version": "${{ github.event.inputs.package_version }}",
-            "iree-revision": "$(cd ./main_checkout && git rev-parse HEAD)"
+            "iree-revision": "$(cd ./i && git rev-parse HEAD)"
           }
           EOF
           cat ./main_checkout/version_info.json
@@ -168,6 +185,17 @@ jobs:
           sudo rm -rf /usr/local/lib/cmake/zstd/*
 
           ./main_checkout/build_tools/python_deploy/build_macos_packages.sh
+
+
+      ##########################################################################
+      # Build Windows packages.
+      ##########################################################################
+      - name: Build Python wheels and smoke test.
+        if: "matrix.build-family == 'windows'"
+        shell: pwsh
+        run: |
+          cd main_checkout
+          ./build_tools/python_deploy/build_windows.ps1
 
       ##########################################################################
       # TF Compiler Tools
