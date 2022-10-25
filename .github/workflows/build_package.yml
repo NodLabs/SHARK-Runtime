@@ -107,7 +107,7 @@ jobs:
             "iree-revision": "$(cd ./i && git rev-parse HEAD)"
           }
           EOF
-          cat ./i/version_info.json
+          cat ./main_checkout/version_info.json
 
       ##########################################################################
       # Build the main distribution tarball.
