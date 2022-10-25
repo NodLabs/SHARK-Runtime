@@ -97,9 +97,10 @@ jobs:
       # Various tools will read this in order to embed release information.
       ##########################################################################
       - name: Write version info (release)
+        if: "matrix.build-family != 'windows'"
         shell: bash
         run: |
-          cat << EOF > ./i/version_info.json
+          cat << EOF > ./main_checkout/version_info.json
           {
             "package-suffix": "${{ github.event.inputs.package_suffix }}",
             "package-version": "${{ github.event.inputs.package_version }}",
