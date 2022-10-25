@@ -685,10 +685,13 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
       op.getOutputs()[0].getType().cast<ShapedType>().getElementType();
   if (!elementType.isIntOrFloat()) return failure();
   // Reduction distribution only supports 32-bit types now.
-  if (elementType.getIntOrFloatBitWidth() != 32) return failure();
+  unsigned bitWidth = elementType.getIntOrFloatBitWidth();
+  // if (bitWidth != 32 && bitWidth != 16) return failure();
+  if (bitWidth != 32 && bitWidth != 16) return failure();
 
   // Let each thread handle `vectorSize` elements.
-  unsigned vectorSize = 4;
+  unsigned vectorRegBitWidth = 128;
+  unsigned vectorSize = vectorRegBitWidth / bitWidth;
   while ((*dimSize / vectorSize) % subgroupSize != 0) vectorSize /= 2;
 
   // TODO: Add reduction tiling to handle larger reductions.
@@ -703,7 +706,17 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
     // the reduction with a consumer that needs to be tiled.
     // TODO(thomasraoux): remove the restriction once vector distribution is
     // improved.
-    if (isFusedWithBroadcast(op)) return failure();
+    if (isFusedWithBroadcast(op)) {
+      return failure();
+    }
+    // Current warp reduction pattern is a two step butterfly warp reduce.
+    // First, do warp reductions along multiple subgroups.
+    // Second, reduce results from multiple subgroups using single warp reduce.
+    // The final warp reduce requires numSubgroup > subgroupSize to work.
+    // TODO: Add flexible num steps of warp reduce to handle more tile/dist.
+    if (groupSize / subgroupSize > subgroupSize) {
+      return failure();
+    }
   }
   std::array<int64_t, 3> workgroupSize = {groupSize, 1, 1};
   // Tile all the parallel dimension to 1.
