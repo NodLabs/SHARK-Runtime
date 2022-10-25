@@ -63,14 +63,14 @@ bool isMatmulOrBatchMatmul(linalg::LinalgOp linalgOp) {
 static bool tileConvOneDim(const int64_t inputDim, const bool isInnerMostDim,
                            int64_t &residualThreads,
                            int64_t &residualTilingFactor, int64_t &wgDimSize,
-                           int64_t &wgTileSize) {
+                           int64_t &wgTileSize, const int64_t vectorSize) {
   const int64_t lb = isInnerMostDim ? 2 : 1;
   for (int64_t dim = residualThreads; dim >= lb; dim >>= 1) {
     int64_t chosenTileSize = 0;
     if (isInnerMostDim) {
       // Handle 4 elements per thread for the innermost dimension. We need
       // this for vectorized load.
-      chosenTileSize = 4;
+      chosenTileSize = vectorSize;
       if (inputDim % (dim * chosenTileSize) != 0) continue;
     } else {
       for (int64_t t = residualTilingFactor; t >= 1; t >>= 1)
@@ -128,6 +128,10 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
   ArrayRef<int64_t> inputShape = inputType.cast<ShapedType>().getShape();
   Type outputType = linalgOp.getDpsInitOperand(0)->get().getType();
   ArrayRef<int64_t> outputShape = outputType.cast<ShapedType>().getShape();
+  // auto bitWidth = outputType.cast<ShapedType>().getElementType().getIntOrFloatBitWidth();
+  // unsigned vectorRegBitWidth = 128;
+  // unsigned vectorSize = vectorRegBitWidth / bitWidth;
+  unsigned vectorSize = 4;
 
   const bool isNCHW = isa<linalg::Conv2DNchwFchwOp>(*linalgOp);
   const bool isNHWC = isa<linalg::Conv2DNhwcHwcfOp>(*linalgOp) ||
@@ -149,7 +153,7 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
 
   // The conversion pipeline requires the input channel dimension to be some
   // multipler of four, or less than four.
-  if (!(ic % 4 == 0 || ic < 4)) return success();
+  if (!(ic % vectorSize == 0 || ic < vectorSize)) return success();
 
   // The core idea is to distribute the convolution dimensions to the workgroup
   // Z/Y/X dimensions, with each thread in a workgroup handling multiple vector
@@ -166,20 +170,20 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
     // OW -> x, OH -> y, OC -> z
     if (!tileConvOneDim(ow, /*isInnerMostDim=*/true, residualThreads,
                         residualTilingFactor, workgroupSize[0],
-                        workgroupTileSizes[3]) ||
+                        workgroupTileSizes[3], vectorSize) ||
         !tileConvOneDim(oh, /*isInnerMostDim=*/false, residualThreads,
                         residualTilingFactor, workgroupSize[1],
-                        workgroupTileSizes[2]) ||
+                        workgroupTileSizes[2], vectorSize) ||
         !tileConvOneDim(oc, /*isInnerMostDim=*/false, residualThreads,
                         residualTilingFactor, workgroupSize[2],
-                        workgroupTileSizes[1])) {
+                        workgroupTileSizes[1], vectorSize)) {
       return success();
     }
   } else {
     // OC -> x
     if (!tileConvOneDim(oc, /*isInnerMostDim=*/true, residualThreads,
                         residualTilingFactor, workgroupSize[0],
-                        workgroupTileSizes[3]))
+                        workgroupTileSizes[3], vectorSize))
       return success();
 
     // Deduce the configruation for the OW and OH dimension. Try to make them
@@ -195,10 +199,10 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
     if (!tileToSquare) {
       if (!tileConvOneDim(ow, /*isInnerMostDim=*/false, residualThreads,
                           residualTilingFactor, workgroupSize[1],
-                          workgroupTileSizes[2]) ||
+                          workgroupTileSizes[2], vectorSize) ||
           !tileConvOneDim(oh, /*isInnerMostDim=*/false, residualThreads,
                           residualTilingFactor, workgroupSize[2],
-                          workgroupTileSizes[1])) {
+                          workgroupTileSizes[1], vectorSize)) {
         return success();
       }
     }
@@ -215,9 +219,9 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
   tileSizes.push_back(threadTileSizes);
   // Tiling along reduction dimensions
   if (isa<linalg::Conv2DNchwFchwOp>(linalgOp)) {
-    tileSizes.push_back({0, 0, 0, 0, 4, 1, 1});  // (N, OC, OH, OW, IC, FH, FW)
+    tileSizes.push_back({0, 0, 0, 0, vectorSize, 1, 1});  // (N, OC, OH, OW, IC, FH, FW)
   } else if (isa<linalg::Conv2DNhwcHwcfOp>(linalgOp)) {
-    tileSizes.push_back({0, 0, 0, 0, 1, 1, 4});  // (N, OH, OW, OC, FH, FW, IC)
+    tileSizes.push_back({0, 0, 0, 0, 1, 1, vectorSize});  // (N, OH, OW, OC, FH, FW, IC)
   } else if (isa<linalg::DepthwiseConv2DNhwcHwcOp>(linalgOp)) {
     tileSizes.push_back({0, 0, 0, 0, 1, 1});  // (N, OH, OW, C, FH, FW)
   } else {
@@ -685,10 +689,13 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
       op.getOutputs()[0].getType().cast<ShapedType>().getElementType();
   if (!elementType.isIntOrFloat()) return failure();
   // Reduction distribution only supports 32-bit types now.
-  if (elementType.getIntOrFloatBitWidth() != 32) return failure();
+  unsigned bitWidth = elementType.getIntOrFloatBitWidth();
+  // if (bitWidth != 32 && bitWidth != 16) return failure();
+  if (bitWidth != 32 && bitWidth != 16) return failure();
 
   // Let each thread handle `vectorSize` elements.
-  unsigned vectorSize = 4;
+  unsigned vectorRegBitWidth = 128;
+  unsigned vectorSize = vectorRegBitWidth / bitWidth;
   while ((*dimSize / vectorSize) % subgroupSize != 0) vectorSize /= 2;
 
   // TODO: Add reduction tiling to handle larger reductions.
@@ -703,7 +710,17 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
     // the reduction with a consumer that needs to be tiled.
     // TODO(thomasraoux): remove the restriction once vector distribution is
     // improved.
-    if (isFusedWithBroadcast(op)) return failure();
+    if (isFusedWithBroadcast(op)) {
+      return failure();
+    }
+    // Current warp reduction pattern is a two step butterfly warp reduce.
+    // First, do warp reductions along multiple subgroups.
+    // Second, reduce results from multiple subgroups using single warp reduce.
+    // The final warp reduce requires numSubgroup > subgroupSize to work.
+    // TODO: Add flexible num steps of warp reduce to handle more tile/dist.
+    if (groupSize / subgroupSize > subgroupSize) {
+      return failure();
+    }
   }
   std::array<int64_t, 3> workgroupSize = {groupSize, 1, 1};
   // Tile all the parallel dimension to 1.
