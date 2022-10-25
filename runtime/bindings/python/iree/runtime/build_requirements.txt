@@ -8,3 +8,5 @@ pybind11>=2.8.0
 requests
 wheel
 PyYAML
+# If we build with CUDA runtime we use requests to download the runtime
+requests
