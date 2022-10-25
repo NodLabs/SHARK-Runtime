@@ -75,7 +75,7 @@ IREE_BINARY_DIR = None
 # between what we pass to setup() and cmake. So hard-code it here.
 # Note that setup() needs a relative path (to the setup.py file).
 SETUPPY_DIR = os.path.realpath(os.path.dirname(__file__))
-CMAKE_INSTALL_DIR_REL = os.path.join("build", "cmake_install")
+CMAKE_INSTALL_DIR_REL = os.path.join("build", "i")
 CMAKE_INSTALL_DIR_ABS = os.path.join(SETUPPY_DIR, CMAKE_INSTALL_DIR_REL)
 
 IS_CONFIGURED = CONFIGURED_SOURCE_DIR[0] != "@"
@@ -94,7 +94,7 @@ else:
     # Note that setuptools always builds into a "build" directory that
     # is a sibling of setup.py, so we just colonize a sub-directory of that
     # by default.
-    IREE_BINARY_DIR = os.path.join(SETUPPY_DIR, "build", "cmake_build")
+    IREE_BINARY_DIR = os.path.join(SETUPPY_DIR, "build", "b")
   print(
       f"Running setup.py from source tree: "
       f"SOURCE_DIR = {IREE_SOURCE_DIR} "
@@ -228,6 +228,8 @@ def prepare_installation():
         "-GNinja",
         "--log-level=VERBOSE",
         "-DIREE_BUILD_PYTHON_BINDINGS=ON",
+        "-DIREE_BUILD_TESTS=OFF",
+        "-DIREE_BUILD_SAMPLES=OFF",
         "-DPython3_EXECUTABLE={}".format(sys.executable),
         "-DCMAKE_BUILD_TYPE={}".format(cfg),
         get_env_cmake_option("IREE_TARGET_BACKEND_CUDA"),
