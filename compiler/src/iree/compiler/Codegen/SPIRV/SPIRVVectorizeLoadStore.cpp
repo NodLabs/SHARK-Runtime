@@ -627,6 +627,9 @@ struct ScalarizeVectorTransferWrite final
     bindSymbols(context, sym0, sym1);
     auto addMap = AffineMap::get(0, 2, {sym0 + sym1}, context);
 
+    // if(map.getResults().size() < 1) {
+    //   return failure();
+    // }
     // The result vector is 1-D and we have a projected permutation.
     unsigned dimPos = map.getDimPosition(0);
 
