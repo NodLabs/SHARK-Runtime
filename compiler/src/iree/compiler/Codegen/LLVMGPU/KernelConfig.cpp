@@ -519,6 +519,15 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
     // TODO(thomasraoux): remove the restriction once vector distribution is
     // improved.
     if (isFusedWithBroadcast(entryPoint, op)) return failure();
+
+    // Current warp reduction pattern is a two step butterfly warp reduce.
+    // First, do warp reductions along multiple warps.
+    // Second, reduce results from multiple subgroups using single warp reduce.
+    // The final warp reduce requires numWarp > cudaWarpSize to work.
+    // TODO: Add flexible num steps of warp reduce to handle more tile/dist.
+    if (groupSize / cudaWarpSize > cudaWarpSize) {
+      return failure();
+    }
   }
   std::array<int64_t, 3> workgroupSize = {groupSize, 1, 1};
   SmallVector<unsigned> partitionedLoops =
