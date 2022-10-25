@@ -56,6 +56,47 @@ static Value warpReduction(Location loc, OpBuilder &builder, Value input,
   return laneVal;
 }
 
+// List of identity elements by operation.
+// https://en.wikipedia.org/wiki/Identity_element
+static Attribute getCombiningKindIdentity(OpBuilder &builder,
+                                          vector::CombiningKind combiningKind,
+                                          Type type) {
+  switch (combiningKind) {
+    case vector::CombiningKind::ADD:
+      return builder.getZeroAttr(type);
+    case vector::CombiningKind::MUL: {
+      if (type.isIntOrIndex()) {
+        return builder.getIntegerAttr(type, 1);
+      }
+      return builder.getFloatAttr(type, 1);
+    }
+    case vector::CombiningKind::MINUI:
+    case vector::CombiningKind::MINSI:
+      return builder.getIntegerAttr(type, std::numeric_limits<int64_t>::max());
+    case vector::CombiningKind::MAXUI:
+    case vector::CombiningKind::MAXSI:
+      return builder.getIntegerAttr(type, std::numeric_limits<int64_t>::min());
+    case vector::CombiningKind::AND:
+      return builder.getIntegerAttr(type, 1);
+    case vector::CombiningKind::OR:
+    case vector::CombiningKind::XOR:
+      return builder.getZeroAttr(type);
+    case vector::CombiningKind::MINF: {
+      auto floatType = type.dyn_cast<FloatType>();
+      const llvm::fltSemantics &semantic = floatType.getFloatSemantics();
+      return builder.getFloatAttr(type,
+                                  llvm::APFloat::getLargest(semantic, false));
+    }
+    case vector::CombiningKind::MAXF: {
+      auto floatType = type.dyn_cast<FloatType>();
+      const llvm::fltSemantics &semantic = floatType.getFloatSemantics();
+      return builder.getFloatAttr(type,
+                                  llvm::APFloat::getLargest(semantic, true));
+    }
+  }
+  return Attribute();
+}
+
 /// Emit reduction across a group for a given input.
 static Value groupReduction(Location loc, OpBuilder &builder, Value input,
                             vector::CombiningKind kind, uint32_t size,
@@ -63,10 +104,19 @@ static Value groupReduction(Location loc, OpBuilder &builder, Value input,
   assert(
       size % warpSize == 0 &&
       "Group reduction only support for sizes aligned on warp size for now.");
+  // auto inputType = input.getType();
+  // assert((reductionOp.getType().isF32() &&
+  //     reductionOp.getType().isSignlessInteger(32)) &&
+  //     !reductionOp.getType().isF16() && "Group reduction only supported for
+  //     F16, I32, and F32.");
   Value laneVal = warpReduction(loc, builder, input, kind, warpSize);
   // if we have more than one warp, reduce across warps.
   if (size > warpSize) {
+    // TODO: Add looping warp.
     uint32_t numWarp = size / warpSize;
+    assert(numWarp <= warpSize &&
+           "Only support 1 level, need to implement recursive/loop for this "
+           "case.");
     MemRefType memrefType =
         MemRefType::get(numWarp, input.getType(), {},
                         gpu::GPUDialect::getWorkgroupAddressSpace());
@@ -79,11 +129,24 @@ static Value groupReduction(Location loc, OpBuilder &builder, Value input,
     SmallVector<Value> indices = {warpId};
     builder.create<memref::StoreOp>(loc, laneVal, alloc, indices);
     builder.create<gpu::BarrierOp>(loc);
-    VectorType vecType = VectorType::get(numWarp, input.getType());
-    Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
-    Value vec =
-        builder.create<vector::TransferReadOp>(loc, vecType, alloc, zero);
-    laneVal = builder.create<vector::ReductionOp>(loc, kind, vec);
+    // Further reducing the outputs from each warps.
+    // %laneId = threadId % warpSize
+    // %a = load[%laneId] : f16
+    // %c = cmp lt %laneId, %numWarp
+    // %s = select %c, %a, neutralElement
+    // warpReduce(%s)
+    Value laneId = builder.create<arith::RemUIOp>(loc, threadX, cstWarpSize);
+    Value loadVal = builder.create<memref::LoadOp>(loc, alloc, laneId);
+    Value cstNumWarp = builder.create<arith::ConstantIndexOp>(loc, numWarp);
+    Value useIdentityElement = builder.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::sge, laneId, cstNumWarp);
+    Attribute identityAttr =
+        getCombiningKindIdentity(builder, kind, loadVal.getType());
+    assert(identityAttr && "Unknown identity value for the reduction");
+    Value identity = builder.create<arith::ConstantOp>(loc, identityAttr);
+    Value selectedInput = builder.create<arith::SelectOp>(
+        loc, useIdentityElement, identity, loadVal);
+    laneVal = warpReduction(loc, builder, selectedInput, kind, warpSize);
   }
   return laneVal;
 }
