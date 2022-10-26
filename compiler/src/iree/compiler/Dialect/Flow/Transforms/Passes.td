@@ -87,6 +87,8 @@ def DispatchLinalgOnTensors :
   let options = [
     Option<"aggressiveFusion", "aggressive-fusion", "bool",
            /*default=*/"false", "Fuse with aggressive heuristics">,
+    Option<"iterFusion", "iterator-space-fusion", "bool",
+           /*default=*/"false", "Fuse ops with iterator spaces of different sizes">,
   ];
 }
 

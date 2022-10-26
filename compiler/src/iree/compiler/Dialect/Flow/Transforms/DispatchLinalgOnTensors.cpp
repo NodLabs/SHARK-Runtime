@@ -892,7 +892,7 @@ static bool areOpsAggresiveFusable(Operation *producer, Operation *consumer,
 /// Returns true if this is a fusable use, while fusing a root with its
 /// consumer.
 static bool isFusableWithConsumer(OpOperand &fusedOperand,
-                                  bool aggressiveFusion) {
+                                  bool aggressiveFusion, bool iterFusion) {
   // Logics with aggressive fusion heuristics.
   Operation *producer = fusedOperand.get().getDefiningOp();
   Operation *consumer = fusedOperand.getOwner();
@@ -913,6 +913,16 @@ static bool isFusableWithConsumer(OpOperand &fusedOperand,
     return false;
   }
 
+  // Check if the iteration spaces of the producer and consumer are same.
+  // TODO: This is unnecessary requirement, but needed to pass tests right now
+  if (!aggressiveFusion && !iterFusion) {
+    auto producerIterationSpace = producerLinalgOp.getStaticLoopRanges();
+    auto consumerIterationSpace = consumerLinalgOp.getStaticLoopRanges();
+    if (producerIterationSpace.size() < consumerIterationSpace.size()) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -921,7 +931,7 @@ static bool isFusableWithConsumer(OpOperand &fusedOperand,
 static void fuseRootsWithConsumers(MLIRContext *context,
                                    ArrayRef<Operation *> roots,
                                    DominanceInfo const &dominanceInfo,
-                                   bool aggressiveFusion) {
+                                   bool aggressiveFusion, bool iterFusion) {
   SmallVector<Operation *> workList(roots.begin(), roots.end());
   // Fuse with consumers where possible.
   while (!workList.empty()) {
@@ -949,7 +959,8 @@ static void fuseRootsWithConsumers(MLIRContext *context,
       continue;
     }
 
-    if (isFusableWithConsumer(*(fusableUse.value()), aggressiveFusion)) {
+    if (isFusableWithConsumer(*(fusableUse.value()), aggressiveFusion,
+                              iterFusion)) {
       updateRootTo(consumerOp);
       workList.push_back(consumerOp);
     }
@@ -1021,7 +1032,7 @@ static void fuseRootsWithProducers(MLIRContext *context, Operation *root,
 /// enough to capture any heuristic.
 static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
                                        DominanceInfo const &dominanceInfo,
-                                       bool aggressiveFusion) {
+                                       bool aggressiveFusion, bool iterFusion) {
   unsigned numRootOps = 0;
   MLIRContext *context = funcOp->getContext();
   OpBuilder builder(context);
@@ -1043,7 +1054,8 @@ static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
       roots.push_back(&op);
     }
     roots = llvm::to_vector(llvm::reverse(roots));
-    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion);
+    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion,
+                           iterFusion);
   }
 
   // Once all root linalg ops have been tagged, put all remaining generic ops
@@ -1063,7 +1075,8 @@ static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
       roots.push_back(&op);
     }
     roots = llvm::to_vector(llvm::reverse(roots));
-    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion);
+    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion,
+                           iterFusion);
   }
 
   return numRootOps;
@@ -1078,11 +1091,12 @@ struct DispatchLinalgOnTensorsPass
         .insert<AffineDialect, IREE::Flow::FlowDialect, linalg::LinalgDialect,
                 scf::SCFDialect, tensor::TensorDialect>();
   }
-  DispatchLinalgOnTensorsPass(bool aggressiveFusion) {
+  DispatchLinalgOnTensorsPass(bool aggressiveFusion, bool iterFusion) {
     this->aggressiveFusion = aggressiveFusion;
+    this->iterFusion = iterFusion;
   }
   DispatchLinalgOnTensorsPass(const DispatchLinalgOnTensorsPass &pass)
-      : DispatchLinalgOnTensorsPass(pass.aggressiveFusion) {}
+      : DispatchLinalgOnTensorsPass(pass.aggressiveFusion, pass.iterFusion) {}
   void runOnOperation() override;
 
  private:
@@ -1165,7 +1179,7 @@ void DispatchLinalgOnTensorsPass::runOnOperation() {
   auto funcOp = getOperation();
   MLIRContext *context = &getContext();
   DominanceInfo const &dominanceInfo = getAnalysis<DominanceInfo>();
-  decideFusableLinalgOps(funcOp, dominanceInfo, aggressiveFusion);
+  decideFusableLinalgOps(funcOp, dominanceInfo, aggressiveFusion, iterFusion);
 
   LLVM_DEBUG({
     llvm::dbgs() << "\n--- After annotating linalg op fusion scheme ---\n";
@@ -1248,8 +1262,9 @@ void DispatchLinalgOnTensorsPass::runOnOperation() {
 }
 
 std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
-createDispatchLinalgOnTensorsPass(bool aggressiveFusion) {
-  return std::make_unique<DispatchLinalgOnTensorsPass>(aggressiveFusion);
+createDispatchLinalgOnTensorsPass(bool aggressiveFusion, bool iterFusion) {
+  return std::make_unique<DispatchLinalgOnTensorsPass>(aggressiveFusion,
+                                                       iterFusion);
 }
 
 }  // namespace Flow

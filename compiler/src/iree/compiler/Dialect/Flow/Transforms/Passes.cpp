@@ -107,6 +107,12 @@ static llvm::cl::opt<bool> clEnableAggressiveFusion(
         "with reduction loops"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clEnableIterFusion(
+    "iree-flow-enable-iterator-space-fusion",
+    llvm::cl::desc(
+        "Enable the fusion of ops with differently sized iterator spaces"),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<std::string> clMmt4dTargetOptions(
     "iree-flow-mmt4d-target-options",
     llvm::cl::desc("Convert linalg.matmul ops to MMT4D ops targetting the "
@@ -294,11 +300,11 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
                          })
       // Only want use the transform dialect for some dispatch regions and let
       // the DispatchLinalgOnTensorsPass handle the rest.
-      .addPredicatedPass(
-          !clDispatchViaRegionOps,
-          []() {
-            return createDispatchLinalgOnTensorsPass(clEnableAggressiveFusion);
-          })
+      .addPredicatedPass(!clDispatchViaRegionOps,
+                         []() {
+                           return createDispatchLinalgOnTensorsPass(
+                               clEnableAggressiveFusion, clEnableIterFusion);
+                         })
       // DispatchLinalgOnTensorsViaRegionsPass is a variant of
       // DispatchLinalgOnTensorsPass that lowers via DispatchRegionOps. This is
       // on an opt-in basis until the pass is stable enough to replace
