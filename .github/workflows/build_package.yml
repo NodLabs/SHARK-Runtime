@@ -194,7 +194,8 @@ jobs:
         if: "matrix.build-family == 'windows'"
         shell: pwsh
         run: |
-          ./main_checkout/build_tools/python_deploy/build_windows.ps1
+          cd main_checkout
+          ./build_tools/python_deploy/build_windows.ps1
 
       ##########################################################################
       # TF Compiler Tools
