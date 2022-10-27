@@ -39,6 +39,12 @@
 
 #define DEBUG_TYPE "iree-spirv-lowering-pass-pipeline"
 
+static llvm::cl::opt<bool> clEnableUnifyAliasResources(
+    "iree-spirv-unify-aliased-resources",
+    llvm::cl::desc(
+        "Enable unified alias resources."),
+    llvm::cl::init(true));
+
 namespace mlir {
 namespace iree_compiler {
 
@@ -207,7 +213,9 @@ static void addSPIRVLoweringPasses(OpPassManager &pm, bool enableFastMath,
   pm.addPass(createConvertToSPIRVPass(enableFastMath, use64bitIndex));
 
   OpPassManager &spirvPM = pm.nest<spirv::ModuleOp>();
-  spirvPM.addPass(spirv::createUnifyAliasedResourcePass());
+  if(clEnableUnifyAliasResources) {
+    spirvPM.addPass(spirv::createUnifyAliasedResourcePass());
+  }
   spirvPM.addPass(spirv::createLowerABIAttributesPass());
   spirvPM.addPass(createCanonicalizerPass());
   spirvPM.addPass(createCSEPass());
