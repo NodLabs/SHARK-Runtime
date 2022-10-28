@@ -78,6 +78,7 @@ iree_cc_library(
     iree::hal::utils::semaphore_base
     iree::schemas::spirv_executable_def_c_fbs
     vulkan_memory_allocator
+    dl
   PUBLIC
 )
 
