@@ -91,6 +91,12 @@ std::unique_ptr<Pass> createConvertRegionToWorkgroupsPass();
 std::unique_ptr<Pass> createTensorPadToTensorInsertSlicePass(
     bool skipSingleLinalgOpUses = false);
 
+// Generalizes named op and try to fuse them
+std::unique_ptr<Pass> createGeneralizeAndFusePass();
+
+// Pass to convert a linalg.matmul into linalg.transpose + linalg.matmul.
+std::unique_ptr<Pass> createConvertLinalgMatmulToMmtPass();
+
 // Pass to convert a linalg.matmul into linalg.mmt4d given some target ISA
 // information currently passed as pass options.
 std::unique_ptr<Pass> createConvertLinalgMatmulToMmt4DPass();
