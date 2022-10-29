@@ -192,7 +192,7 @@ jobs:
       ##########################################################################
       - name: Build Python wheels and smoke test.
         if: "matrix.build-family == 'windows'"
-        shell: pwsh
+        shell: powershell
         run: |
           cd c 
           ./build_tools/python_deploy/build_windows.ps1
