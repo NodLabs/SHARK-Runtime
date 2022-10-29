@@ -59,7 +59,7 @@ jobs:
             experimental: true
 
           # Windows packages.
-          - runs-on: windows-latest
+          - runs-on: Windows
             build-family: windows
             build-package: py-compiler-pkg
             experimental: true
