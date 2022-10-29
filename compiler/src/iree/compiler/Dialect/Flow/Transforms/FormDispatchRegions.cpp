@@ -546,6 +546,12 @@ static bool isFusableWithProducer(OpOperand &operand, bool aggressiveFusion) {
 
   auto consumerLinalgOp = cast<linalg::LinalgOp>(consumer);
   if (consumerLinalgOp.isDpsInput(&operand)) {
+    // TODO: Add some marker on transpose and MatmulOp to indicate mmt.
+    bool fuseTransposeAndMatmul =
+        isa<linalg::MatmulOp>(consumer) && isa<linalg::TransposeOp>(producer);
+    if (fuseTransposeAndMatmul) {
+      return true;
+    }
     bool fuseUses = false;
     if (auto linalgRoot = dyn_cast<linalg::GenericOp>(producer)) {
       SmallVector<unsigned> dims;
