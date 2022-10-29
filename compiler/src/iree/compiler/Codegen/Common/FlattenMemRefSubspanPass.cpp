@@ -392,9 +392,10 @@ struct LinearizeMMALoadIndices final
       return loadOp.emitOpError() << "failed to linearize index";
     }
 
+    bool transposeLoad = loadOp.getTranspose() ? loadOp.getTranspose().value() : false;
     rewriter.replaceOpWithNewOp<gpu::SubgroupMmaLoadMatrixOp>(
         loadOp, loadOp.getType(), adaptor.getSrcMemref(), linearIndex,
-        loadOp.getLeadDimension());
+        loadOp.getLeadDimension(), rewriter.getBoolAttr(transposeLoad));
     return success();
   }
 };

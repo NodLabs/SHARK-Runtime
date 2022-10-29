@@ -107,6 +107,11 @@ static llvm::cl::opt<bool> clEnableAggressiveFusion(
         "with reduction loops"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clEnableTransposeMatmulLayout(
+    "iree-flow-enable-transpose-matmul-layout",
+    llvm::cl::desc("Enable converting convolution ops to img2col form."),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<std::string> clMmt4dTargetOptions(
     "iree-flow-mmt4d-target-options",
     llvm::cl::desc("Convert linalg.matmul ops to MMT4D ops targetting the "
@@ -232,6 +237,9 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
           IREE::Flow::createDetachElementwiseFromNamedOpsPass)
       // Input should now be legal.
       .addPass(IREE::Flow::createVerifyInputLegalityPass)
+      // Transpose B layout to optimize mmt.
+      .addPredicatedPass(clEnableTransposeMatmulLayout,
+                        IREE::Flow::createConvertLinalgMatmulToMmtPass)
       // Catch matmul ops before we do anything else with them.
       .addPredicatedPass(
           !clMmt4dTargetOptions.empty(),
@@ -320,6 +328,9 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
   // Module pass to outline the dispatch regions into their own functions
   // wrapped in executables.
   passManager.addPass(IREE::Flow::createOutlineDispatchRegionsPass());
+  if(clEnableTransposeMatmulLayout) {
+    passManager.addPass(IREE::Flow::createGeneralizeAndFusePass());
+  }
 
   // Strip assertions from executables. We could support them with a bunch of
   // work but our generated executables are designed to be safe in the face of
