@@ -115,6 +115,11 @@ static llvm::cl::opt<bool> clEnableDataTiling(
     "iree-flow-enable-data-tiling", llvm::cl::desc("Enable data tiling path"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clEnableTransposeMatmulLayout(
+    "iree-flow-enable-transpose-matmul-layout",
+    llvm::cl::desc("Enable transposing the B matrix for matmuls."),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<std::string> clMmt4dTargetOptions(
     "iree-flow-mmt4d-target-options",
     llvm::cl::desc("Convert linalg.matmul ops to MMT4D ops targetting the "
@@ -207,6 +212,9 @@ static void buildOptionalPreprocessingPassPipeline(OpPassManager &passManager) {
                          IREE::LinalgExt::createConvertConv2DToWinogradPass)
       .addPredicatedPass(clEnableConvToImg2Col,
                          IREE::Flow::createConvertConv2DToImg2ColPass)
+      // Transpose B layout to optimize mmt.
+      .addPredicatedPass(clEnableTransposeMatmulLayout,
+                         IREE::Flow::createConvertLinalgMatmulToMmtPass)
       .addPredicatedPass(
           !clMmt4dTargetOptions.empty(),
           []() {
@@ -317,6 +325,9 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
   // Module pass to outline the dispatch regions into their own functions
   // wrapped in executables.
   passManager.addPass(IREE::Flow::createOutlineDispatchRegionsPass());
+  if (clEnableTransposeMatmulLayout) {
+    passManager.addPass(IREE::Flow::createGeneralizeAndFusePass());
+  }
 
   // Strip assertions from executables. We could support them with a bunch of
   // work but our generated executables are designed to be safe in the face of
