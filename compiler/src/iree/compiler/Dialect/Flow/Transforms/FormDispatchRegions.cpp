@@ -644,7 +644,14 @@ isFusableWithProducer(OpOperand &operand,
   }
 
   auto consumerLinalgOp = cast<linalg::LinalgOp>(consumer);
-  if (!consumerLinalgOp.isDpsInit(&operand)) {
+  if (consumerLinalgOp.isDpsInput(&operand)) {
+    // TODO: Add some marker on transpose and MatmulOp to indicate mmt.
+    bool fuseTransposeAndMatmul =
+        isa<linalg::MatmulOp>(consumer) && isa<linalg::TransposeOp>(producer);
+    if (fuseTransposeAndMatmul) {
+      return true;
+    }
+  } else if (!consumerLinalgOp.isDpsInit(&operand)) {
     return false;
   }
 
