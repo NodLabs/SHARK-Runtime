@@ -77,15 +77,6 @@ jobs:
       ##########################################################################
       # OS specific setup
       ##########################################################################
-      - name: Install Windows VS Deps
-        if: "matrix.build-family == 'windows'"
-        uses: egor-tensin/vs-shell@v2
-        with:
-          arch: x64
-
-      ##########################################################################
-      # OS specific setup
-      ##########################################################################
       - name: Install MacOS Deps
         if: "matrix.build-family == 'macos'"
         shell: bash
