@@ -106,7 +106,7 @@ jobs:
       ##########################################################################
       - name: Write version info (Windows release)
         if: "matrix.build-family == 'windows'"
-        shell: pwsh
+        shell: powershell
         run: |
          cd ./c
           @"
