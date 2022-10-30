@@ -228,6 +228,8 @@ def prepare_installation():
         "-GNinja",
         "--log-level=VERBOSE",
         "-DIREE_BUILD_PYTHON_BINDINGS=ON",
+        "-DIREE_BUILD_TESTS=OFF",
+        "-DIREE_BUILD_SAMPLES=OFF",
         "-DPython3_EXECUTABLE={}".format(sys.executable),
         "-DCMAKE_BUILD_TYPE={}".format(cfg),
         get_env_cmake_option("IREE_TARGET_BACKEND_CUDA"),
