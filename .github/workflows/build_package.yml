@@ -109,13 +109,8 @@ jobs:
         shell: powershell
         run: |
          cd ./c
-          @"
-          "package-suffix": "${{ github.event.inputs.package_suffix }}",
-          "package-version": "${{ github.event.inputs.package_version }}",
-          "iree-revision": "$(git rev-parse HEAD)"
-          "@ | Tee-Object -FilePath "version_info.json" -Append
-          more ./c/version_info.json
-          cd ..
+         ./build_tools/python_deploy/create_version.ps1 -suffix ${{ github.event.inputs.package_suffix }} -version ${{ github.event.inputs.package_version }}
+         cd ..
 
       ##########################################################################
       # Build the main distribution tarball.
