@@ -84,14 +84,14 @@ static SmallVector<int64_t> deduceSubgroupCounts(linalg::LinalgOp op) {
 
 /// Adds patterns to tile Linalg ops with workgroup markers to subgroups.
 static void populateTilingToSubgroupPatterns(ArrayRef<int64_t> subgroupCounts,
+                                             const unsigned subgroupSize,
                                              RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
 
-  auto getSubgroupProcInfoFn = [subgroupCounts](
+  auto getSubgroupProcInfoFn = [subgroupCounts, subgroupSize](
                                    OpBuilder &builder, Location loc,
                                    ArrayRef<Range> parallelLoopRanges) {
     // TODO: query this from the target environment
-    const unsigned subgroupSize = 32;
     auto counts = llvm::to_vector<3>(subgroupCounts);
     // `getSubgroupIdsAndCounts` assumes we follow GPU (X, Y, Z) order.
     std::reverse(counts.begin(), counts.end());
@@ -320,8 +320,14 @@ class SPIRVTileAndVectorizeToCooperativeOpsPass final
     // Then tile and distribute to subgroups.
 
     {
+      unsigned subgroupSize = 32;
+      if (spirv::TargetEnvAttr attr = getSPIRVTargetEnvAttr(rootOp)) {
+        spirv::TargetEnv targetEnv(attr);
+        subgroupSize = targetEnv.getResourceLimits().getSubgroupSize();
+      }
       RewritePatternSet subgroupTilingPatterns(context);
-      populateTilingToSubgroupPatterns(subgroupCounts, subgroupTilingPatterns);
+      populateTilingToSubgroupPatterns(subgroupCounts, subgroupSize,
+                                       subgroupTilingPatterns);
       if (failed(applyPatternsAndFoldGreedily(
               funcOp, std::move(subgroupTilingPatterns)))) {
         return signalPassFailure();
