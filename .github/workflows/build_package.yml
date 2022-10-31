@@ -48,18 +48,12 @@ jobs:
             build-package: py-runtime-pkg
             experimental: false
 
-          # MacOS packages.
-          - runs-on:
-              - ${{ github.repository == 'openxla/iree' && 'self-hosted' || 'macos-11' }}
-              - os-family=macOS
-              - runner-group=releaser
+          # Macos packages.
+          - runs-on: MacStudio
             build-family: macos
             build-package: py-compiler-pkg
             experimental: true
-          - runs-on:
-              - ${{ github.repository == 'openxla/iree' && 'self-hosted' || 'macos-11' }}
-              - os-family=macOS
-              - runner-group=releaser
+          - runs-on: MacStudio
             build-family: macos
             build-package: py-runtime-pkg
             experimental: true
@@ -79,9 +73,13 @@ jobs:
           path: "c"
           submodules: true
           ref: ${{ github.event.inputs.commit }}
+      - uses: actions/setup-python@v4
+        if: "matrix.build-family != 'macos'"
+        with:
+          python-version: '3.11'
 
       ##########################################################################
-      # OS specific setup
+      # OS specific setup (Windows)
       ##########################################################################
       - name: Install Windows VS Deps
         if: "matrix.build-family == 'windows'"
