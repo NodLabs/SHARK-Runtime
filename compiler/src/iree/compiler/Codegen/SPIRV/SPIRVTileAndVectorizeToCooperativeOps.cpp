@@ -92,6 +92,7 @@ static void populateTilingToSubgroupPatterns(ArrayRef<int64_t> subgroupCounts,
   auto getSubgroupProcInfoFn = [subgroupCounts, subgroupSize](
                                    OpBuilder &builder, Location loc,
                                    ArrayRef<Range> parallelLoopRanges) {
+    // TODO: query this from the target environment
     auto counts = llvm::to_vector<3>(subgroupCounts);
     // `getSubgroupIdsAndCounts` assumes we follow GPU (X, Y, Z) order.
     std::reverse(counts.begin(), counts.end());
