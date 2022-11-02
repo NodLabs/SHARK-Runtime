@@ -320,7 +320,8 @@ struct ConvertDispatchOp : public OpConversionPattern<IREE::Flow::DispatchOp> {
         adaptor.getTiedOperandsAttr(), getAffinityFor(op));
 
     if (hasDevice)
-      asyncOp->setA           adaptor.getTiedOperandsAttr(), getAffinityFor(op));
+      asyncOp->setAttr("device", device);
+
     return success();
   }
 };

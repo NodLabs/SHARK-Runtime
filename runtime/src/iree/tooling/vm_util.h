@@ -56,6 +56,15 @@ iree_status_t iree_tooling_variant_list_fprint(iree_vm_list_t* variant_list,
                                                size_t max_element_count,
                                                FILE* file);
 
+iree_status_t iree_tooling_load_ndarrays_from_file(
+    iree_string_view_t file_path, iree_hal_allocator_t* device_allocator,
+    iree_vm_list_t* variant_list);
+
+iree_status_t iree_create_buffer_view_from_file(
+    iree_string_view_t metadata, iree_string_view_t file_path,
+    iree_hal_allocator_t* device_allocator,
+    iree_hal_buffer_view_t** out_buffer_view);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

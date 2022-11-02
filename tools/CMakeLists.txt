@@ -146,6 +146,7 @@ iree_cc_binary(
     iree::tooling::comparison
     iree::tooling::context_util
     iree::tooling::vm_util
+    iree::tooling::vm_util_cc
     iree::vm
     iree::vm::cc
 )

@@ -165,7 +165,7 @@ iree_status_t Run(int* out_exit_code) {
 
     // Compare expected vs actual lists and output diffs.
     bool did_match = iree_tooling_compare_variant_lists(
-        expected_list.get(), outputs.get(), host_allocator, &std::cout);
+        expected_list.get(), outputs.get(), host_allocator, stdout);
     if (did_match) {
       std::cout
           << "[SUCCESS] all function outputs matched their expected values.\n";

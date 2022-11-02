@@ -8,6 +8,8 @@
 
 #include <vector>
 
+#include "iree/modules/hal/types.h"
+#include "iree/tooling/vm_util.h"
 #include "iree/vm/api.h"
 
 namespace iree {
@@ -88,7 +90,7 @@ Status ParseToVariantListMultipleDevices(iree_hal_device_set_t* devices,
         iree_string_view_t metadata, file_path;
         iree_string_view_split(input_view, '@', &metadata, &file_path);
         iree_string_view_consume_suffix(&metadata, iree_make_cstring_view("="));
-        IREE_RETURN_IF_ERROR(CreateBufferViewFromFile(
+        IREE_RETURN_IF_ERROR(iree_create_buffer_view_from_file(
             metadata, file_path, device_allocator, &buffer_view));
       } else {
         IREE_RETURN_IF_ERROR(iree_hal_buffer_view_parse(

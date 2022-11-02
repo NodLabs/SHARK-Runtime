@@ -7,7 +7,7 @@
 #include "iree/compiler/Dialect/Flow/Transforms/PassDetail.h"
 #include "iree/compiler/Dialect/Flow/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
@@ -327,13 +327,11 @@ BlockArgument getTiedOperandBlockArgument(BlockArgument resultArg) {
   // match and that the tied argument is readonly.
   auto type = tiedArg.getType().dyn_cast<IREE::Flow::DispatchTensorType>();
   if (!type || type.getAccess() != IREE::Flow::TensorAccess::ReadOnly ||
-      type.getElementType() != resultArgType.getElementType() ||
+      type.getBoundElementType() != resultArgType.getBoundElementType() ||
       llvm::any_of(llvm::zip(type.getShape(), resultArgType.getShape()),
                    [](std::tuple<int64_t, int64_t> sizes) {
-                     return std::get<0>(sizes) !=
-                                IREE::Flow::DispatchTensorType::kDynamicSize &&
-                            std::get<1>(sizes) !=
-                                IREE::Flow::DispatchTensorType::kDynamicSize &&
+                     return std::get<0>(sizes) != ShapedType::kDynamicSize &&
+                            std::get<1>(sizes) != ShapedType::kDynamicSize &&
                             std::get<0>(sizes) != std::get<1>(sizes);
                    })) {
     return nullptr;
@@ -362,7 +360,7 @@ static void tryToTieOperandsAndResults(
         tiedOperandArgument.getType().cast<IREE::Flow::DispatchTensorType>();
     tiedOperandArgument.setType(IREE::Flow::DispatchTensorType::get(
         IREE::Flow::TensorAccess::ReadWrite, oldType.getShape(),
-        oldType.getElementType()));
+        oldType.getBoundElementType()));
     outputArgument.replaceAllUsesWith(tiedOperandArgument);
     block->eraseArgument(outputArgument.getArgNumber());
     dispatchOp.setTiedResultOperandIndex(result.index(),

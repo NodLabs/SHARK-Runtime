@@ -6,9 +6,10 @@
 
 #include "iree/compiler/Dialect/Flow/Transforms/PassDetail.h"
 #include "iree/compiler/Dialect/Flow/Transforms/Passes.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Tensor/Utils/Utils.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/IR/Matchers.h"
@@ -70,17 +71,27 @@ class PartitionUsingAnnotations : public OpInterfaceRewritePattern<linalg::Linal
       auto identityLoopOrder =
           llvm::to_vector<4>(llvm::seq<int64_t>(0, tileSizes.size()));
 
-      FailureOr<linalg::TileLoopNest> loopNest =
-          linalg::tileConsumerAndFuseProducers(rewriter, op, tileSizes,
-                                               identityLoopOrder, llvm::None);
-      if (failed(loopNest)) {
+      scf::SCFTileAndFuseOptions tileAndFuseOptions;
+      tileAndFuseOptions.tilingOptions.setTileSizes(tileSizes);
+      tileAndFuseOptions.tilingOptions.setInterchange(identityLoopOrder);
+      auto tilingInterfaceOp = cast<TilingInterface>(op.getOperation());
+      FailureOr<scf::SCFTileAndFuseResult> tileAndFuseResult =
+          scf::tileConsumerAndFuseProducerGreedilyUsingSCFForOp(
+                                               rewriter, tilingInterfaceOp, tileAndFuseOptions);
+      if (failed(tileAndFuseResult)) {
         op.emitOpError("failed tiling and fusing producers");
         return failure();
       }
 
-      op->replaceAllUsesWith(loopNest->getRootOpReplacementResults());
+      // Replace the tiled op with replacements.
+      SmallVector<Value> replacements(op->getNumResults());
+      for (const auto &result : llvm::enumerate(op->getResults())) {
+        replacements[result.index()] =
+            tileAndFuseResult->replacements.lookup(result.value());
+      }
+      op->replaceAllUsesWith(replacements);
 
-      if (!loopNest->getLoopOps().empty()) {
+      if (!tileAndFuseResult->loops.empty()) {
         function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn =
             [devices] (unsigned i, Operation *op, OpBuilder b) {
                static int idx{0};
@@ -90,7 +101,7 @@ class PartitionUsingAnnotations : public OpInterfaceRewritePattern<linalg::Linal
                  op->removeAttr("devices");
                }
             };
-        ArrayRef<scf::ForOp> loopOps = loopNest->getLoopOps();
+        ArrayRef<scf::ForOp> loopOps = tileAndFuseResult->loops;
         for (auto loopOp : llvm::enumerate(llvm::reverse(loopOps))) {
           int64_t loopIndex = loopOp.index();
           int64_t unrollFactor = numPartitions[loopOps.size() - loopIndex - 1];

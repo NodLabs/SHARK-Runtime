@@ -26,7 +26,7 @@ static iree_status_t iree_allocate_and_copy_cstring_from_view(
   return iree_ok_status();
 }
 
-static iree_status_t iree_tooling_load_ndarrays_from_file(
+iree_status_t iree_tooling_load_ndarrays_from_file(
     iree_string_view_t file_path, iree_hal_allocator_t* device_allocator,
     iree_vm_list_t* variant_list) {
   char* file_path_cstring = NULL;
@@ -88,7 +88,7 @@ static iree_status_t iree_create_buffer_from_file_generator_callback(
 // from the file at |file_path|.
 //
 // The file contents are directly read in to memory with no processing.
-static iree_status_t iree_create_buffer_view_from_file(
+iree_status_t iree_create_buffer_view_from_file(
     iree_string_view_t metadata, iree_string_view_t file_path,
     iree_hal_allocator_t* device_allocator,
     iree_hal_buffer_view_t** out_buffer_view) {
