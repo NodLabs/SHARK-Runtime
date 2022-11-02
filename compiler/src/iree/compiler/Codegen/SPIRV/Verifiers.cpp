@@ -136,12 +136,16 @@ LogicalResult verifySPIRVMatmulPromoteVectorizePassPipeline(
         "sizes and workgroup sizes");
   }
 
+  auto pipelineDepth = translationInfo.getSoftwarePipelineDepth();
+  pipelineDepth = pipelineDepth ? pipelineDepth : 1;
+
   // Verify shared memory usage of operands after tiling <= maxSharedMemory.
   unsigned tilingSharedMemSizeBytes = getTileBytes(
       firstLevelTileSizes[0], firstLevelTileSizes[1], thirdLevelTileSizes[2],
       inputType.cast<ShapedType>().getElementType().getIntOrFloatBitWidth());
   unsigned totalSharedMemSizeBytes = getMultiBufferMemoryUsage(
-      tilingSharedMemSizeBytes, translationInfo.getSoftwarePipelineDepth());
+      tilingSharedMemSizeBytes, pipelineDepth,
+      translationInfo.getSoftwarePipelineStoreStage());
 
   if (totalSharedMemSizeBytes > maxSharedMemory) {
     return op->emitOpError("expected shared memory usage <= ")

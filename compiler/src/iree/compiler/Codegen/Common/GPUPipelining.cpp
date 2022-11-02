@@ -23,7 +23,7 @@ namespace mlir {
 namespace iree_compiler {
 
 static const StringLiteral kPipeliningLoopMarker = "__pipelining_K_loop__";
-static const StringLiteral kPipeliningGlobalLoad = "__pipelining_global_load__";
+static const StringLiteral kPipeliningFirstStage = "__pipelining_first_stage__";
 
 // Returns a new predicated operation to support unpeeled epilogue. Unpeeled
 // epilogue needs to handle the last iterations within the mainloop which
@@ -103,7 +103,7 @@ static void getPipelineStages(scf::ForOp forOp,
   // Track dependencies of the global memory load.
   llvm::SmallDenseSet<Operation*> loadDep;
   for (Operation& op : forOp.getBody()->getOperations()) {
-    if (op.hasAttr(kPipeliningGlobalLoad)) {
+    if (op.hasAttr(kPipeliningFirstStage)) {
       addDepOps(loadDep, &op, forOp.getBody());
     }
   }
@@ -143,14 +143,17 @@ static void setAsyncAnnotations(Operation* op,
 
 namespace {
 struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
-  GPUPipeliningPass(bool epiloguePeeling, unsigned depth) : depth(depth) {
+  GPUPipeliningPass(bool epiloguePeeling, unsigned depth, unsigned storeStage)
+      : depth(depth), storeStage(storeStage) {
     this->epiloguePeeling = epiloguePeeling;
   }
   void runOnOperation() override {
     auto funcOp = getOperation();
     MLIRContext* context = &getContext();
+
+    unsigned pipelineStoreStage = storeStage;
     // Mark the loop with shared memory copy for pipelining.
-    funcOp.walk([](scf::ForOp forOp) {
+    funcOp.walk([pipelineStoreStage](scf::ForOp forOp) {
       bool copyToWorkgroupMemory = false;
       OpBuilder builder(forOp.getContext());
       SmallVector<Operation*> barriers;
@@ -159,14 +162,16 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
         if (op.getNumRegions() > 0) return;
         if (isa<gpu::BarrierOp>(op)) {
           barriers.push_back(&op);
+          if (pipelineStoreStage == 0)
+            op.setAttr(kPipeliningFirstStage, builder.getUnitAttr());
         }
         if (isa<nvgpu::DeviceAsyncCopyOp, nvgpu::DeviceAsyncCreateGroupOp>(
                 op)) {
           copyToWorkgroupMemory = true;
-          op.setAttr(kPipeliningGlobalLoad, builder.getUnitAttr());
+          op.setAttr(kPipeliningFirstStage, builder.getUnitAttr());
           // async copy ops need to be moved along with previous barrier.
           for (Operation* barrier : barriers) {
-            barrier->setAttr(kPipeliningGlobalLoad, builder.getUnitAttr());
+            barrier->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
           }
           barriers.clear();
           continue;
@@ -183,10 +188,15 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
             st.getSource().getType().cast<MemRefType>().getMemorySpaceAsInt();
         if (stAddSpace != 3) continue;
         copyToWorkgroupMemory = true;
-        ld->setAttr(kPipeliningGlobalLoad, builder.getUnitAttr());
+        ld->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
+        if (pipelineStoreStage == 0)
+          st->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
       }
       if (copyToWorkgroupMemory) {
         forOp->setAttr(kPipeliningLoopMarker, builder.getUnitAttr());
+        if (pipelineStoreStage == 0 && !barriers.empty()) {
+          barriers.front()->erase();
+        }
       }
     });
     scf::PipeliningOption options;
@@ -224,6 +234,7 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
 
  private:
   unsigned depth;
+  unsigned storeStage;
 };
 }  // namespace
 
@@ -233,8 +244,9 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
 /// false : Try and use unpeeled epilogue (check if predication is supported is
 /// avialable)
 std::unique_ptr<OperationPass<func::FuncOp>> createGPUPipeliningPass(
-    bool epiloguePeeling, unsigned depth) {
-  return std::make_unique<GPUPipeliningPass>(epiloguePeeling, depth);
+    bool epiloguePeeling, unsigned depth, unsigned storeStage) {
+  return std::make_unique<GPUPipeliningPass>(epiloguePeeling, depth,
+                                             storeStage);
 }
 
 }  // namespace iree_compiler
