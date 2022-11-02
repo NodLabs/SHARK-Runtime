@@ -24,6 +24,9 @@
 namespace mlir {
 namespace iree_compiler {
 
+// By default don't do any pipelining
+constexpr unsigned defaultSoftwarePipelineDepth = 1;
+
 namespace detail {
 
 /// Sets CodeGen configurations via attributes to the given convolution
@@ -35,11 +38,11 @@ LogicalResult setConvOpConfig(linalg::LinalgOp linalgOp,
 
 /// Sets CodeGen configurations via attributes to the given matmul `linalgOp`
 /// with the given best workgroup size and tile size hints.
-LogicalResult setMatmulOpConfig(spirv::ResourceLimitsAttr limits,
-                                linalg::LinalgOp linalgOp,
-                                std::array<int64_t, 2> bestWorkgroupSizeXY,
-                                std::array<int64_t, 3> bestThreadTileSizeMNK,
-                                bool enablePromotion = false);
+LogicalResult setMatmulOpConfig(
+    spirv::ResourceLimitsAttr limits, linalg::LinalgOp linalgOp,
+    std::array<int64_t, 2> bestWorkgroupSizeXY,
+    std::array<int64_t, 3> bestThreadTileSizeMNK, bool enablePromotion = false,
+    unsigned softwarePipelineDepth = defaultSoftwarePipelineDepth);
 
 /// Sets CodeGen configuration for GPUs from a specific vendor.
 ///

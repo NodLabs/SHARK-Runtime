@@ -33,6 +33,9 @@ namespace mlir {
 namespace iree_compiler {
 namespace detail {
 
+// Try pipelining :D
+constexpr unsigned AMDSoftwarePipelineDepth = 2;
+
 /// Return the unique instance of OpType in `block` if it is indeed unique.
 /// Return null if none or more than 1 instances exist.
 static bool containsOnlySupportedOps(Block &block) {
@@ -229,7 +232,7 @@ static LogicalResult setAMDMatmulConfig(linalg::LinalgOp op,
     threadMNK = {4, 4, 32};
   }
   return setMatmulOpConfig(limits, op, workgroupXY, threadMNK,
-                           /*enablePromotion=*/true);
+                           /*enablePromotion=*/true, AMDSoftwarePipelineDepth);
 }
 
 // RDNA architecture:

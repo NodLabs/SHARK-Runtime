@@ -154,6 +154,7 @@ iree_cc_library(
     "DecomposeLinalgGeneric.cpp"
     "FoldAffineMinInDistributedLoops.cpp"
     "GPUDistributeSharedMemoryCopy.cpp"
+    "GPUMultiBuffering.cpp"
     "GPUPatterns.cpp"
     "GPUPipelining.cpp"
     "GPUReduceBankConflicts.cpp"

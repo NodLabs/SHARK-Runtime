@@ -465,7 +465,8 @@ LogicalResult setMatmulOpConfig(spirv::ResourceLimitsAttr limits,
                                 linalg::LinalgOp op,
                                 std::array<int64_t, 2> bestWorkgroupSizeXY,
                                 std::array<int64_t, 3> bestThreadTileSizeMNK,
-                                bool enablePromotion) {
+                                bool enablePromotion,
+                                unsigned softwarePipelineDepth) {
   LLVM_DEBUG(llvm::dbgs() << "trying to deduce config as matmul...\n");
   OpOperand *lhs = op.getDpsInputOperand(0);
   OpOperand *rhs = op.getDpsInputOperand(1);
@@ -555,12 +556,15 @@ LogicalResult setMatmulOpConfig(spirv::ResourceLimitsAttr limits,
   const int subgroupSize = limits.getSubgroupSize();
   const int maxBytes = limits.getMaxComputeSharedMemorySize();
 
+  auto pipelineDepth = softwarePipelineDepth ? softwarePipelineDepth : 1;
+
   auto pipeline =
       enablePromotion &&
               adjustToPromote({dimM, dimN, dimK}, workgroupTileSizes[mIndex],
                               workgroupTileSizes[nIndex],
                               reductionTileSizes[kIndex], workgroupSize,
-                              subgroupSize, maxBytes, elementBits)
+                              subgroupSize, maxBytes / pipelineDepth,
+                              elementBits)
           ? CodeGenPipeline::SPIRVMatmulPromoteVectorize
           : CodeGenPipeline::SPIRVBaseVectorize;
 
@@ -578,9 +582,12 @@ LogicalResult setMatmulOpConfig(spirv::ResourceLimitsAttr limits,
   tileSizes.push_back(threadTileSizes);
   tileSizes.push_back(reductionTileSizes);
 
+  // Don't multi-buffer if the reduction isn't tiled
+  pipelineDepth = dimK == reductionTileSizes[numLoops - 1] ? 1 : pipelineDepth;
+
   return setOpConfigAndEntryPointFnTranslation(
       op->getParentOfType<func::FuncOp>(), op, tileSizes, pipeline,
-      workgroupSize);
+      workgroupSize, pipelineDepth);
 }
 
 }  // namespace detail

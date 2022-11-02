@@ -15,9 +15,9 @@ namespace mlir {
 namespace iree_compiler {
 
 namespace {
-struct LLVMGPUMultiBufferingPass
-    : public LLVMGPUMultiBufferingBase<LLVMGPUMultiBufferingPass> {
-  LLVMGPUMultiBufferingPass(unsigned numBuffers) : numBuffers(numBuffers) {}
+struct GPUMultiBufferingPass
+    : public GPUMultiBufferingBase<GPUMultiBufferingPass> {
+  GPUMultiBufferingPass(unsigned numBuffers) : numBuffers(numBuffers) {}
 
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<AffineDialect>();
@@ -39,9 +39,8 @@ struct LLVMGPUMultiBufferingPass
     // Apply multi-buffering to all of them.
     for (memref::AllocOp alloc : allocs) {
       if (failed(memref::multiBuffer(alloc, numBuffers)))
-        // Stop if any buffer cannot be multi buffered as pipelining will assume
-        // this happened.
-        return signalPassFailure();
+        // Temporarily enable this case
+        continue;
     }
   }
 
@@ -50,9 +49,9 @@ struct LLVMGPUMultiBufferingPass
 };
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createLLVMGPUMultiBuffering(
+std::unique_ptr<OperationPass<func::FuncOp>> createGPUMultiBuffering(
     unsigned numBuffers) {
-  return std::make_unique<LLVMGPUMultiBufferingPass>(numBuffers);
+  return std::make_unique<GPUMultiBufferingPass>(numBuffers);
 }
 
 }  // namespace iree_compiler
