@@ -708,6 +708,16 @@ static iree_status_t iree_hal_vulkan_device_create_internal(
       options, instance, physical_device, logical_device,
       (iree_hal_device_t*)device, &device->device_allocator);
 
+  #if defined(IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING)
+  printf("\nHERE:: IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING\n");
+  printf("\nHERE:: compute_queue_set->use_caching_allocator: %d\n",compute_queue_set->use_caching_allocator);
+  if(compute_queue_set->use_caching_allocator) {
+    printf("\nHERE:: compute_queue_set->use_caching_allocator\n");
+    status = iree_hal_allocator_create_caching(device->device_allocator, &device->device_allocator);
+  }
+  #endif  // IREE_BUILD_EXPERIMENTAL_ALLOCATOR_CACHING
+
+
   // Create command pools for each queue family. If we don't have a transfer
   // queue then we'll ignore that one and just use the dispatch pool.
   // If we wanted to expose the pools through the HAL to allow the VM to more

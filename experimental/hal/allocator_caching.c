@@ -10,6 +10,7 @@
 #include "iree/hal/detail.h"
 #include "iree/hal/resource.h"
 #include <pthread.h>
+#include <stdio.h>
 
 pthread_mutex_t lock;
 
@@ -49,7 +50,7 @@ IREE_API_EXPORT iree_status_t iree_hal_allocator_create_caching(
     iree_hal_allocator_t** out_allocator) {
   IREE_ASSERT_ARGUMENT(out_allocator);
   IREE_TRACE_ZONE_BEGIN(z0);
-
+  printf("\nHERE: iree_hal_allocator_create_caching\n");
   iree_hal_caching_allocator_t* allocator = NULL;
   iree_host_size_t total_size =
       iree_sizeof_struct(*allocator);

@@ -39,6 +39,10 @@ IREE_FLAG(
     "Preferred allocator block size for large allocations in bytes. Sets the "
     "minimum bound on memory consumption.");
 
+IREE_FLAG(
+    bool, vulkan_use_caching_allocator, true,
+     "Allow command buffers to execute inline against CUDA streams when "
+     "possible.");
 IREE_FLAG(bool, enable_rgp, false,
           "Wraps queue submits with debug labels for the rgp profiler");
 

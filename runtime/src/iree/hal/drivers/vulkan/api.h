@@ -148,6 +148,9 @@ typedef struct iree_hal_vulkan_queue_set_t {
 
   // Bitfield of queue indices within the queue family at |queue_family_index|.
   uint64_t queue_indices;
+
+  // Execution with Caching Allocator
+  bool use_caching_allocator;
 } iree_hal_vulkan_queue_set_t;
 
 // TODO(benvanik): replace with flag list (easier to version).
