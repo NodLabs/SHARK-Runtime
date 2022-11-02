@@ -33,7 +33,7 @@ namespace mlir {
 namespace iree_compiler {
 namespace detail {
 
-// Try pipelining :D
+// Let the pipelining depth come from a user config for now
 constexpr unsigned AMDSoftwarePipelineDepth = 2;
 
 /// Return the unique instance of OpType in `block` if it is indeed unique.

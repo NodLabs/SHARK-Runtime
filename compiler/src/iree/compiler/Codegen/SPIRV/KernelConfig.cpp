@@ -563,7 +563,7 @@ LogicalResult setMatmulOpConfig(spirv::ResourceLimitsAttr limits,
               adjustToPromote({dimM, dimN, dimK}, workgroupTileSizes[mIndex],
                               workgroupTileSizes[nIndex],
                               reductionTileSizes[kIndex], workgroupSize,
-                              subgroupSize, maxBytes / pipelineDepth,
+                              subgroupSize, maxBytes / (pipelineDepth + 1),
                               elementBits)
           ? CodeGenPipeline::SPIRVMatmulPromoteVectorize
           : CodeGenPipeline::SPIRVBaseVectorize;

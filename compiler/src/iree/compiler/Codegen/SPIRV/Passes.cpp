@@ -334,10 +334,12 @@ void addSPIRVMatmulPromoteVectorizePassPipeline(OpPassManager &pm,
   nestedModulePM.addPass(createCanonicalizerPass());
   nestedModulePM.addPass(createCSEPass());
   nestedModulePM.addNestedPass<func::FuncOp>(
+          memref::createFoldMemRefAliasOpsPass());
+  nestedModulePM.addNestedPass<func::FuncOp>(
       createOptimizeVectorTransferPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(
-      createGPUPipeliningPass(pipelineDepth ? pipelineDepth : 1));
+      createGPUPipeliningPass(pipelineDepth >> 1 ? pipelineDepth - 1 : 1));
 
   addLoopMaterializationPasses(nestedModulePM);
 }
