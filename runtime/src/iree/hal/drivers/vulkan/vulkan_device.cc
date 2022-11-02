@@ -502,7 +502,7 @@ IREE_API_EXPORT void iree_hal_vulkan_device_options_initialize(
     iree_hal_vulkan_device_options_t* out_options) {
   memset(out_options, 0, sizeof(*out_options));
   out_options->flags = 0;
-  out_options->large_heap_block_size = 64 * 1024 * 1024;
+  out_options->large_heap_block_size = 4294967296;
 }
 
 // Creates a transient command pool for the given queue family.
