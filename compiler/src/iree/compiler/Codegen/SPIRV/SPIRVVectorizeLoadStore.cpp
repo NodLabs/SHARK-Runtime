@@ -50,6 +50,19 @@ static bool getUsesIfAllTransferOp(Value value,
                  << "failed: non-transfer user: " << *userOp << "\n");
       return false;
     }
+    bool isMinorIdentity = true;
+    if (auto readOp = dyn_cast<vector::TransferReadOp>(userOp)) {
+      isMinorIdentity = readOp.getPermutationMap().isMinorIdentity();
+    } else {
+      auto writeOp = cast<vector::TransferWriteOp>(userOp);
+      isMinorIdentity = writeOp.getPermutationMap().isMinorIdentity();
+    }
+    if (!isMinorIdentity) {
+      uses.clear();
+      LLVM_DEBUG(llvm::dbgs() << "failed: non-minor-identity transfer user: "
+                              << *userOp << "\n");
+      return false;
+    }
     uses.push_back(userOp);
   }
   return true;
@@ -232,6 +245,8 @@ class ProcessTransferRead final
           read, "cannot be vectorized per memref usage analysis");
     }
 
+    assert(read.getPermutationMap().isMinorIdentity());
+
     Location loc = read.getLoc();
 
     auto scalarMemrefType = read.getSource().getType().dyn_cast<MemRefType>();
@@ -292,6 +307,8 @@ class ProcessTransferWrite final
       return rewriter.notifyMatchFailure(
           write, "cannot be vectorized per memref usage analysis");
     }
+
+    assert(write.getPermutationMap().isMinorIdentity());
 
     Location loc = write.getLoc();
 
@@ -593,22 +610,25 @@ void SPIRVVectorizeLoadStorePass::runOnOperation() {
   target.addDynamicallyLegalOp<memref::AllocOp>([&](memref::AllocOp alloc) {
     return !memrefUsageAnalysis->shouldVectorizeMemRef(alloc);
   });
+  target.addDynamicallyLegalOp<memref::DeallocOp>([&](memref::DeallocOp op) {
+    return !memrefUsageAnalysis->shouldVectorizeMemRef(op.getMemref());
+  });
   target.addDynamicallyLegalOp<IREE::HAL::InterfaceBindingSubspanOp>(
       [&](IREE::HAL::InterfaceBindingSubspanOp bindingOp) {
         return !memrefUsageAnalysis->shouldVectorizeMemRef(bindingOp);
       });
-  target.markUnknownOpDynamicallyLegal([&](Operation *op) {
-    if (isa<vector::TransferWriteOp, vector::TransferReadOp>(op))
-      return !memrefUsageAnalysis->shouldConvertTransfer(op);
-    if (auto dealloc = dyn_cast<memref::DeallocOp>(op))
-      return !memrefUsageAnalysis->shouldVectorizeMemRef(dealloc.getMemref());
-    if (auto assumeOp = dyn_cast<memref::AssumeAlignmentOp>(op))
-      return !memrefUsageAnalysis->shouldVectorizeMemRef(assumeOp.getMemref());
-    return true;
-  });
+  target.addDynamicallyLegalOp<memref::AssumeAlignmentOp>(
+      [&](memref::AssumeAlignmentOp op) {
+        return !memrefUsageAnalysis->shouldVectorizeMemRef(op.getMemref());
+      });
+  target.addDynamicallyLegalOp<vector::TransferReadOp, vector::TransferWriteOp>(
+      [&](auto op) { return !memrefUsageAnalysis->shouldConvertTransfer(op); });
+  target.markUnknownOpDynamicallyLegal([&](Operation *op) { return true; });
+
   if (failed(applyPartialConversion(module, target,
-                                    std::move(conversionPatterns))))
+                                    std::move(conversionPatterns)))) {
     return signalPassFailure();
+  }
 
   for (func::FuncOp func : module.getOps<func::FuncOp>()) {
     RewritePatternSet rewritingPatterns(context);
