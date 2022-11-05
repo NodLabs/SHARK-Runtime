@@ -187,7 +187,7 @@ class ConvertConv2DNhwcHwcf final
     }
 
     bool debug{false};
-    SmallVector<int64_t> outputShape{Grows, Grows, shape[2], shape[3]};
+    SmallVector<int64_t> outputShape{Grows * Grows, shape[2], shape[3]};
     if (debug)
       write_tensor_to_file(output, outputShape, "estimated.csv");
     auto outputType = RankedTensorType::get(outputShape, elementType);
@@ -240,7 +240,7 @@ class ConvertConv2DNhwcHwcf final
     const int oc = kernelShape[3];
     // Check if filter transform can be constant folded
     auto definingOp = kernel.getDefiningOp<IREE::Util::DoNotOptimizeOp>();
-    Value tKernel;
+    Value cKernel;
     bool constantFolded{false};
     if (definingOp) {
       // Find arith constant op
@@ -260,7 +260,7 @@ class ConvertConv2DNhwcHwcf final
           }
           auto foldedKernel = foldFilterTransform(shape, isSplat, splatValue, elementType, rewriter);
           auto newConstOp = rewriter.create<arith::ConstantOp>(loc, foldedKernel);
-          tKernel = rewriter.replaceOpWithNewOp<IREE::Util::DoNotOptimizeOp>(definingOp, newConstOp.getResult()).getResult(0);
+          cKernel = rewriter.replaceOpWithNewOp<IREE::Util::DoNotOptimizeOp>(definingOp, newConstOp.getResult()).getResult(0);
           constantFolded = true;
         }
       }
@@ -268,17 +268,16 @@ class ConvertConv2DNhwcHwcf final
 
     if (!constantFolded) {
       auto transformedKernelType = RankedTensorType::get({inputTileSize, inputTileSize, oc, ic}, elementType);
-      tKernel = rewriter.create<IREE::Flow::WinogradFilterTransformOp>(loc, transformedKernelType, kernel);
+      auto tKernel = rewriter.create<IREE::Flow::WinogradFilterTransformOp>(loc, transformedKernelType, kernel);
+      SmallVector<int64_t> collapsedFilterShape = {inputTileSize * inputTileSize, ic, oc};
+      SmallVector<ReassociationIndices> filterReassociations = {{0, 1}, {2}, {3}};
+      cKernel = createCollapseOrExpand(tKernel, loc, rewriter, collapsedFilterShape, filterReassociations, true);
     }
 
     // Add collapse shape
     SmallVector<int64_t> collapsedShape = {inputTileSize * inputTileSize, in * ihm * iwm, ic};
     SmallVector<ReassociationIndices> reassociations = {{0, 1}, {2, 3, 4}, {5}};
     auto cInput = createCollapseOrExpand(tInput, loc, rewriter, collapsedShape, reassociations, true);
-
-    SmallVector<int64_t> collapsedFilterShape = {inputTileSize * inputTileSize, ic, oc};
-    SmallVector<ReassociationIndices> filterReassociations = {{0, 1}, {2}, {3}};
-    auto cKernel = createCollapseOrExpand(tKernel, loc, rewriter, collapsedFilterShape, filterReassociations, true);
 
     SmallVector<int64_t> bmmShape = {inputTileSize * inputTileSize, in * ihm * iwm, oc};
     auto bmmOutputType = RankedTensorType::get(bmmShape, elementType);
