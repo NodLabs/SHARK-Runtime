@@ -295,7 +295,8 @@ void TileAndDistributeToWorkgroupsPass::runOnOperation() {
               tileSizes = {32, 32};
             }
             if (winogradType == "winograd_output") {
-              tileSizes = {1, 32};
+              partitionableLoops = {0};
+              tileSizes = {32};
             }
             computeWinogradStaticLoopRanges(staticLoopRanges, winogradType, innerModule);
             patterns.insert<LowerDispatchWorkgroupCountForDagRootOp>(

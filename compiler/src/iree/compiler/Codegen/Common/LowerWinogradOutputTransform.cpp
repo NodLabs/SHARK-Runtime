@@ -226,7 +226,7 @@ class ConvertWinogradOutputTransform final
         //outputState.sizes[offpos] = rewriter.createOrFold<AffineMinOp>(loc, minMap, ValueRange{iv});
         outputState.sizes[offpos] = rewriter.getIndexAttr(outputTileSize);
       }
-      if (info.dim == 'c') {
+      if ((info.dim == 'c') || (info.dim == 'n')) {
         // Assumes input and output have c dimension
         inputState.sizes[pos] = rewriter.getIndexAttr(info.tile);
         outputState.sizes[opos] = rewriter.getIndexAttr(info.tile);
@@ -484,6 +484,12 @@ class ConvertWinogradOutputTransform final
         return {iterArgs[0]};
     });
 
+    // Add spirv attributes to loops
+    const char *attrName = "iree.spirv.distribute_dim";
+    for (int i = loopNest.loops.size() - 2, dim = 0; i >= 0; --i) {
+      loopNest.loops[i]->setAttr(attrName, rewriter.getIndexAttr(dim++));
+    }
+
     // Generate flow stores
     generateFlowStores(inputOp, loopNest.getResults()[0], outputState, loc, rewriter);
 
@@ -539,11 +545,11 @@ class ConvertWinogradOutputTransform final
     schedule.tensorFormat = {{"input", "ptnhwc"}, {"output", "nHWc"}};
     schedule.tilingInfo = {
       /* dim, lo, hi, step, tile, is_workgroup */
-      {'n', 0, -1,  1,  1,  1},
       {'c', 0, -1, 32, 32,  1},
       {'h', 0, -1,  1,  1,  0},
       {'w', 0, -1,  1,  1,  0},
       {'c', 0, 32,  1,  1,  0},
+      {'n', 0, -1,  1,  1,  0},
     };
     if (failed(applySchedule(inputOp, schedule, rewriter)))
       return failure();
