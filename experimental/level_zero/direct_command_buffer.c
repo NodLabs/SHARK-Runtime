@@ -184,7 +184,8 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_signal_event(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendSignalEvent(command_buffer->command_list, iree_hal_level_zero_event_handle(event)),
+      zeCommandListAppendSignalEvent(command_buffer->command_list,
+                                     iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendSignalEvent");
   return iree_ok_status();
 }
@@ -196,7 +197,8 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_reset_event(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendEventReset(command_buffer->command_list, iree_hal_level_zero_event_handle(event)),
+      zeCommandListAppendEventReset(command_buffer->command_list,
+                                    iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendEventReset");
   return iree_ok_status();
 }
@@ -212,14 +214,16 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_wait_events(
     const iree_hal_buffer_barrier_t* buffer_barriers) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
-  iree_inline_array(ze_event_handle_t, event_handles, event_count, command_buffer->context->host_allocator);
+  iree_inline_array(ze_event_handle_t, event_handles, event_count,
+                    command_buffer->context->host_allocator);
   for (int i = 0; i < event_count; ++i) {
     *iree_inline_array_at(event_handles, i) =
         iree_hal_level_zero_event_handle(events[i]);
   }
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendWaitOnEvents(command_buffer->command_list, event_count, iree_inline_array_data(event_handles)),
+      zeCommandListAppendWaitOnEvents(command_buffer->command_list, event_count,
+                                      iree_inline_array_data(event_handles)),
       "zeCommandListAppendWaitOnEvents");
   return iree_ok_status();
 }
@@ -435,6 +439,15 @@ iree_hal_level_zero_direct_command_buffer_dispatch_indirect(
                           "need level_zero implementation");
 }
 
+static iree_status_t iree_hal_level_zero_direct_command_buffer_collective(
+    iree_hal_command_buffer_t* base_command_buffer, iree_hal_channel_t* channel,
+    iree_hal_collective_op_t op, uint32_t param,
+    iree_hal_buffer_binding_t send_binding,
+    iree_hal_buffer_binding_t recv_binding, iree_device_size_t element_count) {
+  return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
+                          "collectives not yet implemented on Level Zero");
+}
+
 ze_command_list_handle_t iree_hal_level_zero_direct_command_buffer_exec(
     iree_hal_command_buffer_t* base_command_buffer) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
@@ -482,6 +495,7 @@ static const iree_hal_command_buffer_vtable_t
         .dispatch = iree_hal_level_zero_direct_command_buffer_dispatch,
         .dispatch_indirect =
             iree_hal_level_zero_direct_command_buffer_dispatch_indirect,
+        .collective = iree_hal_level_zero_direct_command_buffer_collective,
         .execute_commands =
             iree_hal_rocm_direct_command_buffer_execute_commands,
 };

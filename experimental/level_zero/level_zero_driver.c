@@ -4,6 +4,8 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+#include "experimental/level_zero/level_zero_driver.h"
+
 #include <stdint.h>
 #include <string.h>
 
@@ -15,28 +17,12 @@
 #include "iree/base/tracing.h"
 #include "iree/hal/api.h"
 
-typedef struct iree_hal_level_zero_driver_t {
-  iree_hal_resource_t resource;
-  iree_allocator_t host_allocator;
-  // Identifier used for the driver in the IREE driver registry.
-  // We allow overriding so that multiple LevelZero versions can be exposed in
-  // the same process.
-  iree_string_view_t identifier;
-  int default_device_index;
-
-  // Level Zero Driver Handle.
-  ze_driver_handle_t driver_handle;
-  ze_context_handle_t context;
-  // LevelZero symbols.
-  iree_hal_level_zero_dynamic_symbols_t syms;
-} iree_hal_level_zero_driver_t;
-
 // Pick a fixed lenght size for device names.
 #define IREE_MAX_LEVEL_ZERO_DEVICE_NAME_LENGTH ZE_MAX_DEVICE_NAME
 
 static const iree_hal_driver_vtable_t iree_hal_level_zero_driver_vtable;
 
-static iree_hal_level_zero_driver_t* iree_hal_level_zero_driver_cast(
+iree_hal_level_zero_driver_t* iree_hal_level_zero_driver_cast(
     iree_hal_driver_t* base_value) {
   IREE_HAL_ASSERT_TYPE(base_value, &iree_hal_level_zero_driver_vtable);
   return (iree_hal_level_zero_driver_t*)base_value;

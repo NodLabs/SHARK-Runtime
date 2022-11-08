@@ -22,37 +22,20 @@
 #include "iree/base/internal/arena.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/utils/buffer_transfer.h"
+#include "config.h"
+#include "experimental/level_zero/level_zero_driver.h"
+
+#ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
+#include <iree/hal/drivers/level_zero/oneccl/oneccl.h>
+#endif
 
 //===----------------------------------------------------------------------===//
 // iree_hal_level_zero_device_t
 //===----------------------------------------------------------------------===//
 
-typedef struct iree_hal_level_zero_device_t {
-  iree_hal_resource_t resource;
-  iree_string_view_t identifier;
-
-  // Block pool used for command buffers with a larger block size (as command
-  // buffers can contain inlined data uploads).
-  iree_arena_block_pool_t block_pool;
-
-  // Optional driver that owns the Level Zero symbols. We retain it for our
-  // lifetime to ensure the symbols remains valid.
-  iree_hal_driver_t* driver;
-
-  // Level Zero APIs.
-  ze_device_handle_t device;
-  uint32_t command_queue_ordinal;
-  ze_command_queue_handle_t command_queue;
-  ze_event_pool_handle_t event_pool;
-
-  iree_hal_level_zero_context_wrapper_t context_wrapper;
-  iree_hal_allocator_t* device_allocator;
-
-} iree_hal_level_zero_device_t;
-
 static const iree_hal_device_vtable_t iree_hal_level_zero_device_vtable;
 
-static iree_hal_level_zero_device_t* iree_hal_level_zero_device_cast(
+iree_hal_level_zero_device_t* iree_hal_level_zero_device_cast(
     iree_hal_device_t* base_value) {
   IREE_HAL_ASSERT_TYPE(base_value, &iree_hal_level_zero_device_vtable);
   return (iree_hal_level_zero_device_t*)base_value;
@@ -225,6 +208,13 @@ static iree_status_t iree_hal_level_zero_device_query_i64(
       (int)category.size, category.data, (int)key.size, key.data);
 }
 
+static iree_status_t iree_hal_level_zero_device_create_channel(
+    iree_hal_device_t* base_device, iree_hal_queue_affinity_t queue_affinity,
+    iree_hal_channel_params_t params, iree_hal_channel_t** out_channel) {
+  return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
+                          "collectives not implemented");
+}
+
 static iree_status_t iree_hal_level_zero_device_trim(
     iree_hal_device_t* base_device) {
   iree_hal_level_zero_device_t* device =
@@ -384,6 +374,7 @@ static const iree_hal_device_vtable_t iree_hal_level_zero_device_vtable = {
     .device_allocator = iree_hal_level_zero_device_allocator,
     .trim = iree_hal_level_zero_device_trim,
     .query_i64 = iree_hal_level_zero_device_query_i64,
+    .create_channel = iree_hal_level_zero_device_create_channel,
     .create_command_buffer = iree_hal_level_zero_device_create_command_buffer,
     .create_descriptor_set_layout =
         iree_hal_level_zero_device_create_descriptor_set_layout,
