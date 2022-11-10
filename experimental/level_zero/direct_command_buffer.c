@@ -10,8 +10,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config.h"
 #include "experimental/level_zero/dynamic_symbols.h"
 #include "experimental/level_zero/level_zero_buffer.h"
+#include "experimental/level_zero/level_zero_device.h"
 #include "experimental/level_zero/level_zero_event.h"
 #include "experimental/level_zero/native_executable.h"
 #include "experimental/level_zero/pipeline_layout.h"
@@ -19,6 +21,10 @@
 #include "iree/base/api.h"
 #include "iree/base/internal/inline_array.h"
 #include "iree/base/tracing.h"
+
+#ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
+#include <iree/hal/drivers/level_zero/oneccl/oneccl.h>
+#endif
 
 // Command buffer implementation that directly maps to level_zero direct.
 // This records the commands on the calling thread without additional threading
@@ -45,10 +51,39 @@ static const iree_hal_command_buffer_vtable_t
 static iree_hal_level_zero_direct_command_buffer_t*
 iree_hal_level_zero_direct_command_buffer_cast(
     iree_hal_command_buffer_t* base_value) {
-  IREE_HAL_ASSERT_TYPE(base_value,
-                       &iree_hal_level_zero_direct_command_buffer_vtable);
   return (iree_hal_level_zero_direct_command_buffer_t*)base_value;
 }
+
+static iree_status_t iree_hal_level_zero_direct_command_buffer_init_vtable(
+    iree_hal_level_zero_ccl_backend_e ccl_backend,
+    iree_hal_command_buffer_vtable_t* vtable) {
+  memcpy(vtable, &iree_hal_level_zero_direct_command_buffer_vtable,
+         sizeof(iree_hal_command_buffer_vtable_t));
+  switch (ccl_backend) {
+#ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
+    case IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL:
+      iree_hal_level_zero_direct_command_buffer_oneccl_init_vtable(vtable);
+      break;
+#endif
+    default:
+      return iree_make_status(IREE_STATUS_OUT_OF_RANGE, "Invalid CCL backend.");
+  }
+
+  return iree_ok_status();
+}
+
+static iree_status_t iree_hal_level_zero_direct_command_buffer_create_vtable(
+    iree_hal_level_zero_ccl_backend_e ccl_backend,
+    iree_allocator_t host_allocator,
+    iree_hal_command_buffer_vtable_t** out_vtable) {
+  IREE_RETURN_IF_ERROR(iree_allocator_malloc(
+      host_allocator, sizeof(iree_hal_command_buffer_vtable_t),
+      (void**)out_vtable));
+  iree_hal_level_zero_direct_command_buffer_init_vtable(ccl_backend,
+                                                        *out_vtable);
+  return iree_ok_status();
+}
+
 // TODO: Create helper function to get cmdlist out to device for submissions.
 iree_status_t iree_hal_level_zero_direct_command_buffer_create(
     iree_hal_device_t* device, iree_hal_level_zero_context_wrapper_t* context,
@@ -78,10 +113,21 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
   iree_status_t status = iree_allocator_malloc(
       context->host_allocator, total_size, (void**)&command_buffer);
   if (iree_status_is_ok(status)) {
-    iree_hal_command_buffer_initialize(
-        device, mode, command_categories, queue_affinity, binding_capacity,
-        &iree_hal_level_zero_direct_command_buffer_vtable,
-        &command_buffer->base);
+    iree_hal_level_zero_device_t* hal_level_zero_device =
+        iree_hal_level_zero_device_cast(device);
+    iree_hal_command_buffer_vtable_t* vtable = NULL;
+    IREE_RETURN_AND_EVAL_IF_ERROR(
+        ({
+          IREE_TRACE_ZONE_END(z0);
+          iree_allocator_free(context->host_allocator, command_buffer);
+        }),
+        iree_hal_level_zero_direct_command_buffer_create_vtable(
+            hal_level_zero_device->ccl_backend, context->host_allocator,
+            &vtable));
+
+    iree_hal_command_buffer_initialize(device, mode, command_categories,
+                                       queue_affinity, binding_capacity, vtable,
+                                       &command_buffer->base);
     command_buffer->context = context;
     command_buffer->block_pool = block_pool;
     iree_hal_level_zero_device_ptr_t* device_ptrs =
@@ -115,24 +161,16 @@ static void iree_hal_level_zero_direct_command_buffer_destroy(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   IREE_TRACE_ZONE_BEGIN(z0);
 
+  iree_allocator_free(command_buffer->context->host_allocator,
+                      &command_buffer->base.resource.vtable);
   iree_allocator_free(command_buffer->context->host_allocator, command_buffer);
 
   IREE_TRACE_ZONE_END(z0);
 }
 
-bool iree_hal_level_zero_direct_command_buffer_isa(
-    iree_hal_command_buffer_t* command_buffer) {
-  return iree_hal_command_buffer_dyn_cast(
-      command_buffer, &iree_hal_level_zero_direct_command_buffer_vtable);
-}
-
 static void* iree_hal_level_zero_direct_command_buffer_dyn_cast(
     iree_hal_command_buffer_t* command_buffer, const void* vtable) {
-  if (vtable == &iree_hal_level_zero_direct_command_buffer_vtable) {
-    IREE_HAL_ASSERT_TYPE(command_buffer, vtable);
-    return command_buffer;
-  }
-  return NULL;
+  return command_buffer;
 }
 
 static iree_status_t iree_hal_level_zero_direct_command_buffer_begin(
@@ -452,9 +490,7 @@ ze_command_list_handle_t iree_hal_level_zero_direct_command_buffer_exec(
     iree_hal_command_buffer_t* base_command_buffer) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       (iree_hal_level_zero_direct_command_buffer_t*)
-          iree_hal_command_buffer_dyn_cast(
-              base_command_buffer,
-              &iree_hal_level_zero_direct_command_buffer_vtable);
+          iree_hal_command_buffer_dyn_cast(base_command_buffer, NULL);
   IREE_ASSERT_TRUE(command_buffer);
   return command_buffer->command_list;
 }

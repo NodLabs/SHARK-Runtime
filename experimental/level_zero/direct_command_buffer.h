@@ -45,10 +45,6 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
 ze_command_list_handle_t iree_hal_level_zero_direct_command_buffer_exec(
     iree_hal_command_buffer_t* command_buffer);
 
-// Returns true if |command_buffer| is a Level Zero command buffer.
-bool iree_hal_level_zero_direct_command_buffer_isa(
-    iree_hal_command_buffer_t* command_buffer);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

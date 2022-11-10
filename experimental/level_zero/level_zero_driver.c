@@ -249,10 +249,12 @@ static iree_status_t iree_hal_level_zero_driver_create_device_by_id(
       "zeContextCreate");
   iree_string_view_t device_name = iree_make_cstring_view("level_zero");
 
+  iree_hal_level_zero_device_params_t params_struct;
+  iree_hal_level_zero_device_parse_params(param_count, params, &params_struct);
   // Attempt to create the device.
   iree_status_t status = iree_hal_level_zero_device_create(
-      base_driver, device_name, &driver->syms, device, context, host_allocator,
-      out_device);
+      base_driver, device_name, &params_struct, &driver->syms, device, context,
+      host_allocator, out_device);
 
   IREE_TRACE_ZONE_END(z0);
   return status;

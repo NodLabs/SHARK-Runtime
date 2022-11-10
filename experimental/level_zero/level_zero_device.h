@@ -19,6 +19,11 @@
 extern "C" {
 #endif  // __cplusplus
 
+typedef enum iree_hal_level_zero_ccl_backend_e {
+  IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL = 0,
+  IREE_HAL_LEVEL_ZERO_CCL_BACKEND_COUNT
+} iree_hal_level_zero_ccl_backend_e;
+
 typedef struct iree_hal_level_zero_device_t {
   iree_hal_resource_t resource;
   iree_string_view_t identifier;
@@ -40,7 +45,13 @@ typedef struct iree_hal_level_zero_device_t {
   iree_hal_level_zero_context_wrapper_t context_wrapper;
   iree_hal_allocator_t* device_allocator;
 
+  iree_hal_level_zero_ccl_backend_e ccl_backend;
+
 } iree_hal_level_zero_device_t;
+
+typedef struct iree_hal_level_zero_device_params_t {
+  iree_hal_level_zero_ccl_backend_e ccl_backend;
+} iree_hal_level_zero_device_params_t;
 
 iree_hal_level_zero_device_t* iree_hal_level_zero_device_cast(
     iree_hal_device_t* base_value);
@@ -48,21 +59,13 @@ iree_hal_level_zero_device_t* iree_hal_level_zero_device_cast(
 // Creates a device that owns and manages its own hipContext.
 iree_status_t iree_hal_level_zero_device_create(
     iree_hal_driver_t* driver, iree_string_view_t identifier,
+    iree_hal_level_zero_device_params_t* params,
     iree_hal_level_zero_dynamic_symbols_t* syms,
     ze_device_handle_t level_zero_device,
     ze_context_handle_t level_zero_context, iree_allocator_t host_allocator,
     iree_hal_device_t** out_device);
 
-typedef enum iree_hal_level_zero_ccl_backend_e {
-  IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL = 0,
-  IREE_HAL_LEVEL_ZERO_CCL_BACKEND_COUNT
-} iree_hal_level_zero_ccl_backend_e;
-
-typedef struct iree_hal_level_zero_device_params_t {
-  iree_hal_level_zero_ccl_backend_e ccl_backend;
-} iree_hal_level_zero_device_params_t;
-
-iree_status_t iree_hal_level_zero_device_params_parse(
+iree_status_t iree_hal_level_zero_device_parse_params(
     iree_host_size_t param_count, const iree_string_pair_t* params,
     iree_hal_level_zero_device_params_t* out_params);
 

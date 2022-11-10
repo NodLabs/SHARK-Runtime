@@ -10,11 +10,13 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "config.h"
 #include "experimental/level_zero/context_wrapper.h"
 #include "experimental/level_zero/direct_command_buffer.h"
 #include "experimental/level_zero/dynamic_symbols.h"
 #include "experimental/level_zero/event_semaphore.h"
 #include "experimental/level_zero/level_zero_allocator.h"
+#include "experimental/level_zero/level_zero_driver.h"
 #include "experimental/level_zero/level_zero_event.h"
 #include "experimental/level_zero/nop_executable_cache.h"
 #include "experimental/level_zero/pipeline_layout.h"
@@ -22,8 +24,6 @@
 #include "iree/base/internal/arena.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/utils/buffer_transfer.h"
-#include "config.h"
-#include "experimental/level_zero/level_zero_driver.h"
 
 #ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
 #include <iree/hal/drivers/level_zero/oneccl/oneccl.h>
@@ -37,7 +37,6 @@ static const iree_hal_device_vtable_t iree_hal_level_zero_device_vtable;
 
 iree_hal_level_zero_device_t* iree_hal_level_zero_device_cast(
     iree_hal_device_t* base_value) {
-  IREE_HAL_ASSERT_TYPE(base_value, &iree_hal_level_zero_device_vtable);
   return (iree_hal_level_zero_device_t*)base_value;
 }
 
@@ -54,16 +53,44 @@ static void iree_hal_level_zero_device_destroy(iree_hal_device_t* base_device) {
   // Finally, destroy the device.
   iree_hal_driver_release(device->driver);
 
+  iree_allocator_free(host_allocator, (void*)device->resource.vtable);
   iree_allocator_free(host_allocator, device);
 
   IREE_TRACE_ZONE_END(z0);
 }
 
+static iree_status_t iree_hal_level_zero_device_init_vtable(
+    iree_hal_level_zero_device_params_t* params,
+    iree_hal_device_vtable_t* vtable) {
+  memcpy(vtable, &iree_hal_level_zero_device_vtable,
+         sizeof(iree_hal_device_vtable_t));
+  switch (params->ccl_backend) {
+#ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
+    case IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL:
+      iree_hal_level_zero_device_oneccl_init_vtable(vtable);
+      break;
+#endif
+    default:
+      return iree_make_status(IREE_STATUS_OUT_OF_RANGE, "Invalid CCL backend.");
+  }
+
+  return iree_ok_status();
+}
+
+static iree_status_t iree_hal_level_zero_device_create_vtable(
+    iree_hal_level_zero_device_params_t* params,
+    iree_allocator_t host_allocator, iree_hal_device_vtable_t** out_vtable) {
+  IREE_RETURN_IF_ERROR(iree_allocator_malloc(
+      host_allocator, sizeof(iree_hal_device_vtable_t), (void**)out_vtable));
+  iree_hal_level_zero_device_init_vtable(params, *out_vtable);
+  return iree_ok_status();
+}
+
 static iree_status_t iree_hal_level_zero_device_create_internal(
     iree_hal_driver_t* driver, iree_string_view_t identifier,
+    iree_hal_level_zero_device_params_t* params,
     ze_device_handle_t level_zero_device, uint32_t command_queue_ordinal,
-    ze_command_queue_handle_t command_queue,
-    ze_event_pool_handle_t event_pool,
+    ze_command_queue_handle_t command_queue, ze_event_pool_handle_t event_pool,
     ze_context_handle_t level_zero_context,
     iree_hal_level_zero_dynamic_symbols_t* syms,
     iree_allocator_t host_allocator, iree_hal_device_t** out_device) {
@@ -72,8 +99,15 @@ static iree_status_t iree_hal_level_zero_device_create_internal(
   IREE_RETURN_IF_ERROR(
       iree_allocator_malloc(host_allocator, total_size, (void**)&device));
   memset(device, 0, total_size);
-  iree_hal_resource_initialize(&iree_hal_level_zero_device_vtable,
-                               &device->resource);
+
+  device->ccl_backend = params->ccl_backend;
+
+  iree_hal_device_vtable_t* device_vtable = NULL;
+  IREE_RETURN_AND_EVAL_IF_ERROR((iree_allocator_free(host_allocator, &device)),
+                                iree_hal_level_zero_device_create_vtable(
+                                    params, host_allocator, &device_vtable));
+  iree_hal_resource_initialize(device_vtable, &device->resource);
+
   device->driver = driver;
   iree_hal_driver_retain(device->driver);
   uint8_t* buffer_ptr = (uint8_t*)device + sizeof(*device);
@@ -99,6 +133,7 @@ static iree_status_t iree_hal_level_zero_device_create_internal(
 
 iree_status_t iree_hal_level_zero_device_create(
     iree_hal_driver_t* driver, iree_string_view_t identifier,
+    iree_hal_level_zero_device_params_t* params,
     iree_hal_level_zero_dynamic_symbols_t* syms,
     ze_device_handle_t level_zero_device,
     ze_context_handle_t level_zero_context, iree_allocator_t host_allocator,
@@ -147,14 +182,16 @@ iree_status_t iree_hal_level_zero_device_create(
   ze_event_pool_handle_t event_pool;
   status = LEVEL_ZERO_RESULT_TO_STATUS(
       syms,
-      zeEventPoolCreate(level_zero_context, &event_pool_desc, 0, NULL, &event_pool),
+      zeEventPoolCreate(level_zero_context, &event_pool_desc, 0, NULL,
+                        &event_pool),
       "zeEventPoolCreate");
 
   // Create HAL-LevelZero device.
   if (iree_status_is_ok(status)) {
     status = iree_hal_level_zero_device_create_internal(
-        driver, identifier, level_zero_device, command_queue_desc.ordinal,
-        command_queue, event_pool, level_zero_context, syms, host_allocator, out_device);
+        driver, identifier, params, level_zero_device,
+        command_queue_desc.ordinal, command_queue, event_pool,
+        level_zero_context, syms, host_allocator, out_device);
   }
   if (!iree_status_is_ok(status)) {
     syms->zeCommandQueueDestroy(command_queue);
@@ -253,7 +290,8 @@ static iree_status_t iree_hal_level_zero_device_create_event(
     iree_hal_device_t* base_device, iree_hal_event_t** out_event) {
   iree_hal_level_zero_device_t* device =
       iree_hal_level_zero_device_cast(base_device);
-  return iree_hal_level_zero_event_create(&device->context_wrapper, device->event_pool, out_event);
+  return iree_hal_level_zero_event_create(&device->context_wrapper,
+                                          device->event_pool, out_event);
 }
 
 static iree_status_t iree_hal_level_zero_device_create_executable_cache(

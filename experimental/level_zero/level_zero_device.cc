@@ -9,7 +9,7 @@
 #include <locale>
 #include <unordered_map>
 
-iree_status_t iree_hal_level_zero_device_params_parse(
+iree_status_t iree_hal_level_zero_device_parse_params(
     iree_host_size_t param_count, const iree_string_pair_t* params,
     iree_hal_level_zero_device_params_t* out_params) {
   struct iree_string_view_hash_t {
