@@ -699,8 +699,10 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
   const Type elementType =
       op.getOutputs()[0].getType().cast<ShapedType>().getElementType();
   if (!elementType.isIntOrFloat()) return failure();
-  // Reduction distribution only supports 32-bit types now.
-  if (elementType.getIntOrFloatBitWidth() != 32) return failure();
+  // Reduction distribution only supports 16-bit and 32-bit types now.
+  if (elementType.getIntOrFloatBitWidth() != 32 &&
+      elementType.getIntOrFloatBitWidth() != 16)
+    return failure();
 
   // Let each thread handle `vectorSize` elements.
   unsigned vectorSize = 4;

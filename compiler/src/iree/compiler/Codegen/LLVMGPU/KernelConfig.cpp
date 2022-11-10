@@ -492,8 +492,10 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
                                .cast<ShapedType>()
                                .getElementType();
   if (!elementType.isIntOrFloat()) return failure();
-  // Reduction distribution only supports 32-bit types now.
-  if (elementType.getIntOrFloatBitWidth() != 32) return failure();
+  // Reduction distribution only supports 16-bit and 32-bit types now.
+  if (elementType.getIntOrFloatBitWidth() != 32 &&
+      elementType.getIntOrFloatBitWidth() != 16)
+    return failure();
 
   unsigned vectorSize = 4;
   while ((*dimSize / vectorSize) % cudaWarpSize != 0) vectorSize /= 2;
