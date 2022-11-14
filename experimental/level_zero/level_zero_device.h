@@ -19,6 +19,9 @@
 extern "C" {
 #endif  // __cplusplus
 
+typedef struct iree_hal_level_zero_onecccl_device_t
+    iree_hal_level_zero_onecccl_device_t;
+
 typedef enum iree_hal_level_zero_ccl_backend_e {
   IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL = 0,
   IREE_HAL_LEVEL_ZERO_CCL_BACKEND_COUNT
@@ -46,7 +49,6 @@ typedef struct iree_hal_level_zero_device_t {
   iree_hal_allocator_t* device_allocator;
 
   iree_hal_level_zero_ccl_backend_e ccl_backend;
-
 } iree_hal_level_zero_device_t;
 
 typedef struct iree_hal_level_zero_device_params_t {

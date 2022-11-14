@@ -16,6 +16,9 @@
 extern "C" {
 #endif  // __cplusplus
 
+typedef struct iree_hal_level_zero_onecccl_context_t
+    iree_hal_level_zero_onecccl_context_t;
+
 typedef struct iree_hal_level_zero_driver_t {
   iree_hal_resource_t resource;
   iree_allocator_t host_allocator;

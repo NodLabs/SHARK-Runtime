@@ -8,7 +8,7 @@ if(NOT IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL)
   return()
 endif()
 
-set(NAME_ iree_oneccl)
+iree_add_all_subdirs()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,8 +38,9 @@ iree_cc_library(
     "${LEVEL_ZERO_HEADERS_API_ROOT}"
     "${CMAKE_CURRENT_LIST_DIR}/src"
   COPTS
-    # Intel's oneAPI uses exceptions 
+    # Intel's oneAPI uses exceptions and type info
     "-frtti"
+    "-fexceptions"
     # This is needed because of
     # dpcpp: error: Note that use of '-g' without any optimization-level option will turn off most compiler optimizations similar to use of '-O0' [-Werror,-Wdebug-disables-optimization]
     # -Wno-error=debug-disables-optimization does not demote the error to warning.
@@ -47,6 +48,7 @@ iree_cc_library(
   DEPS
     iree::hal
     iree::experimental::level_zero::internal_interface
+    MPI::MPI_CXX
     oneCCL
     Intel::SYCL_level_zero
   PUBLIC

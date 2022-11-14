@@ -7,13 +7,13 @@
 #ifndef IREE_ONECCL_ONECCL_H_
 #define IREE_ONECCL_ONECCL_H_
 
+#include <experimental/level_zero/level_zero_device.h>
+#include <experimental/level_zero/level_zero_driver.h>
 #include <iree/hal/api.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct oneccl_context_t oneccl_context_t;
 
 void iree_hal_level_zero_device_oneccl_init_vtable(
     iree_hal_device_vtable_t* vtable);

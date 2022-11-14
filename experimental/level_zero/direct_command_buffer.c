@@ -13,10 +13,8 @@
 #include "config.h"
 #include "experimental/level_zero/dynamic_symbols.h"
 #include "experimental/level_zero/level_zero_buffer.h"
-#include "experimental/level_zero/level_zero_device.h"
 #include "experimental/level_zero/level_zero_event.h"
 #include "experimental/level_zero/native_executable.h"
-#include "experimental/level_zero/pipeline_layout.h"
 #include "experimental/level_zero/status_util.h"
 #include "iree/base/api.h"
 #include "iree/base/internal/inline_array.h"
@@ -26,21 +24,6 @@
 #include <iree/hal/drivers/level_zero/oneccl/oneccl.h>
 #endif
 
-// Command buffer implementation that directly maps to level_zero direct.
-// This records the commands on the calling thread without additional threading
-// indirection.
-
-typedef struct {
-  iree_hal_command_buffer_t base;
-  iree_hal_level_zero_context_wrapper_t* context;
-  iree_arena_block_pool_t* block_pool;
-  ze_command_list_handle_t command_list;
-
-  // Keep track of the current set of kernel arguments.
-  int32_t push_constant[IREE_HAL_LEVEL_ZERO_MAX_PUSH_CONSTANT_COUNT];
-  void* current_descriptor[];
-} iree_hal_level_zero_direct_command_buffer_t;
-
 #define IREE_HAL_LEVEL_ZERO_MAX_BINDING_COUNT 64
 // Kernel arguments contains binding and push constants.
 #define IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG 128
@@ -48,7 +31,7 @@ typedef struct {
 static const iree_hal_command_buffer_vtable_t
     iree_hal_level_zero_direct_command_buffer_vtable;
 
-static iree_hal_level_zero_direct_command_buffer_t*
+iree_hal_level_zero_direct_command_buffer_t*
 iree_hal_level_zero_direct_command_buffer_cast(
     iree_hal_command_buffer_t* base_value) {
   return (iree_hal_level_zero_direct_command_buffer_t*)base_value;
@@ -115,6 +98,7 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
   if (iree_status_is_ok(status)) {
     iree_hal_level_zero_device_t* hal_level_zero_device =
         iree_hal_level_zero_device_cast(device);
+    command_buffer->device = hal_level_zero_device;
     iree_hal_command_buffer_vtable_t* vtable = NULL;
     IREE_RETURN_AND_EVAL_IF_ERROR(
         ({

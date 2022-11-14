@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "config.h"
 #include "experimental/level_zero/api.h"
 #include "experimental/level_zero/dynamic_symbols.h"
 #include "experimental/level_zero/level_zero_device.h"

@@ -441,12 +441,30 @@ include(iree_setup_toolchain)
 # Level Zero oneCCL dependencies
 #-------------------------------------------------------------------------------
 if(IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL)
-  list(APPEND CMAKE_MODULE_PATH "${IREE_ROOT_DIR}/third_party/oneccl/cmake")
-  find_package(oneCCL REQUIRED)
   # For some reason CMake complains that target Intel::SYCL_level_zero
   # is not defined if find_package is called after defining the targets
-  # that use it. 
+  # that use it.
+  set(CMAKE_CXX_COMPILER_ORIG ${CMAKE_CXX_COMPILER})
+  set(CMAKE_CXX_COMPILER ${SYCL_CXX_COMPILER})
+  list(APPEND CMAKE_MODULE_PATH "${IREE_ROOT_DIR}/third_party/oneccl/cmake")
   find_package(IntelSYCL_level_zero REQUIRED)
+  set(CMAKE_CXX_COMPILER ${CMAKE_CXX_COMPILER_ORIG})
+
+  # set(CMAKE_EXE_LINKER_FLAGS_ORIG ${CMAKE_EXE_LINKER_FLAGS})
+  # set(CMAKE_MODULE_LINKER_FLAGS_ORIG ${CMAKE_MODULE_LINKER_FLAGS})
+  # set(CMAKE_SHARED_LINKER_FLAGS_ORIG ${CMAKE_SHARED_LINKER_FLAGS})
+  # set(CMAKE_STATIC_LINKER_FLAGS_ORIG ${CMAKE_STATIC_LINKER_FLAGS})
+  # set(CMAKE_EXE_LINKER_FLAGS "-lopen-pal")
+  # set(CMAKE_MODULE_LINKER_FLAGS "-lopen-pal")
+  # set(CMAKE_SHARED_LINKER_FLAGS "-lopen-pal")
+  # set(CMAKE_STATIC_LINKER_FLAGS "-lopen-pal")
+  find_package(MPI REQUIRED COMPONENTS CXX)
+  # set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS_ORIG})
+  # set(CMAKE_MODULE_LINKER_FLAGS ${CMAKE_MODULE_LINKER_FLAGS_ORIG})
+  # set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS_ORIG})
+  # set(CMAKE_STATIC_LINKER_FLAGS ${CMAKE_STATIC_LINKER_FLAGS_ORIG})
+
+  find_package(oneCCL REQUIRED)
 endif()
 
 #-------------------------------------------------------------------------------

@@ -78,10 +78,12 @@ iree_cc_library(
     internal_interface
   HDRS
     "api.h"
+    "direct_command_buffer.h"
     "context_wrapper.h"
     "level_zero_driver.h"
     "level_zero_device.h"
     "level_zero_headers.h"
+    "pipeline_layout.h"
 #  SRCS
 #    "internal_interface.c"
   INCLUDES
