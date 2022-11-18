@@ -967,7 +967,7 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
   if (!elementType.isIntOrFloat()) return failure();
   unsigned bitWidth = elementType.getIntOrFloatBitWidth();
   // Reduction distribution only supports 16-bit and 32-bit types now.
-  if (bitWidth() != 32 && bitWidth() != 16) return failure();
+  if (bitWidth != 32 && bitWidth != 16) return failure();
 
   // Let each thread handle `vectorSize` elements.
   unsigned vectorSize = kMaxVectorNumBits / bitWidth;
