@@ -12,14 +12,66 @@
 #include "experimental/level_zero/level_zero_device.h"
 #include "experimental/level_zero/level_zero_headers.h"
 #include "experimental/level_zero/pipeline_layout.h"
+#include "experimental/level_zero/status_util.h"
 #include "iree/base/api.h"
 #include "iree/hal/api.h"
 
 #ifdef __cplusplus
+
+#include <functional>
+#include <memory>
+#include <type_traits>
+#include <variant>
+#include <vector>
+
+namespace iree {
+namespace level_zero {
+struct command_list_deleter_t {
+  command_list_deleter_t(iree_hal_level_zero_dynamic_symbols_t* syms)
+      : syms(syms) {}
+  void operator()(ze_command_list_handle_t p) {
+    iree_status_t status = LEVEL_ZERO_RESULT_TO_STATUS(
+        syms, zeCommandListDestroy(p), "zeCommandListDestroy");
+    IREE_ASSERT(status == iree_ok_status());
+    if (status != iree_ok_status()) {
+      iree_status_fprint(stderr, status);
+    }
+    iree_status_free(status);
+  }
+
+ private:
+  iree_hal_level_zero_dynamic_symbols_t* syms;
+};
+
+using level_zero_command_list_t =
+    std::decay_t<decltype(*std::declval<ze_command_list_handle_t>())>;
+using command_list_t =
+    std::unique_ptr<level_zero_command_list_t, command_list_deleter_t>;
+using functional_command_buffer_segment_t =
+    std::function<iree_status_t(ze_command_queue_handle_t)>;
+using command_buffer_segment_t =
+    std::variant<command_list_t, functional_command_buffer_segment_t>;
+
+}  // namespace level_zero
+}  // namespace iree
+
+// The purpose of the segment list is to allow interleaving commands submitted
+// to the Level Zero command list with operations that expose only queue
+// semantics like SYCL.
+struct iree_hal_level_zero_command_buffer_segment_list_t {
+  iree_hal_level_zero_command_buffer_segment_list_t(
+      iree_hal_level_zero_device_t* device)
+      : device(device) {}
+  std::vector<iree::level_zero::command_buffer_segment_t> segments;
+  iree_hal_level_zero_device_t* device;
+};
+
 extern "C" {
 #endif  // __cplusplus
 
 typedef struct iree_arena_block_pool_t iree_arena_block_pool_t;
+typedef struct iree_hal_level_zero_command_buffer_segment_list_t
+    iree_hal_level_zero_command_buffer_segment_list_t;
 
 // Command buffer implementation that directly maps to level_zero direct.
 // This records the commands on the calling thread without additional threading
@@ -30,7 +82,7 @@ typedef struct {
   iree_hal_level_zero_device_t* device;
   iree_hal_level_zero_context_wrapper_t* context;
   iree_arena_block_pool_t* block_pool;
-  ze_command_list_handle_t command_list;
+  iree_hal_level_zero_command_buffer_segment_list_t* command_segments;
 
   // Keep track of the current set of kernel arguments.
   int32_t push_constant[IREE_HAL_LEVEL_ZERO_MAX_PUSH_CONSTANT_COUNT];
@@ -59,13 +111,20 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
     uint32_t command_queue_ordinal,
     iree_hal_command_buffer_t** out_command_buffer);
 
-// Returns associated command_list from command buffer.
-ze_command_list_handle_t iree_hal_level_zero_direct_command_buffer_exec(
-    iree_hal_command_buffer_t* command_buffer);
-
 iree_hal_level_zero_direct_command_buffer_t*
 iree_hal_level_zero_direct_command_buffer_cast(
     iree_hal_command_buffer_t* base_value);
+
+iree_status_t iree_hal_level_zero_command_buffer_segment_list_create(
+    iree_hal_level_zero_device_t* device,
+    iree_hal_level_zero_command_buffer_segment_list_t** out);
+void iree_hal_level_zero_command_buffer_segment_list_destroy(
+    iree_hal_level_zero_command_buffer_segment_list_t* list);
+
+iree_status_t
+iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+    iree_hal_level_zero_command_buffer_segment_list_t* segment_list,
+    ze_command_list_handle_t* out_command_list);
 
 #ifdef __cplusplus
 }  // extern "C"

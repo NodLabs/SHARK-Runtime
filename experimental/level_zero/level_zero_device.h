@@ -71,6 +71,13 @@ iree_status_t iree_hal_level_zero_device_parse_params(
     iree_host_size_t param_count, const iree_string_pair_t* params,
     iree_hal_level_zero_device_params_t* out_params);
 
+iree_status_t iree_hal_level_zero_device_queue_execute(
+    iree_hal_device_t* base_device, iree_hal_queue_affinity_t queue_affinity,
+    const iree_hal_semaphore_list_t wait_semaphore_list,
+    const iree_hal_semaphore_list_t signal_semaphore_list,
+    iree_host_size_t command_buffer_count,
+    iree_hal_command_buffer_t* const* command_buffers);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

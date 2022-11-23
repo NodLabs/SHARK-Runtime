@@ -43,6 +43,7 @@ iree_cc_library(
     "pipeline_layout.c"
     "pipeline_layout.h"
     "direct_command_buffer.c"
+    "direct_command_buffer.cc"
     "direct_command_buffer.h"
     "native_executable.c"
     "native_executable.h"

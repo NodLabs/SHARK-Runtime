@@ -76,6 +76,7 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
     iree_arena_block_pool_t* block_pool, ze_device_handle_t level_zero_device,
     uint32_t command_queue_ordinal,
     iree_hal_command_buffer_t** out_command_buffer) {
+  iree_status_t status;
   *out_command_buffer = NULL;
 
   if (binding_capacity > 0) {
@@ -93,46 +94,38 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
                       IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG * sizeof(void*) +
                       IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG *
                           sizeof(iree_hal_level_zero_device_ptr_t);
-  iree_status_t status = iree_allocator_malloc(
-      context->host_allocator, total_size, (void**)&command_buffer);
-  if (iree_status_is_ok(status)) {
-    iree_hal_level_zero_device_t* hal_level_zero_device =
-        iree_hal_level_zero_device_cast(device);
-    command_buffer->device = hal_level_zero_device;
-    iree_hal_command_buffer_vtable_t* vtable = NULL;
-    IREE_RETURN_AND_EVAL_IF_ERROR(
-        ({
-          IREE_TRACE_ZONE_END(z0);
-          iree_allocator_free(context->host_allocator, command_buffer);
-        }),
-        iree_hal_level_zero_direct_command_buffer_create_vtable(
-            hal_level_zero_device->ccl_backend, context->host_allocator,
-            &vtable));
+  IREE_LEVEL_ZERO_TRY(iree_allocator_malloc(context->host_allocator, total_size,
+                                            (void**)&command_buffer));
 
-    iree_hal_command_buffer_initialize(device, mode, command_categories,
-                                       queue_affinity, binding_capacity, vtable,
-                                       &command_buffer->base);
-    command_buffer->context = context;
-    command_buffer->block_pool = block_pool;
-    iree_hal_level_zero_device_ptr_t* device_ptrs =
-        (iree_hal_level_zero_device_ptr_t*)(command_buffer->current_descriptor +
-                                            IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG);
-    for (size_t i = 0; i < IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG; i++) {
-      command_buffer->current_descriptor[i] = &device_ptrs[i];
-    }
-    // Create a command list
-    ze_command_list_handle_t command_list;
-    ze_command_list_desc_t command_list_desc = {};
-    command_list_desc.commandQueueGroupOrdinal = command_queue_ordinal;
-    LEVEL_ZERO_RETURN_IF_ERROR(
-        command_buffer->context->syms,
-        zeCommandListCreate(command_buffer->context->level_zero_context,
-                            level_zero_device, &command_list_desc,
-                            &command_list),
-        "zeCommandListCreate");
-    command_buffer->command_list = command_list;
+  iree_hal_level_zero_device_t* hal_level_zero_device =
+      iree_hal_level_zero_device_cast(device);
+  command_buffer->device = hal_level_zero_device;
+  iree_hal_command_buffer_vtable_t* vtable = NULL;
+  IREE_LEVEL_ZERO_TRY(iree_hal_level_zero_direct_command_buffer_create_vtable(
+      hal_level_zero_device->ccl_backend, context->host_allocator, &vtable));
 
-    *out_command_buffer = &command_buffer->base;
+  iree_hal_command_buffer_initialize(device, mode, command_categories,
+                                     queue_affinity, binding_capacity, vtable,
+                                     &command_buffer->base);
+  command_buffer->context = context;
+  command_buffer->block_pool = block_pool;
+  iree_hal_level_zero_device_ptr_t* device_ptrs =
+      (iree_hal_level_zero_device_ptr_t*)(command_buffer->current_descriptor +
+                                          IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG);
+  for (size_t i = 0; i < IREE_HAL_LEVEL_ZERO_MAX_KERNEL_ARG; i++) {
+    command_buffer->current_descriptor[i] = &device_ptrs[i];
+  }
+  // Create a command list
+  IREE_LEVEL_ZERO_TRY(iree_hal_level_zero_command_buffer_segment_list_create(
+      hal_level_zero_device, &command_buffer->command_segments));
+
+  *out_command_buffer = &command_buffer->base;
+
+cleanup:
+  if (status != iree_ok_status()) {
+    iree_hal_level_zero_command_buffer_segment_list_destroy(
+        command_buffer->command_segments);
+    iree_allocator_free(context->host_allocator, command_buffer);
   }
 
   IREE_TRACE_ZONE_END(z0);
@@ -145,8 +138,10 @@ static void iree_hal_level_zero_direct_command_buffer_destroy(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   IREE_TRACE_ZONE_BEGIN(z0);
 
+  iree_hal_level_zero_command_buffer_segment_list_destroy(
+      command_buffer->command_segments);
   iree_allocator_free(command_buffer->context->host_allocator,
-                      &command_buffer->base.resource.vtable);
+                      (void*)command_buffer->base.resource.vtable);
   iree_allocator_free(command_buffer->context->host_allocator, command_buffer);
 
   IREE_TRACE_ZONE_END(z0);
@@ -191,10 +186,14 @@ iree_hal_level_zero_direct_command_buffer_execution_barrier(
     const iree_hal_buffer_barrier_t* buffer_barriers) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendBarrier(command_buffer->command_list, NULL, 0, NULL),
-      "zeCommandListAppendMemoryFill");
+      zeCommandListAppendBarrier(ze_command_list, NULL, 0, NULL),
+      "zeCommandListAppendBarrier");
   return iree_ok_status();
 }
 
@@ -204,9 +203,13 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_signal_event(
   // TODO: Implement barrier
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendSignalEvent(command_buffer->command_list,
+      zeCommandListAppendSignalEvent(ze_command_list,
                                      iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendSignalEvent");
   return iree_ok_status();
@@ -217,9 +220,13 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_reset_event(
     iree_hal_execution_stage_t source_stage_mask) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendEventReset(command_buffer->command_list,
+      zeCommandListAppendEventReset(ze_command_list,
                                     iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendEventReset");
   return iree_ok_status();
@@ -242,9 +249,13 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_wait_events(
     *iree_inline_array_at(event_handles, i) =
         iree_hal_level_zero_event_handle(events[i]);
   }
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendWaitOnEvents(command_buffer->command_list, event_count,
+      zeCommandListAppendWaitOnEvents(ze_command_list, event_count,
                                       iree_inline_array_data(event_handles)),
       "zeCommandListAppendWaitOnEvents");
   return iree_ok_status();
@@ -272,9 +283,13 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_fill_buffer(
       (iree_hal_level_zero_device_ptr_t)((uintptr_t)(void*)
                                              target_device_buffer +
                                          target_offset);
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendMemoryFill(command_buffer->command_list, dst, pattern,
+      zeCommandListAppendMemoryFill(ze_command_list, dst, pattern,
                                     pattern_length, length, NULL, 0, NULL),
       "zeCommandListAppendMemoryFill");
   return iree_ok_status();
@@ -312,12 +327,16 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_copy_buffer(
       (iree_hal_level_zero_device_ptr_t)((uintptr_t)(void*)
                                              source_device_buffer +
                                          source_offset);
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
   // TODO(raikonenfnu): Currently using NULL stream, need to figure out way to
   // access proper stream from command buffer
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendMemoryCopy(command_buffer->command_list, dst, src,
-                                    length, NULL, 0, NULL),
+      zeCommandListAppendMemoryCopy(ze_command_list, dst, src, length, NULL, 0,
+                                    NULL),
       "zeCommandListAppendMemoryCopy");
   return iree_ok_status();
 }
@@ -369,7 +388,8 @@ iree_hal_level_zero_direct_command_buffer_push_descriptor_set(
   iree_hal_level_zero_binding_mapping_t
       binding_used[IREE_HAL_LEVEL_ZERO_MAX_BINDING_COUNT];
   for (iree_host_size_t i = 0; i < binding_count; i++) {
-    iree_hal_level_zero_binding_mapping_t buffer = {i, bindings[i].binding};
+    iree_hal_level_zero_binding_mapping_t buffer = {(uint32_t)i,
+                                                    bindings[i].binding};
     binding_used[i] = buffer;
   }
   qsort(binding_used, binding_count,
@@ -408,7 +428,7 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_dispatch(
   iree_host_size_t constant_base_index =
       iree_hal_level_zero_push_constant_index(layout);
 
-  int32_t block_size_x, block_size_y, block_size_z;
+  uint32_t block_size_x, block_size_y, block_size_z;
   IREE_RETURN_IF_ERROR(iree_hal_level_zero_native_executable_block_size(
       executable, entry_point, &block_size_x, &block_size_y, &block_size_z));
   ze_kernel_handle_t func =
@@ -436,6 +456,11 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_dispatch(
         "zeKernelSetArgumentValue");
   }
 
+  ze_command_list_handle_t ze_command_list = NULL;
+  IREE_RETURN_IF_ERROR(
+      iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
+          command_buffer->command_segments, &ze_command_list));
+
   // Kernel thread-dispatch
   ze_group_count_t dispatch;
   dispatch.groupCountX = workgroup_x;
@@ -445,8 +470,8 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_dispatch(
   // Launch kernel on the GPU
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendLaunchKernel(command_buffer->command_list, func,
-                                      &dispatch, NULL, 0, NULL),
+      zeCommandListAppendLaunchKernel(ze_command_list, func, &dispatch, NULL, 0,
+                                      NULL),
       "zeCommandListAppendLaunchKernel");
   return iree_ok_status();
 }
@@ -470,16 +495,7 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_collective(
                           "collectives not yet implemented on Level Zero");
 }
 
-ze_command_list_handle_t iree_hal_level_zero_direct_command_buffer_exec(
-    iree_hal_command_buffer_t* base_command_buffer) {
-  iree_hal_level_zero_direct_command_buffer_t* command_buffer =
-      (iree_hal_level_zero_direct_command_buffer_t*)
-          iree_hal_command_buffer_dyn_cast(base_command_buffer, NULL);
-  IREE_ASSERT_TRUE(command_buffer);
-  return command_buffer->command_list;
-}
-
-static iree_status_t iree_hal_rocm_direct_command_buffer_execute_commands(
+static iree_status_t iree_hal_level_zero_direct_command_buffer_execute_commands(
     iree_hal_command_buffer_t* base_command_buffer,
     iree_hal_command_buffer_t* base_commands,
     iree_hal_buffer_binding_table_t binding_table) {
@@ -517,5 +533,5 @@ static const iree_hal_command_buffer_vtable_t
             iree_hal_level_zero_direct_command_buffer_dispatch_indirect,
         .collective = iree_hal_level_zero_direct_command_buffer_collective,
         .execute_commands =
-            iree_hal_rocm_direct_command_buffer_execute_commands,
+            iree_hal_level_zero_direct_command_buffer_execute_commands,
 };

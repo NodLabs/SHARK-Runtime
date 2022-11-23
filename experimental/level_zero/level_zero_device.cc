@@ -9,6 +9,11 @@
 #include <locale>
 #include <unordered_map>
 
+#include "experimental/level_zero/direct_command_buffer.h"
+#include "experimental/level_zero/status_util.h"
+
+using namespace iree::level_zero;
+
 iree_status_t iree_hal_level_zero_device_parse_params(
     iree_host_size_t param_count, const iree_string_pair_t* params,
     iree_hal_level_zero_device_params_t* out_params) {
@@ -48,5 +53,57 @@ iree_status_t iree_hal_level_zero_device_parse_params(
     out_params->ccl_backend = IREE_HAL_LEVEL_ZERO_CCL_BACKEND_ONECCL;
   }
 
+  return iree_ok_status();
+}
+
+template <class... Ts>
+struct overload : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>
+overload(Ts...) -> overload<Ts...>;
+
+iree_status_t iree_hal_level_zero_device_queue_execute(
+    iree_hal_device_t* base_device, iree_hal_queue_affinity_t queue_affinity,
+    const iree_hal_semaphore_list_t wait_semaphore_list,
+    const iree_hal_semaphore_list_t signal_semaphore_list,
+    iree_host_size_t command_buffer_count,
+    iree_hal_command_buffer_t* const* command_buffers) {
+  iree_hal_level_zero_device_t* device =
+      iree_hal_level_zero_device_cast(base_device);
+  // TODO(raikonenfnu): Once semaphore is implemented wait for semaphores
+  // TODO(thomasraoux): implement semaphores - for now this conservatively
+  // synchronizes after every submit.
+  for (iree_host_size_t i = 0; i < command_buffer_count; i++) {
+    iree_hal_level_zero_direct_command_buffer_t* command_buffer =
+        iree_hal_level_zero_direct_command_buffer_cast(command_buffers[i]);
+    for (command_buffer_segment_t& segment_variant :
+         command_buffer->command_segments->segments) {
+      IREE_RETURN_IF_ERROR(std::visit(
+          overload{
+              [device](command_list_t& segment) {
+                ze_command_list_handle_t command_list = segment.get();
+                LEVEL_ZERO_RETURN_IF_ERROR(device->context_wrapper.syms,
+                                           zeCommandListClose(command_list),
+                                           "zeCommandListClose");
+                LEVEL_ZERO_RETURN_IF_ERROR(
+                    device->context_wrapper.syms,
+                    zeCommandQueueExecuteCommandLists(device->command_queue, 1,
+                                                      &command_list, NULL),
+                    "zeCommandQueueExecuteCommandLists");
+                return iree_ok_status();
+              },
+              [device](functional_command_buffer_segment_t& segment) {
+                return segment(device->command_queue);
+              },
+          },
+          segment_variant));
+    }
+  }
+
+  LEVEL_ZERO_RETURN_IF_ERROR(
+      device->context_wrapper.syms,
+      zeCommandQueueSynchronize(device->command_queue, IREE_DURATION_INFINITE),
+      "zeCommandQueueSynchronize");
   return iree_ok_status();
 }

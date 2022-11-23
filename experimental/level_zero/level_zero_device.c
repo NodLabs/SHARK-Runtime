@@ -360,38 +360,6 @@ static iree_status_t iree_hal_level_zero_device_queue_dealloca(
   return iree_ok_status();
 }
 
-static iree_status_t iree_hal_level_zero_device_queue_execute(
-    iree_hal_device_t* base_device, iree_hal_queue_affinity_t queue_affinity,
-    const iree_hal_semaphore_list_t wait_semaphore_list,
-    const iree_hal_semaphore_list_t signal_semaphore_list,
-    iree_host_size_t command_buffer_count,
-    iree_hal_command_buffer_t* const* command_buffers) {
-  iree_hal_level_zero_device_t* device =
-      iree_hal_level_zero_device_cast(base_device);
-  // TODO(raikonenfnu): Once semaphore is implemented wait for semaphores
-  // TODO(thomasraoux): implement semaphores - for now this conservatively
-  // synchronizes after every submit.
-  for (int i = 0; i < command_buffer_count; i++) {
-    iree_hal_command_buffer_t* command_buffer = command_buffers[i];
-    ze_command_list_handle_t command_list =
-        iree_hal_level_zero_direct_command_buffer_exec(command_buffer);
-    LEVEL_ZERO_RETURN_IF_ERROR(device->context_wrapper.syms,
-                               zeCommandListClose(command_list),
-                               "zeCommandListClose");
-    LEVEL_ZERO_RETURN_IF_ERROR(
-        device->context_wrapper.syms,
-        zeCommandQueueExecuteCommandLists(device->command_queue, 1,
-                                          &command_list, NULL),
-        "zeCommandQueueExecuteCommandLists");
-  }
-
-  LEVEL_ZERO_RETURN_IF_ERROR(
-      device->context_wrapper.syms,
-      zeCommandQueueSynchronize(device->command_queue, IREE_DURATION_INFINITE),
-      "zeCommandQueueSynchronize");
-  return iree_ok_status();
-}
-
 static iree_status_t iree_hal_level_zero_device_queue_flush(
     iree_hal_device_t* base_device, iree_hal_queue_affinity_t queue_affinity) {
   // Currently unused; we flush as submissions are made.

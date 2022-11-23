@@ -56,8 +56,6 @@ iree_hal_level_zero_oneccl_channel_cast(const iree_hal_channel_t* channel) {
 
 }  // namespace
 
-extern "C" {
-
 void iree_hal_level_zero_device_oneccl_init_vtable(
     iree_hal_device_vtable_t* vtable) {
   vtable->create_channel = iree_hal_level_zero_device_oneccl_create_channel;
@@ -198,11 +196,16 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_oneccl_collective(
     iree_hal_collective_op_t op, uint32_t param,
     iree_hal_buffer_binding_t send_binding,
     iree_hal_buffer_binding_t recv_binding, iree_device_size_t element_count) {
+  // iree_hal_level_zero_direct_command_buffer_t* hal_ze_cmd_buff =
+  //   iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+  // iree_hal_level_zero_oneccl_channel_t* oneccl_channel =
+  //   iree_hal_level_zero_oneccl_channel_cast(channel);
+
   return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
                           "collectives not implemented");
-}
 
-}  // extern "C"
+  return iree_ok_status();
+}
 
 static iree_hal_channel_vtable_t
 iree_hal_level_zero_oneccl_channel_create_vtable() {
