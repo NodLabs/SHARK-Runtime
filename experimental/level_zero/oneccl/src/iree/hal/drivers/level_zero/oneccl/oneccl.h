@@ -30,6 +30,9 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_oneccl_collective(
     iree_hal_buffer_binding_t send_binding,
     iree_hal_buffer_binding_t recv_binding, iree_device_size_t element_count);
 
+void iree_hal_level_zero_oneccl_device_destroy(
+    iree_hal_level_zero_oneccl_device_t* d);
+
 #ifdef __cplusplus
 }
 #endif

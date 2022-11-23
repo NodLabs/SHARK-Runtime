@@ -19,6 +19,9 @@
 extern "C" {
 #endif  // __cplusplus
 
+typedef struct iree_hal_level_zero_oneccl_device_t
+    iree_hal_level_zero_oneccl_device_t;
+
 typedef struct iree_hal_level_zero_onecccl_device_t
     iree_hal_level_zero_onecccl_device_t;
 
@@ -43,6 +46,7 @@ typedef struct iree_hal_level_zero_device_t {
   ze_device_handle_t device;
   uint32_t command_queue_ordinal;
   ze_command_queue_handle_t command_queue;
+  iree_hal_level_zero_oneccl_device_t* oneccl_device;
   ze_event_pool_handle_t event_pool;
 
   iree_hal_level_zero_context_wrapper_t context_wrapper;

@@ -21,24 +21,30 @@
 static iree_hal_channel_vtable_t
 iree_hal_level_zero_oneccl_channel_create_vtable();
 
+struct iree_hal_level_zero_oneccl_device_t {
+  iree_hal_level_zero_oneccl_device_t(ccl::context&& context,
+                                      ccl::device&& device,
+                                      ccl::stream&& stream)
+      : context(std::move(context)),
+        device(std::move(device)),
+        stream(std::move(stream)) {}
+  ccl::context context;
+  ccl::device device;
+  ccl::stream stream;
+};
+
 namespace {
 
 iree_hal_channel_vtable_t iree_hal_level_zero_oneccl_channel_vtable =
     iree_hal_level_zero_oneccl_channel_create_vtable();
 
 struct iree_hal_level_zero_oneccl_channel_t {
-  iree_hal_level_zero_oneccl_channel_t(ccl::context&& context,
-                                       ccl::device&& device,
-                                       ccl::communicator&& communicator)
-      : context(std::move(context)),
-        device(std::move(device)),
-        communicator(std::move(communicator)) {
+  iree_hal_level_zero_oneccl_channel_t(ccl::communicator&& communicator)
+      : communicator(std::move(communicator)) {
     iree_hal_resource_initialize(&iree_hal_level_zero_oneccl_channel_vtable,
                                  &resource);
   }
   iree_hal_resource_t resource;
-  ccl::context context;
-  ccl::device device;
   ccl::communicator communicator;
 };
 
@@ -55,6 +61,11 @@ iree_hal_level_zero_oneccl_channel_cast(const iree_hal_channel_t* channel) {
 }
 
 }  // namespace
+
+void iree_hal_level_zero_oneccl_device_destroy(
+    iree_hal_level_zero_oneccl_device_t* d) {
+  delete d;
+}
 
 void iree_hal_level_zero_device_oneccl_init_vtable(
     iree_hal_device_vtable_t* vtable) {
@@ -77,23 +88,39 @@ iree_status_t iree_hal_level_zero_device_oneccl_create_channel(
       iree_hal_level_zero_driver_cast(hal_level_zero_device->driver);
 
   try {
-    // Although the free function |cl::sycl::make_device|
-    // should not need the creation of a sycl_platform, without it you get:
-    // terminate called after throwing an instance of 'cl::sycl::runtime_error'
-    // what():  Native API failed. Native API returns: -30 (CL_INVALID_VALUE)
-    // -30 (CL_INVALID_VALUE) https://github.com/intel/llvm/issues/5769
-    sycl::platform sycl_platform =
-        sycl::make_platform<sycl::backend::ext_oneapi_level_zero>(
-            hal_level_zero_driver->driver_handle);
+    if (!hal_level_zero_device->oneccl_device) {
+      // Although the free function |cl::sycl::make_device|
+      // should not need the creation of a sycl_platform, without it you get:
+      // terminate called after throwing an instance of
+      // 'cl::sycl::runtime_error' what():  Native API failed. Native API
+      // returns: -30 (CL_INVALID_VALUE) -30 (CL_INVALID_VALUE)
+      // https://github.com/intel/llvm/issues/5769
+      sycl::platform sycl_platform =
+          sycl::make_platform<sycl::backend::ext_oneapi_level_zero>(
+              hal_level_zero_driver->driver_handle);
 
-    cl::sycl::device sycl_device =
-        cl::sycl::make_device<cl::sycl::backend::ext_oneapi_level_zero>(
-            cl::sycl::backend_input_t<cl::sycl::backend::ext_oneapi_level_zero,
-                                      cl::sycl::device>(
-                hal_level_zero_device->device));
-    ccl::device ccl_device = ccl::create_device(sycl_device);
-    cl::sycl::context sycl_context(sycl_device);
-    ccl::context ccl_context = ccl::create_context(sycl_context);
+      cl::sycl::device sycl_device =
+          cl::sycl::make_device<cl::sycl::backend::ext_oneapi_level_zero>(
+              cl::sycl::backend_input_t<
+                  cl::sycl::backend::ext_oneapi_level_zero, cl::sycl::device>(
+                  hal_level_zero_device->device));
+      ccl::device ccl_device = ccl::create_device(sycl_device);
+      cl::sycl::context sycl_context(sycl_device);
+      ccl::context ccl_context = ccl::create_context(sycl_context);
+      cl::sycl::queue sycl_queue =
+          cl::sycl::make_queue<cl::sycl::backend::ext_oneapi_level_zero>(
+              cl::sycl::backend_input_t<
+                  cl::sycl::backend::ext_oneapi_level_zero, cl::sycl::queue>(
+                  hal_level_zero_device->command_queue, sycl_device,
+                  cl::sycl::ext::oneapi::level_zero::ownership::keep),
+              sycl_context);
+      ccl::stream ccl_stream = ccl::create_stream(sycl_queue);
+      std::unique_ptr<iree_hal_level_zero_oneccl_device_t> iree_oneccl_device =
+          std::make_unique<iree_hal_level_zero_oneccl_device_t>(
+              std::move(ccl_context), std::move(ccl_device),
+              std::move(ccl_stream));
+      hal_level_zero_device->oneccl_device = iree_oneccl_device.release();
+    }
 
     // TODO: figure out a way to initialize MPI externally and pass a
     // communicator as an intialization parameter to oneCCL.
@@ -122,15 +149,14 @@ iree_status_t iree_hal_level_zero_device_oneccl_create_channel(
       kvs = ccl::create_kvs(main_addr);
     }
 
-    ccl::communicator communicator =
-        ccl::create_communicator(size, rank, ccl_device, ccl_context, kvs);
+    ccl::communicator communicator = ccl::create_communicator(
+        size, rank, hal_level_zero_device->oneccl_device->device,
+        hal_level_zero_device->oneccl_device->context, kvs);
 
     std::unique_ptr<iree_hal_level_zero_oneccl_channel_t> channel =
         std::make_unique<iree_hal_level_zero_oneccl_channel_t>(
-            std::move(ccl_context), std::move(ccl_device),
             std::move(communicator));
-    *out_channel = reinterpret_cast<iree_hal_channel_t*>(channel.get());
-    channel.release();
+    *out_channel = reinterpret_cast<iree_hal_channel_t*>(channel.release());
   } catch (std::exception& e) {
     std::stringstream msg;
     msg << error_msg << " " << e.what();

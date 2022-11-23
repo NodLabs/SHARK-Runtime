@@ -46,6 +46,10 @@ static void iree_hal_level_zero_device_destroy(iree_hal_device_t* base_device) {
   iree_allocator_t host_allocator = iree_hal_device_host_allocator(base_device);
   IREE_TRACE_ZONE_BEGIN(z0);
 
+#ifdef IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL
+  iree_hal_level_zero_oneccl_device_destroy(device->oneccl_device);
+#endif
+
   // There should be no more buffers live that use the allocator.
   iree_hal_allocator_release(device->device_allocator);
   LEVEL_ZERO_IGNORE_ERROR(device->context_wrapper.syms,
