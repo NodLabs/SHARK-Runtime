@@ -35,6 +35,13 @@ iree_hal_level_zero_device_ptr_t iree_hal_level_zero_buffer_device_pointer(
 // Returns the Level Zero host pointer for the given |buffer|, if available.
 void* iree_hal_level_zero_buffer_host_pointer(iree_hal_buffer_t* buffer);
 
+iree_hal_level_zero_device_ptr_t iree_hal_level_zero_buffer_device_pointer(
+    iree_hal_buffer_t* base_buffer);
+
+iree_hal_level_zero_device_ptr_t
+iree_hal_level_zero_buffer_binding_device_pointer(
+    iree_hal_buffer_binding_t binding);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

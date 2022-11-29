@@ -7,11 +7,13 @@
 #include "oneccl.h"
 
 #include <experimental/level_zero/direct_command_buffer.h>
+#include <experimental/level_zero/level_zero_buffer.h>
 #include <experimental/level_zero/level_zero_driver.h>
 #include <experimental/level_zero/status_util.h>
 #include <mpi.h>
 #include <ze_api.h>
 
+#include <cstdlib>
 #include <exception>
 #include <memory>
 #include <oneapi/ccl.hpp>
@@ -58,6 +60,55 @@ const iree_hal_level_zero_oneccl_channel_t*
 iree_hal_level_zero_oneccl_channel_cast(const iree_hal_channel_t* channel) {
   IREE_HAL_ASSERT_TYPE(channel, &iree_hal_level_zero_oneccl_channel_vtable);
   return reinterpret_cast<const iree_hal_level_zero_oneccl_channel_t*>(channel);
+}
+
+iree_status_t iree_hal_collective_element_type_to_oneccl_datatype(
+    iree_hal_collective_element_type_t element_type, ccl::datatype* res) {
+  switch (element_type) {
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_SINT_8:
+      *res = ccl::datatype::int8;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_UINT_8:
+      *res = ccl::datatype::uint8;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_SINT_16:
+      *res = ccl::datatype::int16;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_UINT_16:
+      *res = ccl::datatype::uint16;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_SINT_32:
+      *res = ccl::datatype::int32;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_UINT_32:
+      *res = ccl::datatype::uint32;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_SINT_64:
+      *res = ccl::datatype::int64;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_UINT_64:
+      *res = ccl::datatype::uint64;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_FLOAT_16:
+      *res = ccl::datatype::float16;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_FLOAT_32:
+      *res = ccl::datatype::float32;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_FLOAT_64:
+      *res = ccl::datatype::float64;
+      break;
+    case IREE_HAL_COLLECTIVE_ELEMENT_TYPE_BFLOAT_16:
+      *res = ccl::datatype::bfloat16;
+      break;
+    default:
+      return iree_make_status_with_location(
+          __FILE__, __LINE__, IREE_STATUS_UNKNOWN,
+          "Unknown iree_hal_collective_element_type_t %d encountered when "
+          "converting to ccl::datatype.",
+          element_type);
+  }
+  return iree_ok_status();
 }
 
 }  // namespace
@@ -131,7 +182,11 @@ iree_status_t iree_hal_level_zero_device_oneccl_create_channel(
     }
 
     int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (params.rank == IREE_HAL_CHANNEL_RANK_DEFAULT) {
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    } else {
+      rank = params.rank;
+    }
     int size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -222,13 +277,59 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_oneccl_collective(
     iree_hal_collective_op_t op, uint32_t param,
     iree_hal_buffer_binding_t send_binding,
     iree_hal_buffer_binding_t recv_binding, iree_device_size_t element_count) {
-  // iree_hal_level_zero_direct_command_buffer_t* hal_ze_cmd_buff =
-  //   iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
-  // iree_hal_level_zero_oneccl_channel_t* oneccl_channel =
-  //   iree_hal_level_zero_oneccl_channel_cast(channel);
+  iree_hal_level_zero_direct_command_buffer_t* hal_ze_cmd_buff =
+      iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+  iree_hal_level_zero_oneccl_channel_t* oneccl_channel =
+      iree_hal_level_zero_oneccl_channel_cast(channel);
 
-  return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
-                          "collectives not implemented");
+  ccl::datatype oneccl_dtype;
+  IREE_RETURN_IF_ERROR(iree_hal_collective_element_type_to_oneccl_datatype(
+      op.element_type, &oneccl_dtype));
+  // size_t dtype_size = ccl::get_datatype_size(oneccl_dtype);
+
+  iree_hal_level_zero_device_ptr_t device_send_buff =
+      iree_hal_level_zero_buffer_binding_device_pointer(send_binding);
+  iree_hal_level_zero_device_ptr_t device_recv_buff =
+      iree_hal_level_zero_buffer_binding_device_pointer(recv_binding);
+
+  // // Compute element count.
+  // size_t element_count = 0;
+  // switch (op.kind) {
+  //   case IREE_HAL_COLLECTIVE_KIND_ALL_GATHER:
+  //     auto len_div = std::div(static_cast<size_t>(send_binding.length),
+  //     dtype_size); element_count = len_div.quot; if (len_div.rem != 0) {
+  //         return iree_make_status_with_location(__FILE__, __LINE__,
+  //         IREE_STATUS_UNKNOWN,
+  //           "Buffer length %d is not a multiple of element size %d.",
+  //           send_binding.length, dtype_size);
+  //     }
+  //     break;
+  //   default:
+  //     return iree_make_status_with_location(__FILE__, __LINE__,
+  //     IREE_STATUS_UNKNOWN,
+  //       "Unsupported iree_hal_collective_kind_t %d.", op.kind);
+  // }
+
+  hal_ze_cmd_buff->command_segments->segments.push_back(
+      [op, oneccl_dtype, element_count, device_send_buff, device_recv_buff,
+       hal_ze_cmd_buff, oneccl_channel]() {
+        std::vector<size_t> recv_counts(oneccl_channel->communicator.size(),
+                                        element_count);
+        switch (op.kind) {
+          case IREE_HAL_COLLECTIVE_KIND_ALL_GATHER:
+            ccl::allgatherv(device_send_buff, element_count, device_recv_buff,
+                            recv_counts, oneccl_dtype,
+                            oneccl_channel->communicator,
+                            hal_ze_cmd_buff->device->oneccl_device->stream);
+            break;
+          default:
+            return iree_make_status_with_location(
+                __FILE__, __LINE__, IREE_STATUS_UNKNOWN,
+                "Unsupported iree_hal_collective_kind_t %d.", op.kind);
+        }
+
+        return iree_ok_status();
+      });
 
   return iree_ok_status();
 }

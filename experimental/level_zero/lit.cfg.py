@@ -16,7 +16,7 @@ import tempfile
 import lit.formats
 
 config.name = "IREE Level Zero Driver"
-config.suffixes = [".mlir"]
+config.suffixes = [".mlir", ".lit"]
 config.test_format = lit.formats.ShTest(execute_external=True)
 
 # Use the most preferred temp directory.

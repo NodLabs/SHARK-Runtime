@@ -15,9 +15,31 @@ iree_lit_test_suite(
     lit
   SRCS
     "channel_creation.mlir"
+    "communication_ops.mlir"
   TOOLS
     FileCheck
     iree-run-mlir
+)
+
+iree_lit_test_suite(
+  NAME
+    lit2
+  SRCS
+    "oneccl_test.lit"
+  TOOLS
+    ::oneccl_test
+)
+
+iree_cc_binary(
+  NAME
+    oneccl_test
+  SRCS
+  oneccl_test.cc
+  DEPS
+    iree::runtime
+    iree::testing::gtest
+    iree::testing::gtest_main
+  PUBLIC
 )
 
 ### BAZEL_TO_CMAKE_PRESERVES_ALL_CONTENT_BELOW_THIS_LINE ###

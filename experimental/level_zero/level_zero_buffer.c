@@ -125,6 +125,19 @@ iree_hal_level_zero_device_ptr_t iree_hal_level_zero_buffer_device_pointer(
   return buffer->device_ptr;
 }
 
+iree_hal_level_zero_device_ptr_t
+iree_hal_level_zero_buffer_binding_device_pointer(
+    iree_hal_buffer_binding_t binding) {
+  return (
+      iree_hal_level_zero_device_ptr_t)((uintptr_t)(void*)
+                                            iree_hal_level_zero_buffer_device_pointer(
+                                                iree_hal_buffer_allocated_buffer(
+                                                    binding.buffer)) +
+                                        +iree_hal_buffer_byte_offset(
+                                            binding.buffer) +
+                                        binding.offset);
+}
+
 void* iree_hal_level_zero_buffer_host_pointer(iree_hal_buffer_t* base_buffer) {
   iree_hal_level_zero_buffer_t* buffer =
       iree_hal_level_zero_buffer_cast(base_buffer);

@@ -47,8 +47,7 @@ using level_zero_command_list_t =
     std::decay_t<decltype(*std::declval<ze_command_list_handle_t>())>;
 using command_list_t =
     std::unique_ptr<level_zero_command_list_t, command_list_deleter_t>;
-using functional_command_buffer_segment_t =
-    std::function<iree_status_t(ze_command_queue_handle_t)>;
+using functional_command_buffer_segment_t = std::function<iree_status_t()>;
 using command_buffer_segment_t =
     std::variant<command_list_t, functional_command_buffer_segment_t>;
 

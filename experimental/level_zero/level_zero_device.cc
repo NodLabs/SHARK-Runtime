@@ -93,8 +93,8 @@ iree_status_t iree_hal_level_zero_device_queue_execute(
                     "zeCommandQueueExecuteCommandLists");
                 return iree_ok_status();
               },
-              [device](functional_command_buffer_segment_t& segment) {
-                return segment(device->command_queue);
+              [](functional_command_buffer_segment_t& segment) {
+                return segment();
               },
           },
           segment_variant));

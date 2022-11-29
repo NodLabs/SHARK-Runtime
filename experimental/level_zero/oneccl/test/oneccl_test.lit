@@ -1,0 +1,1 @@
+// RUN: mpirun -n 2 ./oneccl_test
