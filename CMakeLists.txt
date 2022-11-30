@@ -374,6 +374,7 @@ list(APPEND CMAKE_MODULE_PATH
   ${CMAKE_CURRENT_LIST_DIR}/build_tools/cmake/
 )
 
+include(iree_numa_library)
 include(iree_macros)
 include(iree_copts)
 include(iree_cc_binary)
@@ -691,6 +692,7 @@ if(IREE_ENABLE_THREADING)
 endif()
 
 add_subdirectory(build_tools/third_party/flatcc EXCLUDE_FROM_ALL)
+add_subdirectory(build_tools/third_party/numactl EXCLUDE_FROM_ALL)
 
 if(IREE_HAL_DRIVER_VULKAN)
   add_subdirectory(third_party/vulkan_headers EXCLUDE_FROM_ALL)

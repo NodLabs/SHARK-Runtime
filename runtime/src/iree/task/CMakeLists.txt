@@ -69,6 +69,8 @@ iree_cc_library(
     "topology_cpuinfo.c"
     "worker.c"
     "worker.h"
+    "numactl.c"
+    "numactl.h"
   DEPS
     ${IREE_CPUINFO_TARGET}
     iree::base
@@ -83,6 +85,7 @@ iree_cc_library(
     iree::base::internal::threading
     iree::base::internal::wait_handle
     iree::base::tracing
+    numa::libnuma
   PUBLIC
 )
 
