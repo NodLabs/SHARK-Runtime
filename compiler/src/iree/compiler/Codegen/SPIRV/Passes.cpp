@@ -326,6 +326,9 @@ void addSPIRVCooperativeMatrixVectorizePassPipeline(OpPassManager &pm) {
   nestedModulePM.addNestedPass<func::FuncOp>(
       createSPIRVVectorToGPUSubgroupMMAOpsPass());
   nestedModulePM.addNestedPass<func::FuncOp>(createSPIRVVectorizePass());
+
+  nestedModulePM.addNestedPass<func::FuncOp>(createGPUPipeliningPass(
+      /*epiloguePeeling=*/true, 0, 2));
 }
 
 void addSPIRVMatmulPromoteVectorizePassPipeline(OpPassManager &pm,

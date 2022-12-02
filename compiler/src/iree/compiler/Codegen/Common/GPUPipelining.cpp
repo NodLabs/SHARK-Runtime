@@ -184,11 +184,14 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
     MLIRContext* context = &getContext();
 
     unsigned pipelineStoreStage = storeStage;
+
     // Mark the loop with shared memory copy for pipelining.
     funcOp.walk([pipelineStoreStage](scf::ForOp forOp) {
       bool copyToWorkgroupMemory = false;
       OpBuilder builder(forOp.getContext());
       SmallVector<Operation*> barriers;
+      SmallVector<Operation*> vectorLoads;
+      SmallVector<Operation*> vectorStores;
       for (Operation& op : forOp.getBody()->getOperations()) {
         // Pipeline the most inner for op that should be a flat region.
         if (op.getNumRegions() > 0) return;
@@ -213,17 +216,30 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
         auto ldSrcType = ld.getSource().getType().cast<MemRefType>();
         if (!hasDefaultOrHALAddressSpace(ldSrcType) || !ld->hasOneUse())
           continue;
+
         auto st =
             dyn_cast<vector::TransferWriteOp>(ld->use_begin()->getOwner());
         if (!st) continue;
         auto stSrcType = st.getSource().getType().cast<MemRefType>();
-        if (!hasSharedMemoryAddressSpace(stSrcType)) continue;
+        if (!hasSharedMemoryAddressSpace(stSrcType)) {
+          continue;
+        }
         copyToWorkgroupMemory = true;
+        vectorLoads.push_back(ld);
+        vectorStores.push_back(st);
         ld->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
         if (pipelineStoreStage == 0)
           st->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
       }
       if (copyToWorkgroupMemory) {
+        // Move barrier to just before stores to workgroup memory.
+        if (pipelineStoreStage == 2) {
+          for (auto st : llvm::reverse(vectorStores)) {
+            st->moveAfter(vectorLoads.back());
+          }
+          barriers.front()->moveAfter(vectorLoads.back());
+        }
+
         forOp->setAttr(kPipeliningLoopMarker, builder.getUnitAttr());
         if (pipelineStoreStage == 0 && !barriers.empty()) {
           barriers.front()->erase();
