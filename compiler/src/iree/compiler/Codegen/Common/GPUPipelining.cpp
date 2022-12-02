@@ -178,10 +178,14 @@ static void setAsyncAnnotations(Operation* op,
 /// Check if the for operations contains a shared memory copy that can be
 /// pipelined and annotate operations with stage information if this is the
 /// case.
-static bool setPipeliningMarkers(scf::ForOp forOp, bool pipelineStoreStage) {
+static bool setPipeliningMarkers(scf::ForOp forOp, int64_t depth,
+                                 bool pipelineStoreStage) {
   bool copyToWorkgroupMemory = false;
   OpBuilder builder(forOp.getContext());
   SmallVector<Operation*> barriers;
+  SmallVector<Operation*> vectorLoads;
+  SmallVector<Operation*> vectorStores;
+  unsigned maxDepth = depth;
   for (Operation& op : forOp.getBody()->getOperations()) {
     // Pipeline the most inner for op that should be a flat region.
     if (op.getNumRegions() > 0) return false;
@@ -209,13 +213,22 @@ static bool setPipeliningMarkers(scf::ForOp forOp, bool pipelineStoreStage) {
     auto stSrcType = st.getSource().getType().cast<MemRefType>();
     if (!hasSharedMemoryAddressSpace(stSrcType)) continue;
     copyToWorkgroupMemory = true;
+    vectorLoads.push_back(ld);
+    vectorStores.push_back(st);
     ld->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
     if (pipelineStoreStage == 0)
       st->setAttr(kPipeliningFirstStage, builder.getUnitAttr());
   }
   if (copyToWorkgroupMemory) {
+    // Move barrier to just before stores to workgroup memory.
+    if (!barriers.empty() && pipelineStoreStage == 0 && maxDepth == 0) {
+      for (auto st : llvm::reverse(vectorStores)) {
+        st->moveAfter(vectorLoads.back());
+      }
+      barriers.front()->moveAfter(vectorLoads.back());
+    }
     forOp->setAttr(kPipeliningLoopMarker, builder.getUnitAttr());
-    if (pipelineStoreStage == 0 && !barriers.empty()) {
+    if (maxDepth > 0 && pipelineStoreStage == 0 && !barriers.empty()) {
       barriers.front()->erase();
     }
   }
@@ -273,7 +286,8 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
     // Mark the loop with shared memory copy for pipelining.
     funcOp.walk([&forOps](scf::ForOp forOp) { forOps.push_back(forOp); });
     for (scf::ForOp forOp : forOps) {
-      if (setPipeliningMarkers(forOp, pipelineStoreStage)) {
+      if (setPipeliningMarkers(forOp, depth, pipelineStoreStage)) {
+        if (depth == 0) return;
         (void)applyPipelining(forOp, depth, epiloguePeeling,
                               pipelineStoreStage);
       }
@@ -296,7 +310,7 @@ FailureOr<scf::ForOp> pipelineSharedMemoryCopy(
     int64_t depth, PatternRewriter& rewriter) {
   bool pipelineStoreStage =
       startegy == PipeliningSchedulingStrategy::loadStoreStage0;
-  if (setPipeliningMarkers(forOp, pipelineStoreStage)) {
+  if (setPipeliningMarkers(forOp, depth, pipelineStoreStage)) {
     return applyPipelining(forOp, depth, peelEpilogue, pipelineStoreStage);
   }
   return failure();
