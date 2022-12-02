@@ -40,15 +40,15 @@ class CtsTestBase : public ::testing::TestWithParam<std::string> {
   }
 
   virtual void SetUp() {
-    const std::string& driver_name = GetParam();
+    driver_name_ = GetParam();
 
     // Get driver with the given name and create its default device.
     // Skip drivers that are (gracefully) unavailable, fail if creation fails.
     iree_hal_driver_t* driver = NULL;
-    iree_status_t status = TryGetDriver(driver_name, &driver);
+    iree_status_t status = TryGetDriver(driver_name_, &driver);
     if (iree_status_is_unavailable(status)) {
       iree_status_free(status);
-      GTEST_SKIP() << "Skipping test as '" << driver_name
+      GTEST_SKIP() << "Skipping test as '" << driver_name_
                    << "' driver is unavailable";
       return;
     }
@@ -60,7 +60,7 @@ class CtsTestBase : public ::testing::TestWithParam<std::string> {
         driver_, iree_allocator_system(), &device);
     if (iree_status_is_unavailable(status)) {
       iree_status_free(status);
-      GTEST_SKIP() << "Skipping test as default device for '" << driver_name
+      GTEST_SKIP() << "Skipping test as default device for '" << driver_name_
                    << "' driver is unavailable";
       return;
     }
@@ -125,6 +125,7 @@ class CtsTestBase : public ::testing::TestWithParam<std::string> {
     return status;
   }
 
+  std::string driver_name_;
   iree_hal_driver_t* driver_ = NULL;
   iree_hal_device_t* device_ = NULL;
   iree_hal_allocator_t* device_allocator_ = NULL;
