@@ -21,8 +21,9 @@ package(
 iree_runtime_cc_library(
     name = "base",
     srcs = [
-        "allocator.c",
         "allocator.h",
+        "allocator.c",
+        "allocator_cc.h",
         "assert.h",
         "bitfield.c",
         "bitfield.h",
