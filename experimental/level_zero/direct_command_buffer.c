@@ -118,6 +118,9 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
   // Create a command list
   IREE_LEVEL_ZERO_TRY(iree_hal_level_zero_command_buffer_segment_list_create(
       hal_level_zero_device, &command_buffer->command_segments));
+  IREE_LEVEL_ZERO_TRY(iree_hal_level_zero_buffer_list_create(
+      command_buffer->context->host_allocator,
+      &command_buffer->internal_host_buffers));
 
   *out_command_buffer = &command_buffer->base;
 
@@ -126,6 +129,8 @@ cleanup:
     iree_hal_level_zero_command_buffer_segment_list_destroy(
         command_buffer->command_segments);
     iree_allocator_free(context->host_allocator, command_buffer);
+    iree_hal_level_zero_buffer_list_destroy(
+        command_buffer->internal_host_buffers);
   }
 
   IREE_TRACE_ZONE_END(z0);
@@ -140,6 +145,8 @@ static void iree_hal_level_zero_direct_command_buffer_destroy(
 
   iree_hal_level_zero_command_buffer_segment_list_destroy(
       command_buffer->command_segments);
+  iree_hal_level_zero_buffer_list_destroy(
+      command_buffer->internal_host_buffers);
   iree_allocator_free(command_buffer->context->host_allocator,
                       (void*)command_buffer->base.resource.vtable);
   iree_allocator_free(command_buffer->context->host_allocator, command_buffer);
@@ -299,8 +306,47 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_update_buffer(
     iree_hal_command_buffer_t* base_command_buffer, const void* source_buffer,
     iree_host_size_t source_offset, iree_hal_buffer_t* target_buffer,
     iree_device_size_t target_offset, iree_device_size_t length) {
-  return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
-                          "need level_zero implementation");
+  iree_status_t status;
+  bool is_buffer_appended_to_internal_host_buffers = false;
+  iree_hal_level_zero_direct_command_buffer_t* command_buffer =
+      iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
+
+  // Create and retain buffer to hold the source data.
+  // It must be available when the command buffer is executed.
+  iree_hal_buffer_t* internal_src_buff = NULL;
+  iree_hal_buffer_params_t internal_src_buff_params;
+  internal_src_buff_params.usage = IREE_HAL_BUFFER_USAGE_DISPATCH_STORAGE_READ |
+                                   IREE_HAL_BUFFER_USAGE_TRANSFER;
+  internal_src_buff_params.access =
+      IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_DISCARD_WRITE;
+  internal_src_buff_params.type = IREE_HAL_MEMORY_TYPE_HOST_LOCAL;
+  internal_src_buff_params.queue_affinity = 0;
+  internal_src_buff_params.min_alignment = 0;
+  iree_const_byte_span_t empty_intial_data;
+  empty_intial_data.data = NULL;
+  empty_intial_data.data_length = 0;
+  IREE_LEVEL_ZERO_TRY(iree_hal_allocator_allocate_buffer(
+      command_buffer->device->device_allocator, internal_src_buff_params,
+      length, empty_intial_data, &internal_src_buff));
+  IREE_LEVEL_ZERO_TRY(
+      iree_hal_buffer_map_write(internal_src_buff, 0, source_buffer, length));
+  iree_hal_level_zero_buffer_list_append(internal_src_buff,
+                                         command_buffer->internal_host_buffers);
+  is_buffer_appended_to_internal_host_buffers = true;
+  IREE_LEVEL_ZERO_TRY(iree_hal_command_buffer_copy_buffer(
+      base_command_buffer, internal_src_buff, 0, target_buffer, target_offset,
+      length));
+
+cleanup:
+  iree_hal_buffer_release(internal_src_buff);
+  if (!iree_status_is_ok(status)) {
+    if (is_buffer_appended_to_internal_host_buffers) {
+      iree_hal_level_zero_buffer_list_pop(
+          command_buffer->internal_host_buffers);
+    }
+  }
+
+  return iree_ok_status();
 }
 
 static iree_status_t iree_hal_level_zero_direct_command_buffer_copy_buffer(

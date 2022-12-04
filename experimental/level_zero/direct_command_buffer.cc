@@ -65,3 +65,44 @@ iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
 
   return iree_ok_status();
 }
+
+iree_status_t iree_hal_level_zero_buffer_list_create(
+    iree_allocator_t host_allocator,
+    iree_hal_level_zero_buffer_list_t** buffer_list) {
+  IREE_RETURN_IF_ERROR(iree_allocator_malloc(
+      host_allocator, sizeof(iree_hal_level_zero_buffer_list_t),
+      reinterpret_cast<void**>(buffer_list)));
+  new (*buffer_list) iree_hal_level_zero_buffer_list_t(host_allocator);
+  return iree_ok_status();
+}
+
+iree_hal_level_zero_buffer_list_t::~iree_hal_level_zero_buffer_list_t() {
+  iree_hal_level_zero_buffer_list_clear(this);
+}
+
+void iree_hal_level_zero_buffer_list_destroy(
+    iree_hal_level_zero_buffer_list_t* buffer_list) {
+  iree_allocator_t host_allocator = buffer_list->host_allocator;
+  buffer_list->~iree_hal_level_zero_buffer_list_t();
+  iree_allocator_free(host_allocator, buffer_list);
+}
+
+void iree_hal_level_zero_buffer_list_append(
+    iree_hal_buffer_t* buffer, iree_hal_level_zero_buffer_list_t* buffer_list) {
+  iree_hal_buffer_retain(buffer);
+  buffer_list->buffers.push_back(buffer);
+}
+
+void iree_hal_level_zero_buffer_list_pop(
+    iree_hal_level_zero_buffer_list_t* buffer_list) {
+  iree_hal_buffer_release(buffer_list->buffers.back());
+  buffer_list->buffers.pop_back();
+}
+
+void iree_hal_level_zero_buffer_list_clear(
+    iree_hal_level_zero_buffer_list_t* buffer_list) {
+  for (iree_hal_buffer_t* buffer : buffer_list->buffers) {
+    iree_hal_buffer_release(buffer);
+  }
+  buffer_list->buffers.clear();
+}

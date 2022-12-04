@@ -24,6 +24,8 @@
 #include <variant>
 #include <vector>
 
+#include "iree/base/allocator_cc.h"
+
 namespace iree {
 namespace level_zero {
 struct command_list_deleter_t {
@@ -65,12 +67,23 @@ struct iree_hal_level_zero_command_buffer_segment_list_t {
   iree_hal_level_zero_device_t* device;
 };
 
+struct iree_hal_level_zero_buffer_list_t {
+  iree_hal_level_zero_buffer_list_t(iree_allocator_t host_allocator)
+      : host_allocator(host_allocator),
+        buffers(iree::Allocator<iree_hal_buffer_t*>(host_allocator)) {}
+  ~iree_hal_level_zero_buffer_list_t();
+  iree_allocator_t host_allocator;
+  std::vector<iree_hal_buffer_t*, iree::Allocator<iree_hal_buffer_t*>> buffers;
+};
+
 extern "C" {
 #endif  // __cplusplus
 
 typedef struct iree_arena_block_pool_t iree_arena_block_pool_t;
 typedef struct iree_hal_level_zero_command_buffer_segment_list_t
     iree_hal_level_zero_command_buffer_segment_list_t;
+typedef struct iree_hal_level_zero_buffer_list_t
+    iree_hal_level_zero_buffer_list_t;
 
 // Command buffer implementation that directly maps to level_zero direct.
 // This records the commands on the calling thread without additional threading
@@ -82,6 +95,10 @@ typedef struct {
   iree_hal_level_zero_context_wrapper_t* context;
   iree_arena_block_pool_t* block_pool;
   iree_hal_level_zero_command_buffer_segment_list_t* command_segments;
+  // Buffers used by the driver internally.
+  // This is necessray for iree_hal_command_buffer_update_buffer because
+  // it requires that the soruce buffer can be relinquished after the call.
+  iree_hal_level_zero_buffer_list_t* internal_host_buffers;
 
   // Keep track of the current set of kernel arguments.
   int32_t push_constant[IREE_HAL_LEVEL_ZERO_MAX_PUSH_CONSTANT_COUNT];
@@ -124,6 +141,18 @@ iree_status_t
 iree_hal_level_zero_command_buffer_segment_list_get_ze_list_for_append(
     iree_hal_level_zero_command_buffer_segment_list_t* segment_list,
     ze_command_list_handle_t* out_command_list);
+
+iree_status_t iree_hal_level_zero_buffer_list_create(
+    iree_allocator_t host_allocator,
+    iree_hal_level_zero_buffer_list_t** buffer_list);
+void iree_hal_level_zero_buffer_list_destroy(
+    iree_hal_level_zero_buffer_list_t* buffer_list);
+void iree_hal_level_zero_buffer_list_append(
+    iree_hal_buffer_t* buffer, iree_hal_level_zero_buffer_list_t* buffer_list);
+void iree_hal_level_zero_buffer_list_pop(
+    iree_hal_level_zero_buffer_list_t* buffer_list);
+void iree_hal_level_zero_buffer_list_clear(
+    iree_hal_level_zero_buffer_list_t* buffer_list);
 
 #ifdef __cplusplus
 }  // extern "C"
