@@ -19,7 +19,7 @@ source /opt/intel/oneapi/setvars.sh
 
 # CMake Configuration
 
-To enable to oneCCL as a collectives backend for the Level Zero driver
+To enable oneCCL as a collectives backend for the Level Zero driver
 you would need to pass to cmake
 ```
 -DIREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL=ON

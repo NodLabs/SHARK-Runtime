@@ -448,6 +448,9 @@ if(IREE_BUILD_EXPERIMENTAL_HAL_DRIVER_LEVEL_ZERO_ONECCL)
   set(CMAKE_CXX_COMPILER ${SYCL_CXX_COMPILER})
   list(APPEND CMAKE_MODULE_PATH "${IREE_ROOT_DIR}/third_party/oneccl/cmake")
   find_package(IntelSYCL_level_zero REQUIRED)
+  # The interogation of the mpicxx compiler fails if the
+  # C++ compiler is clang++12 for example. It does not fail with clang++.
+  # That is why we search for the package with the sycl compiler, namely dpcpp.
   find_package(MPI REQUIRED COMPONENTS CXX)
   set(CMAKE_CXX_COMPILER ${CMAKE_CXX_COMPILER_ORIG})
 

@@ -13,10 +13,61 @@
 #include <sstream>
 #include <string>
 
+namespace {
+
 template <typename T, typename Deleter>
 std::unique_ptr<T, Deleter> make_unique(T* p, Deleter d) {
   return std::unique_ptr<T, Deleter>(p, d);
 }
+
+void get_rank_and_world_size(iree_hal_driver_t* driver, size_t* rank,
+                             size_t* world_size) {
+  iree_allocator_t host_allocator = iree_allocator_system();
+
+  iree_hal_device_t* device = nullptr;
+  ASSERT_EQ(
+      iree_hal_driver_create_default_device(driver, host_allocator, &device),
+      iree_ok_status());
+  auto device_deleter = make_unique<iree_hal_device_t>(
+      device, [](iree_hal_device_t* p) { iree_hal_device_release(p); });
+
+  // Create channel.
+  iree_hal_channel_params_t channel_params;
+  iree_hal_channel_t* channel = NULL;
+  channel_params.rank = IREE_HAL_CHANNEL_RANK_DEFAULT;
+  IREE_ASSERT_OK(iree_hal_channel_create(device, iree_hal_queue_affinity_t(0),
+                                         channel_params, &channel));
+  auto channel_deleter = make_unique<iree_hal_channel_t>(
+      channel, [](iree_hal_channel_t* p) { iree_hal_channel_release(p); });
+  *world_size = iree_hal_channel_count(channel);
+  *rank = iree_hal_channel_rank(channel);
+}
+
+void make_device(iree_hal_driver_t* driver, iree_hal_device_t** out_device) {
+  iree_allocator_t host_allocator = iree_allocator_system();
+
+  size_t rank = 0;
+  size_t world_size = 0;
+  get_rank_and_world_size(driver, &rank, &world_size);
+
+  // Query the devices from the driver.
+  iree_host_size_t device_info_count = 0;
+  iree_hal_device_info_t* device_infos = NULL;
+  IREE_ASSERT_OK(iree_hal_driver_query_available_devices(
+      driver, host_allocator, &device_info_count, &device_infos));
+  auto device_infos_deleter = make_unique<iree_hal_device_info_t>(
+      device_infos, [host_allocator](iree_hal_device_info_t* p) {
+        iree_allocator_free(host_allocator, p);
+      });
+
+  // Create the device.
+  size_t device_ordinal = rank % device_info_count;
+  IREE_ASSERT_OK(iree_hal_driver_create_device_by_ordinal(
+      driver, device_ordinal,
+      /*param_count=*/0, /*params=*/0, host_allocator, out_device));
+}
+
+}  // namespace
 
 TEST(OneCcl, AllGather) {
   iree_runtime_instance_options_t instance_options;
@@ -46,9 +97,7 @@ TEST(OneCcl, AllGather) {
       driver, [](iree_hal_driver_t* p) { iree_hal_driver_release(p); });
 
   iree_hal_device_t* device = nullptr;
-  ASSERT_EQ(
-      iree_hal_driver_create_default_device(driver, host_allocator, &device),
-      iree_ok_status());
+  make_device(driver, &device);
   auto device_deleter = make_unique<iree_hal_device_t>(
       device, [](iree_hal_device_t* p) { iree_hal_device_release(p); });
 
@@ -79,14 +128,14 @@ TEST(OneCcl, AllGather) {
   // Create input device buffer.
   iree_hal_buffer_t* in_device_buffer = nullptr;
   iree_hal_buffer_params_t in_buffer_params;
-  in_buffer_params.usage = IREE_HAL_BUFFER_USAGE_DISPATCH_STORAGE_READ |
-                           IREE_HAL_BUFFER_USAGE_TRANSFER;
+  in_buffer_params.usage = IREE_HAL_BUFFER_USAGE_DEFAULT;
   in_buffer_params.access =
       IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE;
   in_buffer_params.type = IREE_HAL_MEMORY_TYPE_OPTIMAL_FOR_DEVICE;
   in_buffer_params.queue_affinity = 0;
   in_buffer_params.min_alignment = sizeof(data_type);
-  std::vector<data_type> in_buffer_data({rank * 100, rank * 100 + 1});
+  std::vector<data_type> in_buffer_data(
+      {(rank + 1) * 100, (rank + 1) * 100 + 1});
   size_t element_count = in_buffer_data.size();
   iree_const_byte_span_t in_buffer_intial_data;
   in_buffer_intial_data.data =
@@ -102,8 +151,7 @@ TEST(OneCcl, AllGather) {
   // Create output device buffer.
   iree_hal_buffer_t* out_device_buffer = nullptr;
   iree_hal_buffer_params_t out_buffer_params;
-  out_buffer_params.usage = IREE_HAL_BUFFER_USAGE_DISPATCH_STORAGE_WRITE |
-                            IREE_HAL_BUFFER_USAGE_TRANSFER;
+  out_buffer_params.usage = IREE_HAL_BUFFER_USAGE_DEFAULT;
   out_buffer_params.access =
       IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE;
   out_buffer_params.type = IREE_HAL_MEMORY_TYPE_OPTIMAL_FOR_DEVICE;
@@ -125,6 +173,7 @@ TEST(OneCcl, AllGather) {
   // Schedule collective op.
   iree_hal_collective_op_t collective_op;
   collective_op.kind = IREE_HAL_COLLECTIVE_KIND_ALL_GATHER;
+  collective_op.reduction = 0;  // No reduction.
   collective_op.element_type = IREE_HAL_COLLECTIVE_ELEMENT_TYPE_SINT_32;
   iree_hal_buffer_binding_t send_binding;
   send_binding.buffer = in_device_buffer;
@@ -143,8 +192,9 @@ TEST(OneCcl, AllGather) {
   iree_hal_buffer_params_t out_host_buffer_params;
   out_host_buffer_params.usage =
       IREE_HAL_BUFFER_USAGE_TRANSFER | IREE_HAL_BUFFER_USAGE_MAPPING;
-  out_host_buffer_params.access =
-      IREE_HAL_MEMORY_ACCESS_READ | IREE_HAL_MEMORY_ACCESS_WRITE;
+  out_host_buffer_params.access = IREE_HAL_MEMORY_ACCESS_READ |
+                                  IREE_HAL_MEMORY_ACCESS_WRITE |
+                                  IREE_HAL_MEMORY_ACCESS_DISCARD;
   out_host_buffer_params.type = IREE_HAL_MEMORY_TYPE_HOST_LOCAL;
   out_host_buffer_params.queue_affinity = 0;
   out_host_buffer_params.min_alignment = sizeof(data_type);
@@ -179,8 +229,8 @@ TEST(OneCcl, AllGather) {
   iree_hal_buffer_mapping_t out_host_buffer_mapping;
   IREE_ASSERT_OK(iree_hal_buffer_map_range(
       out_host_buffer, IREE_HAL_MAPPING_MODE_SCOPED,
-      IREE_HAL_MEMORY_ACCESS_READ, 0, out_host_buffer->byte_length,
-      &out_host_buffer_mapping));
+      IREE_HAL_MEMORY_ACCESS_READ, /*byte_offset=*/0,
+      out_host_buffer->byte_length, &out_host_buffer_mapping));
   auto out_host_buffer_mapping_deleter = make_unique<iree_hal_buffer_mapping_t>(
       &out_host_buffer_mapping, [](iree_hal_buffer_mapping_t* p) {
         IREE_ASSERT_OK(iree_hal_buffer_unmap_range(p));
@@ -190,7 +240,7 @@ TEST(OneCcl, AllGather) {
   expected_output.reserve(element_count * ranks_count);
   for (size_t i = 0; i < ranks_count; ++i) {
     for (size_t j = 0; j < element_count; ++j) {
-      expected_output.push_back(100 * i + j);
+      expected_output.push_back(100 * (i + 1) + j);
     }
   }
   std::vector<data_type> output(
