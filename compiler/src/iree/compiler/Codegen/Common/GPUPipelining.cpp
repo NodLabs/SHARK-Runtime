@@ -242,7 +242,7 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
         }
 
         forOp->setAttr(kPipeliningLoopMarker, builder.getUnitAttr());
-        if (pipelineStoreStage == 0 && !barriers.empty()) {
+        if (maxDepth > 0 && pipelineStoreStage == 0 && !barriers.empty()) {
           barriers.front()->erase();
         }
       }

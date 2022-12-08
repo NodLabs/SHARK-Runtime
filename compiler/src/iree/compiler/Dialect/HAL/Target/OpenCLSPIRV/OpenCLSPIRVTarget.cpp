@@ -150,6 +150,13 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
   LogicalResult serializeExecutable(const SerializationOptions &options,
                                     IREE::HAL::ExecutableVariantOp variantOp,
                                     OpBuilder &executableBuilder) override {
+    // Today we special-case external variants but in the future we could allow
+    // for a linking approach allowing both code generation and external .spv
+    // files to be combined together.
+    if (variantOp.isExternal()) {
+      return serializeExternalExecutable(options, variantOp, executableBuilder);
+    }
+
     ModuleOp innerModuleOp = variantOp.getInnerModule();
     auto spirvModuleOps = innerModuleOp.getOps<spirv::ModuleOp>();
     if (!llvm::hasSingleElement(spirvModuleOps)) {
@@ -209,6 +216,67 @@ class OpenCLSPIRVTargetBackend : public TargetBackend {
 
     iree_LEVEL_ZEROExecutableDef_entry_points_add(builder, entryPointsRef);
     iree_LEVEL_ZEROExecutableDef_block_sizes_add(builder, blockSizesRef);
+    iree_LEVEL_ZEROExecutableDef_level_zero_image_add(builder, spvCodeRef);
+    iree_LEVEL_ZEROExecutableDef_end_as_root(builder);
+
+    // Add the binary data to the target executable.
+    auto binaryOp = executableBuilder.create<IREE::HAL::ExecutableBinaryOp>(
+        variantOp.getLoc(), variantOp.getSymName(),
+        variantOp.getTarget().getFormat(),
+        builder.getBufferAttr(executableBuilder.getContext()));
+    binaryOp.setMimeTypeAttr(
+        executableBuilder.getStringAttr("application/x-flatbuffers"));
+
+    return success();
+  }
+
+  LogicalResult serializeExternalExecutable(
+      const SerializationOptions &options,
+      IREE::HAL::ExecutableVariantOp variantOp, OpBuilder &executableBuilder) {
+    if (!variantOp.getObjects().has_value()) {
+      return variantOp.emitOpError()
+             << "no objects defined for external variant";
+    } else if (variantOp.getObjects()->getValue().size() != 1) {
+      // For now we assume there will be exactly one object file.
+      // TODO(#7824): support multiple .spv files in a single flatbuffer archive
+      // so that we can combine executables.
+      return variantOp.emitOpError() << "only one object reference is "
+                                        "supported for external variants";
+    }
+
+    // Take exported names verbatim for passing into VkShaderModuleCreateInfo.
+    SmallVector<StringRef, 8> entryPointNames;
+    for (auto exportOp : variantOp.getOps<IREE::HAL::ExecutableExportOp>()) {
+      entryPointNames.emplace_back(exportOp.getSymName());
+    }
+
+    // Load .spv object file.
+    auto objectAttr = variantOp.getObjects()
+                          ->getValue()
+                          .front()
+                          .cast<IREE::HAL::ExecutableObjectAttr>();
+    std::string spvBinary;
+    if (auto data = objectAttr.loadData()) {
+      spvBinary = data.value();
+    } else {
+      return variantOp.emitOpError()
+             << "object file could not be loaded: " << objectAttr;
+    }
+    if (spvBinary.size() % 4 != 0) {
+      return variantOp.emitOpError()
+             << "object file is not 4-byte aligned as expected for SPIR-V";
+    }
+
+    FlatbufferBuilder builder;
+    iree_LEVEL_ZEROExecutableDef_start_as_root(builder);
+
+    auto spvCodeRef = flatbuffers_uint32_vec_create(
+        builder, reinterpret_cast<const uint32_t *>(spvBinary.data()),
+        spvBinary.size() / sizeof(uint32_t));
+
+    auto entryPointsRef = builder.createStringVec(entryPointNames);
+
+    iree_LEVEL_ZEROExecutableDef_entry_points_add(builder, entryPointsRef);
     iree_LEVEL_ZEROExecutableDef_level_zero_image_add(builder, spvCodeRef);
     iree_LEVEL_ZEROExecutableDef_end_as_root(builder);
 
