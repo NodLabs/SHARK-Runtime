@@ -291,6 +291,14 @@ public:
     if (!isValidConv2d(convOp, isNchw))
       return failure();
 
+    // Check that strides = 1
+    if (!hasAllOneValues(convOp.getStrides()))
+      return failure();
+
+    bool isNchw;
+    if (!isValidConv2d(convOp, isNchw))
+      return failure();
+
     // Check that kernel has been constant folded (by validating rank = 3)
     Value kernel = convOp.getInputs()[1];
     auto kernelType = kernel.getType().cast<ShapedType>();
