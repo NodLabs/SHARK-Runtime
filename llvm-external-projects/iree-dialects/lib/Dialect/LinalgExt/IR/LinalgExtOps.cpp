@@ -2412,11 +2412,9 @@ LogicalResult WinogradInputTransformOp::verify() {
   if (imageDims.size() != 2) {
     return op->emitOpError("expected only 2 image dimensions");
   }
-  for (auto dim : imageDims) {
-    if ((dim < 0) || (dim > 3)) {
-      return op->emitOpError(
-          "expect image dimensions to be in the range: [0, 3]");
-    }
+  if (!isNchw() && !isNhwc()) {
+    return op->emitOpError(
+        "expect image dimensions to be either [1, 2] or [2, 3]");
   }
   const int64_t outputTileSize = getOutputTileSize();
   const int64_t kernelSize = getKernelSize();
@@ -2436,6 +2434,9 @@ LogicalResult WinogradInputTransformOp::verify() {
       expectedOutputShape[outputIndex] =
           std::ceil((float)(inputShape[i] - kernelSize + 1) / outputTileSize);
     }
+  }
+  if (isNchw()) {
+    permute<Permutation::TTNCHW_TO_TTNHWC>(expectedOutputShape);
   }
   if (!areShapesCompatible(expectedOutputShape, outputShape)) {
     return op->emitOpError("incompatible output shape");
@@ -2480,12 +2481,13 @@ WinogradInputTransformOp::getTiledImplementation(OpBuilder &builder,
   Location loc = getLoc();
   auto one = builder.getIndexAttr(1);
   auto zero = builder.getIndexAttr(0);
+  const int cDim = channelDim();
 
   assert(offsets.size() == 2);
   SmallVector<OpFoldResult> inputOffsets(getInputOperandRank(), zero);
   SmallVector<OpFoldResult> outputOffsets(getOutputOperandRank(), zero);
   outputOffsets[2] = inputOffsets[0] = offsets[0];
-  outputOffsets[5] = inputOffsets[3] = offsets[1];
+  outputOffsets[5] = inputOffsets[cDim] = offsets[1];
 
   SmallVector<OpFoldResult> inputStrides(getInputOperandRank(), one);
   SmallVector<OpFoldResult> outputStrides(getOutputOperandRank(), one);
@@ -2498,7 +2500,7 @@ WinogradInputTransformOp::getTiledImplementation(OpBuilder &builder,
   SmallVector<OpFoldResult> outputSizes =
       getAsOpFoldResult(builder.getIndexArrayAttr(outputShape));
   outputSizes[2] = inputSizes[0] = sizes[0];
-  outputSizes[5] = inputSizes[3] = sizes[1];
+  outputSizes[5] = inputSizes[cDim] = sizes[1];
 
   SmallVector<Value> tiledOperands;
   tiledOperands.emplace_back(
@@ -2560,7 +2562,7 @@ LogicalResult WinogradOutputTransformOp::verify() {
   }
   auto inputType = input().getType().cast<ShapedType>();
   auto outputType = output().getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
+  SmallVector<int64_t> inputShape(inputType.getShape());
   if (inputShape.size() != 6) {
     return op->emitOpError("expected input operand to have rank 6");
   }
@@ -2580,11 +2582,12 @@ LogicalResult WinogradOutputTransformOp::verify() {
   if (imageDims.size() != 2) {
     return op->emitOpError("expected only 2 image dimensions");
   }
-  for (auto dim : imageDims) {
-    if ((dim < 0) || (dim > 3)) {
-      return op->emitOpError(
-          "expect image dimensions to be in the range: [0, 3]");
-    }
+  if (!isNchw() && !isNhwc()) {
+    return op->emitOpError(
+        "expect image dimensions to be either [1, 2] or [2, 3]");
+  }
+  if (isNchw()) {
+    permute<Permutation::TTNHWC_TO_TTNCHW>(inputShape);
   }
   const int64_t outputTileSize = getOutputTileSize();
   SmallVector<int64_t> expectedOutputShape(getOutputOperandRank(), 1);
@@ -2639,12 +2642,13 @@ SmallVector<Operation *> WinogradOutputTransformOp::getTiledImplementation(
   Location loc = getLoc();
   auto one = builder.getIndexAttr(1);
   auto zero = builder.getIndexAttr(0);
+  const int cDim = channelDim();
 
   assert(offsets.size() == 2);
   SmallVector<OpFoldResult> inputOffsets(getInputOperandRank(), zero);
   SmallVector<OpFoldResult> outputOffsets(getOutputOperandRank(), zero);
   inputOffsets[2] = outputOffsets[0] = offsets[0];
-  inputOffsets[5] = outputOffsets[3] = offsets[1];
+  inputOffsets[5] = outputOffsets[cDim] = offsets[1];
 
   SmallVector<OpFoldResult> inputStrides(getInputOperandRank(), one);
   SmallVector<OpFoldResult> outputStrides(getOutputOperandRank(), one);
@@ -2657,7 +2661,7 @@ SmallVector<Operation *> WinogradOutputTransformOp::getTiledImplementation(
   SmallVector<OpFoldResult> outputSizes =
       getAsOpFoldResult(builder.getIndexArrayAttr(outputShape));
   inputSizes[2] = outputSizes[0] = sizes[0];
-  inputSizes[5] = outputSizes[3] = sizes[1];
+  inputSizes[5] = outputSizes[cDim] = sizes[1];
 
   SmallVector<Value> tiledOperands;
   tiledOperands.emplace_back(
@@ -2685,10 +2689,11 @@ LogicalResult WinogradOutputTransformOp::getResultTilePosition(
     resultSizes = getAsOpFoldResult(builder.getIndexArrayAttr(resultShape));
     resultOffsets = SmallVector<OpFoldResult>(getOutputOperandRank(),
                                               builder.getIndexAttr(0));
+    const int cDim = channelDim();
     resultOffsets[0] = offsets[0];
-    resultOffsets[3] = offsets[1];
+    resultOffsets[cDim] = offsets[1];
     resultSizes[0] = sizes[0];
-    resultSizes[3] = sizes[1];
+    resultSizes[cDim] = sizes[1];
     return success();
   }
   return failure();
