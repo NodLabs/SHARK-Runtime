@@ -71,7 +71,13 @@ foldFilterTransform(ArrayRef<int64_t> shape, int64_t inputTileSize,
   const int &ic = isNchw ? shape[1] : shape[2];
   const int &oc = isNchw ? shape[0] : shape[3];
   const int64_t numElements = inputTileSize * inputTileSize * ic * oc;
-  SmallVector<APFloat> output(numElements, APFloat(0.0f));
+  APFloat ival(0.0f);
+  //if (floatType.isF16()) {
+  //  bool losesInfo;
+  //  ival.convert(APFloat::IEEEhalf(),
+  //                      APFloat::rmNearestTiesToEven, &losesInfo);
+  //}
+  SmallVector<APFloat> output(numElements, ival);
   for (int d0 = 0; d0 < inputTileSize; d0++) {
     for (int d1 = 0; d1 < inputTileSize; d1++) {
       for (int d2 = 0; d2 < ic; d2++) {
@@ -85,6 +91,11 @@ foldFilterTransform(ArrayRef<int64_t> shape, int64_t inputTileSize,
                   ival = input[index(d4, d5, d2, d3, kh, kw, ic, oc)];
                 } else {
                   ival = input[index(d3, d2, d4, d5, oc, ic, kh, kw)];
+                }
+                if (floatType.isF16()) {
+                  bool losesInfo;
+                  ival.convert(APFloat::IEEEsingle(),
+                                      APFloat::rmNearestTiesToEven, &losesInfo);
                 }
               }
               int idx0 = index(d0, d4, inputTileSize, kernelSize);
@@ -109,6 +120,7 @@ foldFilterTransform(ArrayRef<int64_t> shape, int64_t inputTileSize,
 static bool isValidConv2d(Operation *op, bool &isNchw) {
   isNchw = isa<linalg::Conv2DNchwFchwOp>(op);
   const bool isNhwc = isa<linalg::Conv2DNhwcHwcfOp>(op);
+
   return (isNchw || isNhwc);
 }
 
@@ -124,6 +136,14 @@ public:
 
     bool isNchw;
     if (!isValidConv2d(convOp, isNchw))
+      return failure();
+
+    // Check that strides = 1
+    if (!hasAllOneValues(convOp.getStrides()))
+      return failure();
+
+    // Check that dilations = 1
+    if (!hasAllOneValues(convOp.getDilations()))
       return failure();
 
     // Check that kernel size = 3x3
@@ -164,6 +184,8 @@ public:
       resultShape[2] = shape[0];
     }
     auto resultType = RankedTensorType::get(resultShape, elemType);
+    llvm::errs() << "Folding\n";
+    convOp.dump();
     auto foldedKernelAttr =
         foldFilterTransform(shape, inputTileSize, kernelSize, resultType,
                             IREE::LinalgExt::Winograd::G_6x6_3x3, isSplat,

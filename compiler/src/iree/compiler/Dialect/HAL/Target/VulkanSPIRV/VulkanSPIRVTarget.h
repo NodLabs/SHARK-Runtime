@@ -21,6 +21,7 @@ struct VulkanSPIRVTargetOptions {
   std::string vulkanTargetEnv;
   // Vulkan target triple.
   std::string vulkanTargetTriple;
+  bool vulkan64BitIndexing;
 };
 
 // Returns a VulkanSPIRVTargetOptions struct initialized with Vulkan/SPIR-V

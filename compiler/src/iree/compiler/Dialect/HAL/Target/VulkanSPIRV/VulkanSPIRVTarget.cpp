@@ -54,9 +54,16 @@ VulkanSPIRVTargetOptions getVulkanSPIRVTargetOptionsFromFlags() {
           "Vulkan target environment as #vk.target_env attribute assembly"),
       llvm::cl::init(""));
 
+  static llvm::cl::opt<bool> clVulkan64BitIndexing(
+      "iree-vulkan-enable-64-bit-indexing",
+      llvm::cl::desc(
+          "Trace runtime input/output tensors for each dispatch function."),
+      llvm::cl::init(false));
+
   VulkanSPIRVTargetOptions targetOptions;
   targetOptions.vulkanTargetEnv = clVulkanTargetEnv;
   targetOptions.vulkanTargetTriple = clVulkanTargetTriple;
+  targetOptions.vulkan64BitIndexing = clVulkan64BitIndexing;
 
   return targetOptions;
 }
@@ -121,7 +128,7 @@ class VulkanSPIRVTargetBackend : public TargetBackend {
     if (variantOp.isExternal()) return;
 
     buildSPIRVCodegenPassPipeline(passManager, /*enableFastMath=*/false,
-                                  /*use64bitIndex=*/false);
+                                  /*use64bitIndex=*/options_.vulkan64BitIndexing);
   }
 
   LogicalResult serializeExecutable(const SerializationOptions &options,
