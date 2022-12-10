@@ -213,8 +213,9 @@ struct HALInterfaceLoadConstantToAccessChainLoadConverter final
     uint64_t elementCount = layoutAttr.getPushConstants();
     unsigned index = loadOp.getIndex().getZExtValue();
 
-    auto &typeConverter = *getTypeConverter<SPIRVTypeConverter>();
-    auto indexType = typeConverter.getIndexType();
+    // auto &typeConverter = *getTypeConverter<SPIRVTypeConverter>();
+    // auto indexType = typeConverter.getIndexType();
+    auto indexType = rewriter.getIntegerType(32);
     auto value = spirv::getPushConstantValue(loadOp, elementCount, index,
                                              indexType, rewriter);
 
@@ -257,12 +258,22 @@ struct HALInterfaceWorkgroupIdAndCountConverter final
       InterfaceOpTy op, typename InterfaceOpTy::Adaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     int32_t index = static_cast<int32_t>(op.getDimension().getSExtValue());
-    auto *typeConverter = this->template getTypeConverter<SPIRVTypeConverter>();
-    auto indexType = typeConverter->getIndexType();
+    // auto *typeConverter = this->template getTypeConverter<SPIRVTypeConverter>();
+    // auto indexType = typeConverter->getIndexType();
+    auto i32Type = rewriter.getIntegerType(32);
     Value spirvBuiltin =
-        spirv::getBuiltinVariableValue(op, builtin, indexType, rewriter);
-    rewriter.replaceOpWithNewOp<spirv::CompositeExtractOp>(
-        op, indexType, spirvBuiltin, rewriter.getI32ArrayAttr({index}));
+        spirv::getBuiltinVariableValue(op, builtin, i32Type, rewriter);
+    Value spirvId = rewriter.create<spirv::CompositeExtractOp>(
+        spirvBuiltin.getLoc(), i32Type, spirvBuiltin, rewriter.getI32ArrayAttr({index}));
+
+    // Casting if Indexing type not i32.
+    auto &typeConverter = *this->template getTypeConverter<SPIRVTypeConverter>();
+    auto indexType = typeConverter.getIndexType();
+    if(indexType != i32Type) {
+      spirvId = rewriter.create<spirv::UConvertOp>(
+          spirvId.getLoc(), indexType, spirvId);
+    }
+    rewriter.replaceOp(op, spirvId);
     return success();
   }
 };
