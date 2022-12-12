@@ -212,8 +212,9 @@ void buildGlobalOptimizationPassPipeline(
 /// uses case.
 static void buildOptionalPreprocessingPassPipeline(OpPassManager &passManager) {
   FunctionLikeNest(passManager)
-      .addPredicatedPass(clEnableConvToWinograd,
-                         IREE::LinalgExt::createConvertConv2DToWinogradPass)
+      .addPass([]() {
+                return IREE::LinalgExt::createConvertConv2DToWinogradPass(clEnableConvToWinograd);
+              })
       .addPredicatedPass(clEnableConvToImg2Col,
                          IREE::Flow::createConvertConv2DToImg2ColPass)
       // Transpose B layout to optimize mmt.
