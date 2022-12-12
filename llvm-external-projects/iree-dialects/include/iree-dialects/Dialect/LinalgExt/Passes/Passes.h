@@ -113,7 +113,7 @@ createTileAndDecomposeWinogradTransformPass();
 // Creates a pass to convert linalg convolution ops into a sequence of
 // linalg_ext.winograd.* ops and linalg.batch_matmul ops using the winograd
 // tranformation.
-std::unique_ptr<Pass> createConvertConv2DToWinogradPass();
+std::unique_ptr<Pass> createConvertConv2DToWinogradPass(bool forceWinograd = false);
 
 // Transform dialect version of tile and decompose attention wrapper.
 // The optional tile size specifies the step for the innermost for loop.
