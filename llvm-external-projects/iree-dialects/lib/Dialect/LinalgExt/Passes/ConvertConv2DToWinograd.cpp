@@ -30,6 +30,8 @@ namespace iree_compiler {
 namespace IREE {
 namespace LinalgExt {
 
+static const char winogradAttr[] = "iree_winograd_conv";
+
 static inline int index(int y, int x, int dimy, int dimx) {
   return (x + dimx * y);
 }
@@ -123,9 +125,15 @@ template <typename ConvOp>
 class FoldWinogradFilterTransform final : public OpRewritePattern<ConvOp> {
 public:
   using OpRewritePattern<ConvOp>::OpRewritePattern;
+  FoldWinogradFilterTransform(MLIRContext *context, bool force)
+      : OpRewritePattern<ConvOp>(context, force), forceWinograd(force) {}
 
   LogicalResult matchAndRewrite(ConvOp convOp,
                                 PatternRewriter &rewriter) const override {
+
+    // Attribute control unless forced.
+    if (!forceWinograd && !convOp->hasAttr(winogradAttr))
+      return failure();
 
     bool isNchw;
     if (!isValidConv2d(convOp, isNchw))
@@ -184,6 +192,8 @@ public:
     rewriter.replaceOpWithNewOp<arith::ConstantOp>(constOp, foldedKernelAttr);
     return success();
   }
+ private:
+  bool forceWinograd;
 };
 
 } // namespace
@@ -280,9 +290,15 @@ template <typename ConvOp>
 class ConvertConvToWinograd final : public OpRewritePattern<ConvOp> {
 public:
   using OpRewritePattern<ConvOp>::OpRewritePattern;
+  ConvertConvToWinograd(MLIRContext *context, bool force)
+      : OpRewritePattern<ConvOp>(context, force), forceWinograd(force) {}
 
   LogicalResult matchAndRewrite(ConvOp convOp,
                                 PatternRewriter &rewriter) const override {
+
+    // Attribute control unless forced.
+    if (!forceWinograd && !convOp->hasAttr(winogradAttr))
+      return failure();
 
     bool isNchw;
     if (!isValidConv2d(convOp, isNchw))
@@ -421,10 +437,14 @@ public:
     result.replaceAllUsesWith(winogradOutput);
     return success();
   }
+ private:
+  bool forceWinograd;
 };
 
 struct ConvertConv2DToWinogradPass
     : ConvertConv2DToWinogradBase<ConvertConv2DToWinogradPass> {
+ public:
+  ConvertConv2DToWinogradPass(bool forceWinograd) : forceWinograd(forceWinograd) {}
   void getDependentDialects(DialectRegistry &registry) const override {
     registry
         .insert<linalg::LinalgDialect, IREE::LinalgExt::IREELinalgExtDialect>();
@@ -435,18 +455,20 @@ struct ConvertConv2DToWinogradPass
     patterns.insert<FoldWinogradFilterTransform<linalg::Conv2DNchwFchwOp>,
                     FoldWinogradFilterTransform<linalg::Conv2DNhwcHwcfOp>,
                     ConvertConvToWinograd<linalg::Conv2DNhwcHwcfOp>,
-                    ConvertConvToWinograd<linalg::Conv2DNchwFchwOp>>(context);
+                    ConvertConvToWinograd<linalg::Conv2DNchwFchwOp>>(context, forceWinograd);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       return signalPassFailure();
     }
   }
+ private:
+  bool forceWinograd;
 };
 
 } // namespace
 
-std::unique_ptr<Pass> createConvertConv2DToWinogradPass() {
-  return std::make_unique<ConvertConv2DToWinogradPass>();
+std::unique_ptr<Pass> createConvertConv2DToWinogradPass(bool forceWinograd) {
+  return std::make_unique<ConvertConv2DToWinogradPass>(forceWinograd);
 }
 
 } // namespace LinalgExt
