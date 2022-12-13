@@ -24,6 +24,8 @@ namespace iree_compiler {
 namespace IREE {
 namespace Flow {
 
+static const char winogradAttr[] = "iree_winograd_conv";
+
 static bool hasAllOneValues(DenseIntElementsAttr attr) {
   return llvm::all_of(
       attr, [](APInt element) { return element.getSExtValue() == 1; });
@@ -93,6 +95,9 @@ class ConvertConv2DNhwcHwcf final
 
     // TODO: Support dilation.
     if (!hasAllOneValues(convOp.getDilations())) return failure();
+
+    // Ignore if marked as Winograd convolution
+    if (convOp->hasAttr(winogradAttr)) return failure();
 
     Value input = convOp.getInputs()[0];
     Value filter = convOp.getInputs()[1];
@@ -397,6 +402,9 @@ class ConvertConv2DNchwFchw final
 
     // TODO: Support dilation.
     if (!hasAllOneValues(convOp.getDilations())) return failure();
+
+    // Ignore if marked as Winograd convolution
+    if (convOp->hasAttr(winogradAttr)) return failure();
 
     Value input = convOp.getInputs()[0];
     Value filter = convOp.getInputs()[1];
