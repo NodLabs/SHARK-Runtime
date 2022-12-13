@@ -210,10 +210,20 @@ static LogicalResult decomposeTiledWinogradInputTransformOp(
       loc, rewriter.getZeroAttr(elementType));
   Value scratch =
       rewriter.create<tensor::EmptyOp>(loc, inputTileSquare, elementType);
+
   const float *BT{nullptr};
   const float *B{nullptr};
-  B = IREE::LinalgExt::Winograd::B_6x6_3x3;
-  BT = IREE::LinalgExt::Winograd::BT_6x6_3x3;
+  const int64_t outputTileSize =
+      tiledWinogradInputTransformOp.getOutputTileSize();
+  switch (outputTileSize) {
+  case 4:
+    B = IREE::LinalgExt::Winograd::B_4x4_3x3;
+    BT = IREE::LinalgExt::Winograd::BT_4x4_3x3;
+    break;
+  default:
+    B = IREE::LinalgExt::Winograd::B_6x6_3x3;
+    BT = IREE::LinalgExt::Winograd::BT_6x6_3x3;
+  }
   Value BTV = IREE::LinalgExt::createValueFrom2DConstant(
       BT, inputTileSize, inputTileSize, loc, rewriter);
   Value BV = IREE::LinalgExt::createValueFrom2DConstant(
@@ -435,14 +445,23 @@ static LogicalResult decomposeTiledWinogradOutputTransformOp(
          "output operand expected to have rank-2");
   ShapedType outputType = tiledWinogradOutputTransformOp.getOutputOperandType();
   Type elementType = outputType.getElementType();
+
   const float *AT{nullptr};
   const float *A{nullptr};
-  A = IREE::LinalgExt::Winograd::A_6x6_3x3;
-  AT = IREE::LinalgExt::Winograd::AT_6x6_3x3;
   const int64_t inputTileSize =
       tiledWinogradOutputTransformOp.getInputTileSize();
   const int64_t outputTileSize =
       tiledWinogradOutputTransformOp.getOutputTileSize();
+  switch (outputTileSize) {
+  case 4:
+    A = IREE::LinalgExt::Winograd::A_4x4_3x3;
+    AT = IREE::LinalgExt::Winograd::AT_4x4_3x3;
+    break;
+  default:
+    A = IREE::LinalgExt::Winograd::A_6x6_3x3;
+    AT = IREE::LinalgExt::Winograd::AT_6x6_3x3;
+  }
+
   /// The two values below are the transpose(A) [ATV]
   /// and A [AV] constant matrices that convert the output
   /// tile from the Winograd domain to the original domain.
