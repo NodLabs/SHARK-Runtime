@@ -328,10 +328,6 @@ LogicalResult SPIRVTileAndPromotePass::doPromoteCMatrix(
     return success();
   }
 
-  // If the fused elementwise ops are allowed to use cooperative types, we can
-  // also avoid promoting C matrix.
-  if (isCooperativeMatrixFusable(genericOp)) return success();
-
   // Finally do promote C matrix.
   RewritePatternSet patterns(context);
   populateContractPromotionPatterns(patterns, {2});
