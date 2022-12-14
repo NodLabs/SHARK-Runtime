@@ -689,10 +689,6 @@ struct FoldSubspanOffsetIntoLoadStore final : public OpRewritePattern<OpType> {
     } else {
       memref = op.getMemref();
     }
-    // Look through memref cast ops. They can be generated during conversions.
-    while (auto castOp = memref.getDefiningOp<memref::CastOp>()) {
-      memref = castOp.getSource();
-    }
     auto memrefType = memref.getType().template cast<MemRefType>();
     if (!isRankZeroOrOneMemRef(memrefType)) {
       return rewriter.notifyMatchFailure(op, "expected 0-D or 1-D memref");
