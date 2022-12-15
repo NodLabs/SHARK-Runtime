@@ -52,18 +52,18 @@ static bool isStaticallyShaped(Value input) {
 // Get the transpose indices if the given input comes from a transpose and is
 // marked to propagate down.
 static Optional<TransposeIndices> getIndicesFromInput(Value input) {
-  if (!isStaticallyShaped(input)) return llvm::None;
+  if (!isStaticallyShaped(input)) return std::nullopt;
   auto parent = input.getDefiningOp<linalg::TransposeOp>();
   if (parent && parent->hasAttr(transposePropagateDownMarker))
     return getTransposeIndices(parent);
-  return llvm::None;
+  return std::nullopt;
 }
 
 // Get the transpose indices if the given output is used by at least one
 // transpose and that transpose is marked to propagate up. Additionally don't
 // propagate if there are conflicting transposes.
 static Optional<TransposeIndices> getIndicesFromOutput(Value output) {
-  if (!isStaticallyShaped(output)) return llvm::None;
+  if (!isStaticallyShaped(output)) return std::nullopt;
   Optional<linalg::TransposeOp> transposedOut;
   if (llvm::all_of(output.getUses(), [&transposedOut](const OpOperand &use) {
         auto owner = dyn_cast<linalg::TransposeOp>(use.getOwner());
@@ -82,7 +82,7 @@ static Optional<TransposeIndices> getIndicesFromOutput(Value output) {
     if (transposedOut.has_value())
       return getTransposeIndices(transposedOut.value());
   }
-  return llvm::None;
+  return std::nullopt;
 }
 
 // Helper to shuffle vectors according to the transpose indices.
