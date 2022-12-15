@@ -196,10 +196,11 @@ public:
     const int64_t kernelSize = kh;
     const int64_t inputTileSize = outputTileSize + kernelSize - 1;
 
-    DenseIntOrFPElementsAttr kernelAttr;
-    if (!matchPattern(kernel, m_Constant(&kernelAttr))) {
+    Attribute rawKernelAttr;
+    if (!matchPattern(kernel, m_Constant(&rawKernelAttr)) || !isa<DenseIntOrFPElementsAttr>(rawKernelAttr)) {
       return failure();
     }
+    DenseIntOrFPElementsAttr kernelAttr = cast<DenseIntOrFPElementsAttr>(rawKernelAttr);
 
     Operation *constOp = kernel.getDefiningOp();
     ShapedType type = constOp->getResult(0).getType().cast<ShapedType>();
@@ -219,14 +220,10 @@ public:
       resultShape[2] = shape[0];
     }
     auto resultType = RankedTensorType::get(resultShape, elemType);
-    auto start = std::chrono::high_resolution_clock::now();
     auto foldedKernelAttr =
         foldFilterTransform(shape, inputTileSize, kernelSize, resultType,
                             IREE::LinalgExt::Winograd::G_4x4_3x3, isSplat,
                             splatValue, nonSplatValues, elemType, isNchw);
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = duration_cast<std::chrono::milliseconds>(stop - start);
-    std::cout << "Elapsed time(ms) = " << duration.count() << std::endl;
 
     rewriter.replaceOpWithNewOp<arith::ConstantOp>(constOp, foldedKernelAttr);
     return success();
