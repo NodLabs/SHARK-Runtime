@@ -448,7 +448,7 @@ struct FuncOpToSPVConverter final : public OpConversionPattern<func::FuncOp> {
 
     // Copy over all attributes other than the function name and type.
     for (const auto &namedAttr : funcOp->getAttrs()) {
-      if (namedAttr.getName() != FunctionOpInterface::getTypeAttrName() &&
+      if (namedAttr.getName() != funcOp.getFunctionTypeAttrName() &&
           namedAttr.getName() != SymbolTable::getSymbolAttrName())
         spirvFuncOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
