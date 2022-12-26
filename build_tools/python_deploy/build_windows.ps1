@@ -18,6 +18,8 @@ Write-Host "Building ..."
 $env:CMAKE_GENERATOR='Ninja'
 $env:IREE_HAL_DRIVER_CUDA = 'ON'
 $env:IREE_HAL_DRIVER_VULKAN = 'ON'
+$env:IREE_TARGET_BACKEND_CUDA = 'ON'
+$env:IREE_TARGET_BACKEND_VULKAN = 'ON'
 $env:IREE_EXTERNAL_HAL_DRIVERS = 'OFF'
 pip wheel -v -w ../bindist compiler/
 pip wheel -v -w ../bindist runtime/
