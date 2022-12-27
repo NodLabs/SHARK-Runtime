@@ -123,7 +123,8 @@ IREE_API_EXPORT iree_status_t iree_hal_level_zero_driver_create(
 static uint8_t* iree_hal_level_zero_populate_device_info(
     ze_device_handle_t device, iree_hal_level_zero_dynamic_symbols_t* syms,
     uint8_t* buffer_ptr, iree_hal_device_info_t* out_device_info) {
-  ze_device_properties_t deviceProperties = {};
+  ze_device_properties_t deviceProperties = {
+      .stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES};
   LEVEL_ZERO_IGNORE_ERROR(syms,
                           zeDeviceGetProperties(device, &deviceProperties));
   memset(out_device_info, 0, sizeof(*out_device_info));
@@ -306,7 +307,8 @@ static iree_status_t iree_hal_level_zero_driver_create_device_by_uuid(
   // Find the Level Zero device with the given UUID.
   bool is_device_found = false;
   for (uint32_t i = 0; i < device_count; ++i) {
-    ze_device_properties_t device_properties;
+    ze_device_properties_t device_properties = {
+        .stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES};
     IREE_LEVEL_ZERO_TRY(LEVEL_ZERO_RESULT_TO_STATUS(
         &driver->syms, zeDeviceGetProperties(ze_devices[i], &device_properties),
         "zeDeviceGetProperties"));
