@@ -12,6 +12,7 @@ Write-Host "Installing Build Dependencies"
 python -m venv .\iree_venv\
 .\iree_venv\Scripts\activate
 pip install -r runtime\bindings\python\iree\runtime\build_requirements.txt
+pip install requests
 Write-Host "Build Deps installation completed successfully" 
 
 Write-Host "Building ..." 
