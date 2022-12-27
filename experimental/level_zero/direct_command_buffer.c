@@ -92,7 +92,8 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
     }
     // Create a command list
     ze_command_list_handle_t command_list;
-    ze_command_list_desc_t command_list_desc = {};
+    ze_command_list_desc_t command_list_desc = {
+        .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC};
     command_list_desc.commandQueueGroupOrdinal = command_queue_ordinal;
     LEVEL_ZERO_RETURN_IF_ERROR(
         command_buffer->context->syms,
@@ -184,7 +185,8 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_signal_event(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendSignalEvent(command_buffer->command_list, iree_hal_level_zero_event_handle(event)),
+      zeCommandListAppendSignalEvent(command_buffer->command_list,
+                                     iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendSignalEvent");
   return iree_ok_status();
 }
@@ -196,7 +198,8 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_reset_event(
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendEventReset(command_buffer->command_list, iree_hal_level_zero_event_handle(event)),
+      zeCommandListAppendEventReset(command_buffer->command_list,
+                                    iree_hal_level_zero_event_handle(event)),
       "zeCommandListAppendEventReset");
   return iree_ok_status();
 }
@@ -212,14 +215,16 @@ static iree_status_t iree_hal_level_zero_direct_command_buffer_wait_events(
     const iree_hal_buffer_barrier_t* buffer_barriers) {
   iree_hal_level_zero_direct_command_buffer_t* command_buffer =
       iree_hal_level_zero_direct_command_buffer_cast(base_command_buffer);
-  iree_inline_array(ze_event_handle_t, event_handles, event_count, command_buffer->context->host_allocator);
+  iree_inline_array(ze_event_handle_t, event_handles, event_count,
+                    command_buffer->context->host_allocator);
   for (int i = 0; i < event_count; ++i) {
     *iree_inline_array_at(event_handles, i) =
         iree_hal_level_zero_event_handle(events[i]);
   }
   LEVEL_ZERO_RETURN_IF_ERROR(
       command_buffer->context->syms,
-      zeCommandListAppendWaitOnEvents(command_buffer->command_list, event_count, iree_inline_array_data(event_handles)),
+      zeCommandListAppendWaitOnEvents(command_buffer->command_list, event_count,
+                                      iree_inline_array_data(event_handles)),
       "zeCommandListAppendWaitOnEvents");
   return iree_ok_status();
 }
