@@ -84,6 +84,7 @@ iree_status_t iree_hal_level_zero_native_executable_create(
   ze_module_build_log_handle_t build_log;
   if (iree_status_is_ok(status)) {
     ze_module_desc_t module_desc = {};
+    module_desc.stype = ZE_STRUCTURE_TYPE_MODULE_DESC;
     module_desc.format = ZE_MODULE_FORMAT_IL_SPIRV;
     iree_const_byte_span_t code = iree_make_const_byte_span(
         level_zero_image,
@@ -101,7 +102,7 @@ iree_status_t iree_hal_level_zero_native_executable_create(
     if (iree_status_is_ok(status)) {
       const char* entry_name = flatbuffers_string_vec_at(entry_points_vec, i);
       ze_kernel_handle_t function = NULL;
-      ze_kernel_desc_t kernel_desc = {};
+      ze_kernel_desc_t kernel_desc = {.stype = ZE_STRUCTURE_TYPE_KERNEL_DESC};
       // kernel_desc.pKernelName = "simple_mul_dispatch_0";
       kernel_desc.pKernelName = entry_name;
       LEVEL_ZERO_RETURN_IF_ERROR(
