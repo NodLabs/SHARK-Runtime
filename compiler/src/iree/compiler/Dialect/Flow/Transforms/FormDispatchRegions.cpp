@@ -460,6 +460,12 @@ static bool isFusableWithConsumer(OpOperand &fusedOperand,
            consumerLinalgOp.getNumLoops() ==
                producerUnsetEncodingOp.getType().getRank();
   }
+  auto producerWinogradOutputOp = dyn_cast<LinalgExt::WinogradOutputTransformOp>(producer);
+  if (producerWinogradOutputOp && consumerLinalgOp) {
+    return linalg::isElementwise(consumerLinalgOp) &&
+           consumerLinalgOp.getNumLoops() ==
+               producerWinogradOutputOp.getType(0).cast<ShapedType>().getRank();
+  }
 
   auto producerLinalgOp = dyn_cast<linalg::LinalgOp>(producer);
   if (!producerLinalgOp || !consumerLinalgOp) return false;
@@ -493,7 +499,8 @@ static bool isFusableWithConsumer(OpOperand &fusedOperand,
 static void fuseRootsWithConsumers(MLIRContext *context,
                                    ArrayRef<Operation *> roots,
                                    DominanceInfo const &dominanceInfo,
-                                   bool aggressiveFusion) {
+                                   bool aggressiveFusion,
+                                   SmallVectorImpl<int64_t> &winogradRootNumbers) {
   SmallVector<Operation *> workList(roots.begin(), roots.end());
   // Fuse with consumers where possible.
   while (!workList.empty()) {
@@ -503,8 +510,11 @@ static void fuseRootsWithConsumers(MLIRContext *context,
 
     // Helper function to make the consumer the root instead of the producer
     // when they are to be fused.
-    auto updateRootTo = [&context, &currRoot](Operation *newRoot) {
+    auto updateRootTo = [&context, &currRoot, &winogradRootNumbers](Operation *newRoot) {
       int64_t rootNumber = getRootNumber(currRoot);
+      if (isa<LinalgExt::WinogradOutputTransformOp>(currRoot)) {
+        winogradRootNumbers.push_back(rootNumber);
+      }
       setRootAttribute(context, newRoot, rootNumber);
       removeRootOpAttribute(currRoot);
       appendToFusionGroup(currRoot, rootNumber);
@@ -616,7 +626,8 @@ static void fuseRootsWithProducers(MLIRContext *context, Operation *root,
 /// enough to capture any heuristic.
 static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
                                        DominanceInfo const &dominanceInfo,
-                                       bool aggressiveFusion) {
+                                       bool aggressiveFusion,
+                                       SmallVectorImpl<int64_t> &winogradRootNumbers) {
   unsigned numRootOps = 0;
   MLIRContext *context = funcOp->getContext();
   OpBuilder builder(context);
@@ -638,7 +649,7 @@ static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
       roots.push_back(&op);
     }
     roots = llvm::to_vector(llvm::reverse(roots));
-    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion);
+    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion, winogradRootNumbers);
   }
 
   // Once all root linalg ops have been tagged, put all remaining generic ops
@@ -658,7 +669,7 @@ static unsigned decideFusableLinalgOps(FunctionOpInterface funcOp,
       roots.push_back(&op);
     }
     roots = llvm::to_vector(llvm::reverse(roots));
-    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion);
+    fuseRootsWithConsumers(context, roots, dominanceInfo, aggressiveFusion, winogradRootNumbers);
   }
 
   return numRootOps;
@@ -849,8 +860,11 @@ static LogicalResult createFusionGroups(TensorDimTrackingRewriter &rewriter,
                                         bool aggressiveFusion, bool collapse) {
   // Step 1: Decide fusion groups (heuristic). This marks rootOps with an
   // attribute
+  SmallVector<int64_t> winogradRootNumbers;
   unsigned numRoots =
-      decideFusableLinalgOps(funcOp, dominanceInfo, aggressiveFusion);
+      decideFusableLinalgOps(funcOp, dominanceInfo, aggressiveFusion, winogradRootNumbers);
+  llvm::SmallSetVector<int64_t, 2> winogradRootNumbersSet(winogradRootNumbers.begin(),
+                                                          winogradRootNumbers.end());
   SmallVector<Operation *> roots(numRoots, nullptr);
   DenseMap<unsigned, SmallVector<Operation *>> producers;
 
@@ -891,11 +905,21 @@ static LogicalResult createFusionGroups(TensorDimTrackingRewriter &rewriter,
   DenseMap<Flow::DispatchRegionOp, Optional<Flow::WorkloadBuilder>>
       workloadBuilders;
   for (const auto &it : llvm::enumerate(roots)) {
+    auto rootOp = it.value();
+    // For winograd ops, use the winograd op as the root for workload calculation
+    if (winogradRootNumbersSet.contains(it.index())) {
+      for (auto producer : producers[it.index()]) {
+        if (auto winogradOp = dyn_cast<IREE::LinalgExt::WinogradOutputTransformOp>(producer)) {
+          rootOp = winogradOp;
+          break;
+        }
+      }
+    }
     // Compute workload.
     Optional<Flow::WorkloadBuilder> workloadBuilder = std::nullopt;
     if (generateWorkloadRegion) {
       auto maybeBuilder = iree_compiler::IREE::Flow::getWorkloadBuilder(
-          rewriter, /*rootOp=*/it.value());
+          rewriter, /*rootOp=*/rootOp);
       if (failed(maybeBuilder)) return failure();
       workloadBuilder = *maybeBuilder;
     }

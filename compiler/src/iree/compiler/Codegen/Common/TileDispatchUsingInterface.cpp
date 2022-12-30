@@ -589,6 +589,7 @@ TileAndFuseDispatchUsingSCFForOp::returningMatchAndRewrite(
     FailureOr<Value> tiledProducerVal =
         tensor::replaceExtractSliceWithTiledProducer(
             rewriter, sliceOp, sliceOp.getSource().cast<OpResult>());
+
     if (failed(tiledProducerVal)) {
       return rewriter.notifyMatchFailure(sliceOp,
                                          "fusion along slice op failed");

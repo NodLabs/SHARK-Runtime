@@ -2745,6 +2745,32 @@ LogicalResult WinogradOutputTransformOp::getResultTilePosition(
   return failure();
 }
 
+FailureOr<Value>
+WinogradOutputTransformOp::generateResultTileValue(OpBuilder &b, unsigned resultNumber,
+                                                   ArrayRef<OpFoldResult> offsets,
+                                                   ArrayRef<OpFoldResult> sizes) {
+  // If more than 2 offsets, pick the first two non-zero offsets
+  SmallVector<OpFoldResult> modifiedOffsets, modifiedSizes;
+  if (offsets.size() > 2) {
+    for (auto offsetAndSize : llvm::zip(offsets, sizes)) {
+      OpFoldResult offset = std::get<0>(offsetAndSize);
+      OpFoldResult size = std::get<1>(offsetAndSize);
+      if (getConstantIntValue(offset) != static_cast<int64_t>(0)) {
+        modifiedOffsets.push_back(offset);
+        modifiedSizes.push_back(size);
+      }
+      if (modifiedOffsets.size() == 2)
+        break;
+    }
+  } else {
+    modifiedOffsets = SmallVector<OpFoldResult>(offsets);
+    modifiedSizes = SmallVector<OpFoldResult>(sizes);
+  }
+  return getTiledImplementation(b, modifiedOffsets, modifiedSizes)
+      .back()
+      ->getResult(resultNumber);
+}
+
 LogicalResult WinogradOutputTransformOp::fold(ArrayRef<Attribute>,
                                               SmallVectorImpl<OpFoldResult> &) {
   return memref::foldMemRefCast(*this);

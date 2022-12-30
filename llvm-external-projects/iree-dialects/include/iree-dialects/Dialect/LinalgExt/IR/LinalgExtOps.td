@@ -1001,7 +1001,8 @@ def IREELinalgExt_WinogradOutputTransformOp : IREELinalgExt_Op<"winograd.output_
       ["getIterationDomain",
        "getLoopIteratorTypes",
        "getResultTilePosition",
-       "getTiledImplementation"]>]> {
+       "getTiledImplementation",
+       "generateResultTileValue"]>]> {
   let summary = "Winograd Output Transform operator";
   let description = [{
     This operator is the last transform in converting a convolution to

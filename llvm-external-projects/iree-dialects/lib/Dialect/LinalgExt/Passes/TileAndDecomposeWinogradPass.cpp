@@ -218,6 +218,16 @@ public:
 
 namespace {
 
+static SmallVector<linalg::GenericOp> getGenericUsers(Operation *op) {
+  SmallVector<linalg::GenericOp> users;
+  for (Operation *user : op->getUsers()) {
+    if (auto genericOp = dyn_cast<linalg::GenericOp>(user)) {
+      users.push_back(genericOp);
+    }
+  }
+  return users;
+}
+
 class ReifyWinogradOutputTransform final
     : public OpRewritePattern<WinogradOutputTransformOp> {
 public:
@@ -276,7 +286,11 @@ public:
     Value scratch =
         rewriter.create<tensor::EmptyOp>(loc, scratchShape, elementType);
 
-    rewriter.setInsertionPoint(outputOp);
+    auto genericUsers = getGenericUsers(outputOp);
+    if (genericUsers.empty())
+      rewriter.setInsertionPoint(outputOp);
+    else
+      rewriter.setInsertionPoint(genericUsers.back());
     SmallVector<Value> lbs, ubs, steps;
     computeLoopParams(lbs, ubs, steps, input, numImageDims, loc, rewriter);
     // Construct loops
@@ -336,6 +350,69 @@ public:
     Value outputSlice = rewriter.create<tensor::ExtractSliceOp>(
         loc, tensorType, iterArg, offsets, sizes, strides);
 
+    // Extract other input slices (inputs to generic op)
+    SmallVector<Value> genericInputs;
+    SmallVector<AffineMap> genericIndexingMaps;
+    for (auto genericOp : genericUsers) {
+      auto iteratorTypesArray = genericOp.getIteratorTypesArray();
+      auto indexingMapsArray = genericOp.getIndexingMapsArray();
+      SmallVector<Value> inputs = genericOp.getInputs();
+      for (int i = 0; i < inputs.size(); i++) {
+        auto type = iteratorTypesArray[i];
+        Value input = inputs[i];
+        if (linalg::isReductionIterator(type)) return failure();
+        auto inputType = input.getType().cast<ShapedType>();
+        // Rank-0 inputs don't need to be sliced
+        if (inputType.getRank() == 0) {
+          genericInputs.push_back(input);
+          genericIndexingMaps.push_back(AffineMap::get(numImageDims, 0, rewriter.getContext()));
+          continue;
+        }
+        // Result from output doesn't need to be sliced
+        if (input == outputOp.getResult()[0]) continue;
+        SmallVector<OpFoldResult> sliceStrides(inputType.getRank(), one);
+        SmallVector<OpFoldResult> sliceOffsets(inputType.getRank(), zero);
+        SmallVector<OpFoldResult> sliceSizes(inputType.getRank(), one);
+        SmallVector<int64_t> dimPositions;
+        SmallVector<int64_t> outputImageDims = outputOp.imageDimensions();
+        auto map = indexingMapsArray[i];
+        for (int j = 0, e = map.getNumResults(); j < e; j++) {
+          int64_t dim = map.getDimPosition(j);
+          sliceOffsets[j] = offsets[dim];
+          bool found{false};
+          for (const int64_t outputDim : outputImageDims) {
+            if (dim == outputDim) {
+              sliceSizes[j] = outputTileSizeAttr;
+              dimPositions.push_back(dim);
+              found = true;
+              break;
+            }
+          }
+          if (!found) sliceSizes[j] = one;
+        }
+        // Possible sizes are 0-d tensors or 1-d/2-d tensors of size outputTileSize
+        int64_t val = dimPositions.empty() ? 1 : outputTileSize;
+        RankedTensorType tensorType;
+        if (val == 1) {
+          tensorType = RankedTensorType::get({}, elementType);
+          genericIndexingMaps.push_back(AffineMap::get(numImageDims, 0, rewriter.getContext()));
+        } else {
+          tensorType = RankedTensorType::get(SmallVector<int64_t>(std::min(numImageDims, sliceSizes.size()), val), elementType);
+          AffineExpr d0, d1;
+          bindDims(rewriter.getContext(), d0, d1);
+          SmallVector<AffineExpr> expr;
+          for (int64_t dim : dimPositions) {
+            if (dim == outputImageDims[0]) expr.push_back(d0);
+            if (dim == outputImageDims[1]) expr.push_back(d1);
+          }
+          genericIndexingMaps.push_back(AffineMap::get(numImageDims, 0, expr, rewriter.getContext()));
+        }
+        Value slice = rewriter.create<tensor::ExtractSliceOp>(loc, tensorType, input, sliceOffsets,
+                                                              sliceSizes, sliceStrides);
+        genericInputs.push_back(slice);
+      }
+    }
+
     // Create computation
     Value result, AMatrix, BMatrix;
     linalg::MatmulOp matmulOp;
@@ -357,6 +434,18 @@ public:
       result = matmulOp.getResult(0);
     }
 
+    // Create element-wise ops
+    for (auto genericOp : genericUsers) {
+      genericIndexingMaps.push_back(AffineMap::getMultiDimIdentityMap(numImageDims, rewriter.getContext()));
+      SmallVector<utils::IteratorType> iteratorTypes(numImageDims, utils::IteratorType::parallel);
+      auto fusedOp = rewriter.create<linalg::GenericOp>(loc, result.getType(),
+        genericInputs, result, genericIndexingMaps, iteratorTypes);
+      Region &originalRegion = genericOp->getRegion(0);
+      Region &fusedRegion = fusedOp->getRegion(0);
+      rewriter.cloneRegionBefore(originalRegion, fusedRegion, fusedRegion.begin());
+      result = fusedOp.getResult(0);
+    }
+
     // Insert results into output slice
     Value updatedOutput = rewriter.create<tensor::InsertSliceOp>(
         loc, result, iterArg, offsets, sizes, strides);
@@ -367,6 +456,9 @@ public:
       rewriter.replaceOpWithNewOp<scf::YieldOp>(yieldOp, updatedOutput);
     }
     outputOp.getResults()[0].replaceAllUsesWith(loopNest.results[0]);
+    for (auto genericOp : genericUsers)
+      genericOp.getResult(0).replaceAllUsesWith(loopNest.results[0]);
+
     return success();
   }
 };
