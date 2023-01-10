@@ -1114,7 +1114,7 @@ IREE_VM_ABI_EXPORT(iree_hal_module_fence_join,  //
                    CrD, r) {
   iree_host_size_t fence_count = 0;
   iree_hal_fence_t** fences = NULL;
-  IREE_VM_ABI_VLA_STACK_DEREF_OR_NULL(args, a0_count, a0, iree_hal_fence, 32,
+  IREE_VM_ABI_VLA_STACK_DEREF_OR_NULL(args, a0_count, a0, iree_hal_fence, 10240,
                                       &fence_count, &fences);
 
   iree_hal_fence_t* fence = NULL;
