@@ -57,6 +57,11 @@ def MaterializeBuiltins :
   }];
 }
 
+def CCLToStreamAsync : Pass<"ccl-to-stream-async", "mlir::FuncOp"> {
+  let summary = "Convert CCL ops to corresponding stream.async.";
+  let constructor = "mlir::iree_compiler::IREE::Stream::ccl::createCCLToStreamAsyncPass()";
+}
+
 //===----------------------------------------------------------------------===//
 // Placement/affinity management
 //===----------------------------------------------------------------------===//

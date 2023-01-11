@@ -102,6 +102,7 @@ std::unique_ptr<OperationPass<mlir::ModuleOp>> createOutlineConstantsPass();
 //===----------------------------------------------------------------------===//
 
 std::unique_ptr<OperationPass<mlir::ModuleOp>> createConvertToStreamPass();
+std::unique_ptr<OperationPass<mlir::FuncOp>> createCCLtoStreamAsyncPass();
 
 //===----------------------------------------------------------------------===//
 // Tensor lowering and resource management
