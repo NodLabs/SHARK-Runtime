@@ -58,6 +58,14 @@ class CropDispatchPipelinePass
     builder.setInsertionPointAfter(terminator);
     builder.create<func::ReturnOp>(targetDispatch.getLoc(), retVal);
     terminator.erase();
+
+    // In some cases the return type of dispatch and the parent func can
+    // mismatch. So, we update the result type of func with that of dispatch.
+    FunctionType funcType = funcOp.getFunctionType().cast<FunctionType>();
+    FunctionType updatedFuncType =
+        FunctionType::get(funcOp->getContext(), funcType.getInputs(),
+                          TypeRange{retVal.getType()});
+    funcOp.setType(updatedFuncType);
   }
 
  private:
