@@ -42,7 +42,6 @@ from typing import List
 LOCAL_HEADER_FILES = [
     "Embed.h",
     "MLIRInterop.h",
-    "ToolEntryPoints.h",
 ]
 
 MLIR_C_HEADER_FILES = [
