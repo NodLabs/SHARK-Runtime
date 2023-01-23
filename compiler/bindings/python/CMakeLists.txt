@@ -210,6 +210,13 @@ add_iree_compiler_busybox_tool(
     IREECompileTool.c
 )
 
+add_iree_compiler_busybox_tool(
+  IREECompilerIREEOptTool
+  OUTPUT_NAME iree-opt
+  SRCS
+    IREEOptTool.c
+)
+
 if(TARGET lld)
   add_iree_compiler_busybox_tool(
     IREECompilerLldTool
