@@ -52,7 +52,6 @@ iree_pyext_module(
     iree::base::tracing
     iree::hal
     iree::hal::drivers
-    iree::hal::utils::caching_allocator
     iree::modules::hal
     iree::vm
     iree::vm::bytecode_module
