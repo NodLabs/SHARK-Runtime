@@ -10,6 +10,7 @@
 #include "iree/base/internal/path.h"
 #include "iree/base/tracing.h"
 #include "iree/hal/api.h"
+#include "iree/hal/utils/caching_allocator.h"
 #include "iree/modules/hal/module.h"
 #include "pybind11/numpy.h"
 
@@ -312,11 +313,24 @@ py::list HalDriver::QueryAvailableDevices() {
   return results;
 }
 
+namespace {
+void ReplaceWithCatchingAllocator(iree_hal_device_t* device) {
+  iree_hal_allocator_t* base_allocator = iree_hal_device_allocator(device);
+  iree_hal_allocator_t* wrapped_allocator = NULL;
+  IREE_CHECK_OK(iree_hal_caching_allocator_create_unbounded(
+      base_allocator, iree_hal_allocator_host_allocator(base_allocator),
+      &wrapped_allocator));
+  iree_hal_device_replace_allocator(device, wrapped_allocator);
+  iree_hal_allocator_release(wrapped_allocator);
+}
+}  // namespace
+
 HalDevice HalDriver::CreateDefaultDevice() {
   iree_hal_device_t* device;
   CheckApiStatus(iree_hal_driver_create_default_device(
                      raw_ptr(), iree_allocator_system(), &device),
                  "Error creating default device");
+  ReplaceWithCatchingAllocator(device);
   return HalDevice::StealFromRawPtr(device);
 }
 
@@ -352,6 +366,7 @@ HalDevice HalDriver::CreateDevice(iree_hal_device_id_t device_id) {
                      raw_ptr(), device_id, params.size(), &params.front(),
                      iree_allocator_system(), &device),
                  "Error creating default device");
+  ReplaceWithCatchingAllocator(device);
   return HalDevice::StealFromRawPtr(device);
 }
 
@@ -362,6 +377,7 @@ HalDevice HalDriver::CreateDeviceByURI(std::string& device_uri) {
       iree_hal_driver_create_device_by_uri(raw_ptr(), device_uri_sv,
                                            iree_allocator_system(), &device),
       "Error creating device");
+  ReplaceWithCatchingAllocator(device);
   return HalDevice::StealFromRawPtr(device);
 }
 
