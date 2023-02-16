@@ -28,6 +28,7 @@ iree_cc_library(
   SRCS
     "ConvertConv2DToImg2Col.cpp"
     "ConvertConvNchwToNhwc.cpp"
+    "ConvertConvToChannelsLast.cpp"
     "ConvertLinalgMatmulToMmt.cpp"
     "GeneralizeAndFuse.cpp"
     "GeneralizeConvolutions.cpp"
