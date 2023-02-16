@@ -43,7 +43,19 @@ def MakeSingleDispatchForFunction :
 def GeneralizeConvolutions :
     Pass<"iree-preprocessing-generalize-convolutions", ""> {
   let summary = "Generalize all convolution ops";
-  let constructor = "mlir::iree_compiler::IREE::createGeneralizeConvolutionsPass()";
+  let constructor = "mlir::iree_compiler::Preprocessing::createGeneralizeConvolutionsPass()";
+}
+
+def ConvertConvToChannelsLast :
+    Pass<"iree-preprocessing-convert-conv-to-channels-last", ""> {
+  let summary = "Convert linalg convolutions to channels last.";
+  let constructor =
+      "mlir::iree_compiler::Preprocessing::createConvertConvToChannelsLastPass()";
+  let options = [
+    Option<"tileSize", "tile-size", "int",
+           /*default=*/"0",
+           "Specify the tiling factor">,
+  ];
 }
 
 def PadLinalgOps :
