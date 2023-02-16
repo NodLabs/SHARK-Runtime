@@ -37,6 +37,9 @@ createMakeSingleDispatchForFunctionPass();
 // A pass to generalize all conv-like ops.
 std::unique_ptr<Pass> createGeneralizeConvolutionsPass();
 
+// Creates a pass to convert convolutions to channels last and propagate.
+std::unique_ptr<Pass> createConvertConvToChannelsLastPass();
+
 // A pass to pad linalg ops to the next integer multiple of `paddingSize`.
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
 
