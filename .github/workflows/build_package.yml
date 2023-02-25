@@ -74,6 +74,7 @@ jobs:
           submodules: true
           ref: ${{ github.event.inputs.commit }}
       - uses: actions/setup-python@v4
+        if: "matrix.build-family != 'macos'"
         with:
           python-version: '3.11'
 
