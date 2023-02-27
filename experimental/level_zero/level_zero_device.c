@@ -47,6 +47,7 @@ typedef struct iree_hal_level_zero_device_t {
 
   iree_hal_level_zero_context_wrapper_t context_wrapper;
   iree_hal_allocator_t* device_allocator;
+  iree_hal_event_t* event;
 
 } iree_hal_level_zero_device_t;
 
@@ -168,8 +169,8 @@ iree_status_t iree_hal_level_zero_device_create(
   ze_event_pool_handle_t event_pool;
   status = LEVEL_ZERO_RESULT_TO_STATUS(
       syms,
-      zeEventPoolCreate(level_zero_context, &event_pool_desc, 0, NULL,
-                        &event_pool),
+      zeEventPoolCreate(level_zero_context, &event_pool_desc, 1,
+                        &level_zero_device, &event_pool),
       "zeEventPoolCreate");
 
   // Create HAL-LevelZero device.
@@ -179,6 +180,16 @@ iree_status_t iree_hal_level_zero_device_create(
         command_queue, event_pool, level_zero_context, syms, host_allocator,
         out_device);
   }
+
+  // Create an event handle.
+  iree_hal_event_t* event;
+  iree_hal_level_zero_device_t* cast_device =
+      iree_hal_level_zero_device_cast(*out_device);
+  status = iree_hal_level_zero_event_create(&cast_device->context_wrapper,
+                                            cast_device->event_pool, &event);
+  cast_device->event = event;
+  *out_device = (iree_hal_device_t*)cast_device;
+
   if (!iree_status_is_ok(status)) {
     syms->zeCommandQueueDestroy(command_queue);
     syms->zeEventPoolDestroy(event_pool);
@@ -362,20 +373,17 @@ static iree_status_t iree_hal_level_zero_device_queue_execute(
     iree_hal_command_buffer_t* command_buffer = command_buffers[i];
     ze_command_list_handle_t command_list =
         iree_hal_level_zero_direct_command_buffer_exec(command_buffer);
-    LEVEL_ZERO_RETURN_IF_ERROR(device->context_wrapper.syms,
-                               zeCommandListClose(command_list),
-                               "zeCommandListClose");
     LEVEL_ZERO_RETURN_IF_ERROR(
         device->context_wrapper.syms,
-        zeCommandQueueExecuteCommandLists(device->command_queue, 1,
-                                          &command_list, NULL),
-        "zeCommandQueueExecuteCommandLists");
+        zeCommandListAppendSignalEvent(
+            command_list, iree_hal_level_zero_event_handle(device->event)),
+        "zeCommandListAppendSignalEvent");
+    LEVEL_ZERO_RETURN_IF_ERROR(
+        device->context_wrapper.syms,
+        zeEventHostSynchronize(iree_hal_level_zero_event_handle(device->event),
+                               IREE_DURATION_INFINITE),
+        "zeEventHostSynchronize");
   }
-
-  LEVEL_ZERO_RETURN_IF_ERROR(
-      device->context_wrapper.syms,
-      zeCommandQueueSynchronize(device->command_queue, IREE_DURATION_INFINITE),
-      "zeCommandQueueSynchronize");
   return iree_ok_status();
 }
 

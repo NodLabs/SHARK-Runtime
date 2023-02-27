@@ -23,6 +23,9 @@ ZE_PFN_DECL(zeCommandQueueCreate, ze_context_handle_t, ze_device_handle_t,
             const ze_command_queue_desc_t *, ze_command_queue_handle_t *)
 ZE_PFN_DECL(zeCommandListCreate, ze_context_handle_t, ze_device_handle_t,
             const ze_command_list_desc_t *, ze_command_list_handle_t *)
+ZE_PFN_DECL(zeCommandListCreateImmediate, ze_context_handle_t,
+            ze_device_handle_t, const ze_command_list_desc_t *,
+            ze_command_list_handle_t *)
 ZE_PFN_DECL(zeCommandListAppendLaunchKernel, ze_command_list_handle_t,
             ze_kernel_handle_t, const ze_group_count_t *, ze_event_handle_t,
             uint32_t, ze_event_handle_t *)
@@ -59,6 +62,7 @@ ZE_PFN_DECL(zeEventPoolCreate, ze_context_handle_t, const ze_event_pool_desc_t *
 ZE_PFN_DECL(zeEventCreate, ze_event_pool_handle_t, const ze_event_desc_t *, ze_event_handle_t *)
 ZE_PFN_DECL(zeEventDestroy, ze_event_handle_t)
 ZE_PFN_DECL(zeEventPoolDestroy, ze_event_pool_handle_t)
+ZE_PFN_DECL(zeEventHostSynchronize, ze_event_handle_t, uint64_t)
 ZE_PFN_DECL(zeCommandListAppendSignalEvent, ze_command_list_handle_t, ze_event_handle_t)
 ZE_PFN_DECL(zeCommandListAppendWaitOnEvents, ze_command_list_handle_t, uint32_t, ze_event_handle_t*)
 ZE_PFN_DECL(zeCommandListAppendEventReset, ze_command_list_handle_t, ze_event_handle_t)

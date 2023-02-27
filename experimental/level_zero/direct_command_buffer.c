@@ -93,14 +93,14 @@ iree_status_t iree_hal_level_zero_direct_command_buffer_create(
     // Create a command list
     ze_command_list_handle_t command_list;
     ze_command_list_desc_t command_list_desc = {
-        .stype = ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC};
+        .stype = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
     command_list_desc.commandQueueGroupOrdinal = command_queue_ordinal;
     LEVEL_ZERO_RETURN_IF_ERROR(
         command_buffer->context->syms,
-        zeCommandListCreate(command_buffer->context->level_zero_context,
-                            level_zero_device, &command_list_desc,
-                            &command_list),
-        "zeCommandListCreate");
+        zeCommandListCreateImmediate(
+            command_buffer->context->level_zero_context, level_zero_device,
+            &command_list_desc, &command_list),
+        "zeCommandListCreateImmediate");
     command_buffer->command_list = command_list;
 
     *out_command_buffer = &command_buffer->base;
