@@ -570,6 +570,12 @@ public:
   }
   StructuredOpMatcher &singleOpWithCanonicaleArgs(StringRef opname,
                                                   bool commutative);
+  /// Return true if the linalg op contains multiple ops and one of the op matches the input op name.
+  template <typename OpType>
+  StructuredOpMatcher &multiOpWithCanonicaleArgs() {
+    return multiOpWithCanonicaleArgs(OpType::getOperationName());
+  }
+  StructuredOpMatcher &multiOpWithCanonicaleArgs(StringRef opname);
   /// Check if the op is a linalg of with a single float reciprocal op.
   StructuredOpMatcher &isFloatReciprocal();
   /// Check if the op is a linalg of with a region containing only a yield op
@@ -761,6 +767,14 @@ void makeSoftmaxMatcher(
     transform_ext::MatcherContext &context,
     transform_ext::StructuredOpMatcher *&maxReductionCapture,
     transform_ext::StructuredOpMatcher *&softmaxRootCapture);
+
+/// Create a matcher to match an attention block.
+void makeAttentionMatcher(
+    transform_ext::MatcherContext &matcherContext,
+    transform_ext::StructuredOpMatcher *&queryCapture,
+    transform_ext::StructuredOpMatcher *&keyCapture,
+    transform_ext::StructuredOpMatcher *&valueCapture,
+    transform_ext::StructuredOpMatcher *&attentionRootCapture);
 
 } // namespace transform_ext
 } // namespace mlir

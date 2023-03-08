@@ -33,6 +33,34 @@ struct RaiseSpecialOpsPass : public RaiseSpecialOpsBase<RaiseSpecialOpsPass> {
   }
 
   void runOnOperation() override {
+  SmallVector<std::pair<linalg::LinalgOp, SmallVector<Value>>> attentionRoots;
+    getOperation()->walk([&](linalg::LinalgOp op) {
+      {
+        transform_ext::MatcherContext matcherContext;
+        transform_ext::StructuredOpMatcher *queryCapture;
+        transform_ext::StructuredOpMatcher *keyCapture;
+        transform_ext::StructuredOpMatcher *valueCapture;
+        transform_ext::StructuredOpMatcher *attentionroot;
+        makeAttentionMatcher(matcherContext, queryCapture, keyCapture, valueCapture, attentionroot);
+
+        if (matchPattern(op, *attentionroot)) {
+          Value query = queryCapture->getCaptured()->getOperand(0);
+          Value key = keyCapture->getCaptured()->getOperand(0);
+          Value value = valueCapture->getCaptured()->getOperand(1);
+          SmallVector<Value> src = {query, key, value};
+          attentionRoots.push_back(std::make_pair(op, src));
+        }
+      }
+    });
+    for (std::pair<linalg::LinalgOp, SmallVector<Value>> attention : attentionRoots) {
+      linalg::LinalgOp op = attention.first;
+      SmallVector<Value> src = attention.second;
+      IRRewriter rewriter(op.getContext());
+      rewriter.setInsertionPoint(attention.first);
+      rewriter.replaceOpWithNewOp<IREE::LinalgExt::AttentionOp>(
+          op, op.getDpsInitOperand(0)->get().getType(), src, op.getDpsInitOperand(0)->get());
+    }
+
     SmallVector<std::pair<linalg::LinalgOp, Value>> softmaxRoots;
     getOperation()->walk([&](linalg::LinalgOp op) {
       {

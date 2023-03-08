@@ -40,6 +40,7 @@ iree_lit_test_suite(
             "optimize_numerics.mlir",
             "outline_dispatch_regions.mlir",
             "raise_special_ops.mlir",
+            "raise_special_ops_attention.mlir",
             "set_encoding.mlir",
             "strip_and_splat_constant_variables.mlir",
             "strip_signedness.mlir",

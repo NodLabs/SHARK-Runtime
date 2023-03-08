@@ -836,6 +836,26 @@ transform_ext::StructuredOpMatcher::singleOpWithCanonicaleArgs(
 }
 
 transform_ext::StructuredOpMatcher &
+transform_ext::StructuredOpMatcher::multiOpWithCanonicaleArgs(
+    StringRef opcode) {
+  predicates.push_back([=](linalg::LinalgOp linalgOp) {
+    Operation *innerOp = nullptr;
+    for (auto [index, operation] : llvm::enumerate(linalgOp.getBlock()->getOperations())) {
+      if (operation.getName().getStringRef() == opcode){
+        innerOp = &operation;
+      }
+    }
+    if (!innerOp) return false;
+
+    Operation *yieldOp = linalgOp.getBlock()->getTerminator();
+    if (yieldOp->getOperand(0).getDefiningOp() != innerOp)
+      return false;
+    return true;
+  });
+  return *this;
+}
+
+transform_ext::StructuredOpMatcher &
 transform_ext::StructuredOpMatcher::isFloatReciprocal() {
   predicates.push_back([=](linalg::LinalgOp linalgOp) {
     LLVM_DEBUG(DBGS() << "op region represents a reciprocal operation");
@@ -1191,4 +1211,101 @@ void transform_ext::makeSoftmaxMatcher(
   auto &softmaxRoot =
       transform_ext::m_StructuredOp_Or(matcherContext, mulOperand, *divOperand);
   softmaxRootCapture = &softmaxRoot;
+}
+
+void transform_ext::makeAttentionMatcher(
+    transform_ext::MatcherContext &matcherContext,
+    transform_ext::StructuredOpMatcher *&queryCapture,
+    transform_ext::StructuredOpMatcher *&keyCapture,
+    transform_ext::StructuredOpMatcher *&valueCapture,
+    transform_ext::StructuredOpMatcher *&attentionRootCapture) {
+  auto &attentionSource = m_Value(matcherContext);
+
+  auto &transposeOperand =
+      transform_ext::m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .passThroughOp()
+          .dim(AllDims(), utils::IteratorType::parallel)
+          .input(NumEqualsTo(1))
+          .input(0, IsIdentity())
+          .output(NumEqualsTo(1))
+          .output(AllOperands(), IsPermutation());
+  transposeOperand = transposeOperand.input(0, attentionSource);
+  keyCapture = &transposeOperand;
+
+  auto &bmmStart = m_StructuredOp<linalg::BatchMatmulOp>(matcherContext)
+                     .input(1, transposeOperand);
+  queryCapture = &bmmStart;
+
+  auto &fillZeroInit = m_StructuredOp<linalg::FillOp>(matcherContext)
+                     .input(0, ConstantFloatZero());
+
+  auto &addmulOperand =
+      transform_ext::m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .multiOpWithCanonicaleArgs<arith::AddFOp>()
+          .dim(AllDims(), utils::IteratorType::parallel)
+          .input(NumEqualsTo(2))
+          .input(AllOperands(), IsIdentity())
+          .output(NumEqualsTo(1))
+          .output(AllOperands(), IsIdentity());
+  addmulOperand = addmulOperand.input(0, bmmStart);
+  addmulOperand = addmulOperand.input(1, fillZeroInit);
+
+  auto &fillMinusInf = m_StructuredOp<linalg::FillOp>(matcherContext)
+                           .input(0, ConstantFloatMinOrMinusInf());
+  auto &maxReduction =
+      transform_ext::m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .multiOpWithCanonicaleArgs<arith::MaxFOp>()
+          // Only handle most inner reduction for now.
+          .dim(-1, utils::IteratorType::reduction)
+          .dim(AllDimsExcept({-1}), utils::IteratorType::parallel)
+          .input(NumEqualsTo(1))
+          .input(AllOperands(), IsIdentity())
+          .output(NumEqualsTo(2))
+          .output(AllOperands(), IsProjected(-1));
+  maxReduction = maxReduction.input(0, addmulOperand);
+  maxReduction = maxReduction.output(0, fillMinusInf);
+
+  auto &subOperand =
+      transform_ext::m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .singleOpWithCanonicaleArgs<arith::SubFOp>()
+          .dim(AllDims(), utils::IteratorType::parallel)
+          .input(NumEqualsTo(2))
+          .input(0, IsIdentity())
+          .input(1, IsProjected(-1))
+          .output(NumEqualsTo(1))
+          .output(AllOperands(), IsIdentity());
+  subOperand = subOperand.input(0, addmulOperand);
+  subOperand = subOperand.input(1, maxReduction);
+
+  auto &expOperand = m_StructuredOp<linalg::GenericOp>(matcherContext)
+                         .singleOpWithCanonicaleArgs<math::ExpOp>()
+                         .dim(AllDims(), utils::IteratorType::parallel)
+                         .input(NumEqualsTo(1))
+                         .input(AllOperands(), IsIdentity())
+                         .output(AllOperands(), IsIdentity())
+                         .output(NumEqualsTo(1));
+  expOperand = expOperand.input(0, subOperand);
+
+  auto &fillZero = m_StructuredOp<linalg::FillOp>(matcherContext)
+                       .input(0, ConstantFloatZero());
+  auto &sum =
+      m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .singleOpWithCanonicaleArgs<arith::AddFOp>(/*commutative=*/true)
+          // Only handle most inner reduction for now.
+          .dim(-1, utils::IteratorType::reduction)
+          .dim(AllDimsExcept({-1}), utils::IteratorType::parallel)
+          .input(NumEqualsTo(1))
+          .input(AllOperands(), IsIdentity())
+          .output(AllOperands(), IsProjected(-1))
+          .output(NumEqualsTo(1));
+  sum = sum.input(0, expOperand);
+  sum = sum.output(0, fillZero);
+
+  transform_ext::StructuredOpMatcher *divOperand;
+  matchdivBroadcast(matcherContext, expOperand, sum, divOperand);
+
+  auto &bmmEnd = m_StructuredOp<linalg::BatchMatmulOp>(matcherContext)
+                    .input(0, *divOperand);
+  valueCapture = &bmmEnd;
+  attentionRootCapture = &bmmEnd;
 }

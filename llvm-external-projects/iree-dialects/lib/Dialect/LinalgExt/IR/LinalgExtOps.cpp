@@ -2516,12 +2516,10 @@ LogicalResult AttentionOp::verify() {
   ArrayRef<int64_t> keyShape = keyType.getShape();
   ArrayRef<int64_t> valueShape = valueType.getShape();
   ArrayRef<int64_t> outputShape = outputType.getShape();
-  if (failed(verifyCompatibleShape(queryShape, keyShape)))
-    return op->emitOpError("incompatible key shape");
-  if (failed(verifyCompatibleShape(queryShape, valueShape)))
-    return op->emitOpError("incompatible value shape");
+  if (failed(verifyCompatibleShape(keyShape, valueShape)))
+    return op->emitOpError("incompatible key and value shape");
   if (failed(verifyCompatibleShape(queryShape, outputShape)))
-    return op->emitOpError("incompatible output shape");
+    return op->emitOpError("incompatible query and output shape");
   return success();
 }
 
