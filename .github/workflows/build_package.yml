@@ -164,6 +164,7 @@ jobs:
           output_dir: "${{ github.workspace }}/bindist"
           override_python_versions: "3.11"
         run: |
+          rm ./bindist/*
           ./c/build_tools/python_deploy/build_macos_packages.sh
 
       ##########################################################################
@@ -190,6 +191,7 @@ jobs:
           output_dir: "${{ github.workspace }}/bindist"
           override_python_versions: "3.11"
         run: |
+          rm ./bindist/*
           ./c/build_tools/python_deploy/build_macos_packages.sh
 
       ##########################################################################
