@@ -40,6 +40,12 @@ def MakeSingleDispatchForFunction :
   let constructor = "mlir::iree_compiler::IREE::createMakeSingleDispatchForFunctionPass()";
 }
 
+def GeneralizeConvolutions :
+    Pass<"iree-preprocessing-generalize-convolutions", ""> {
+  let summary = "Generalize all convolution ops";
+  let constructor = "mlir::iree_compiler::IREE::createGeneralizeConvolutionsPass()";
+}
+
 def PadLinalgOps :
     Pass<"iree-preprocessing-pad-linalg-ops", ""> {
   let summary = "Pad linalg ops to the next integer multiple of paddingSize.";
