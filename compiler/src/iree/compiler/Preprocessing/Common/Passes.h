@@ -35,6 +35,9 @@ std::unique_ptr<Pass> createGeneralizeAndFusePass();
 std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
 createMakeSingleDispatchForFunctionPass();
 
+// A pass to generalize all conv-like ops.
+std::unique_ptr<Pass> createGeneralizeConvolutionsPass();
+
 // A pass to pad linalg ops to the next integer multiple of `paddingSize`.
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
 
