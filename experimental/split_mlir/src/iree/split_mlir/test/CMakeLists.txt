@@ -1,0 +1,33 @@
+# Copyright 2023 The IREE Authors
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+iree_add_all_subdirs()
+
+iree_lit_test_suite(
+  NAME
+    lit
+  SRCS
+    "function_outlining.mlir"
+    "function_outlining_errors.mlir"
+    "mark_bisect.mlir"
+    "mark_bisect_errors.mlir"
+    "rename_functions.mlir"
+    "rename_functions_wrong_pass_options.mlir"
+  TOOLS
+    FileCheck
+    iree-opt
+)
+
+iree_py_test(
+  NAME
+    export_functions_test
+  SRCS
+    export_functions_test.py
+  ARGS
+    "--path"
+    "$<TARGET_FILE_DIR:FileCheck>"
+    "$<TARGET_FILE_DIR:iree-opt>"
+)
