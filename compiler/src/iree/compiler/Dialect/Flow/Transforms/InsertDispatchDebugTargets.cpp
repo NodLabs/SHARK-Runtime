@@ -94,7 +94,7 @@ static LogicalResult replaceReturnWithOpResults(mlir::ModuleOp moduleOp,
     if (retVal.getType().isa<TensorType>()) {
       auto type = IREE::HAL::BufferViewType::get(context);
       auto exportOp =
-          builder.create<IREE::HAL::TensorExportOp>(loc, type, retVal);
+          builder.create<IREE::HAL::TensorExportOp>(loc, type, retVal, /*name=*/nullptr);
       exports.push_back(exportOp.getResult());
       newTypes.push_back(type);
     } else {
