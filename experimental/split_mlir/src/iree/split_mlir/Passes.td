@@ -76,4 +76,24 @@ def MarkBisect : Pass<"iree-mark-bisect", "mlir::func::FuncOp"> {
   let dependentDialects = ["mlir::func::FuncDialect"];
 }
 
+def ExportFunctions : Pass<"iree-export-functions", "mlir::ModuleOp"> {
+  let summary = "Export functions into separate MLIR files.";
+  let description = [{
+    Each function that matches the criteria for inclusion is exported into a file
+    with name \"<function-name>.mlir\".
+    The body of the function is removed and it is transformed to a declaration only.
+  }];
+  let constructor = "mlir::iree::split_mlir::createExportFunctionsPass()";
+  let options = [
+    // TODO: add option to exprot in bytecode MLIR format.
+    // TODO: add option to specify a pipeline to run for each exported function.
+    // For example to rename the exported function to 'main' for conversion to HLO.
+    ListOption<"functions", "functions", "std::string",
+      "List of regular expressions to match functions to export.">,
+    Option<"pathPrefix", "path-prefix", "std::string", /*default=*/"",
+      "Path prefix for the exported files. The existance of parent directories is expected. The prefix is treaded as a string not as a path to a directory. To tread it as directory use a directory separator for a suffix. For example /example/prefix/path/.">
+  ];
+  let dependentDialects = ["mlir::func::FuncDialect"];
+}
+
 #endif // IREE_SPLIT_MLIR_TRANSFORM_PASSES

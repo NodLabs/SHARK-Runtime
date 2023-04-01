@@ -25,6 +25,7 @@ namespace split_mlir {
 #include "iree/split_mlir/Passes.h.inc"  // IWYU pragma: export
 
 std::unique_ptr<OperationPass<ModuleOp>> createOutlineFunctionsPass();
+std::unique_ptr<OperationPass<ModuleOp>> createExportFunctionsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createMarkBisectPass();
 
 #define GEN_PASS_REGISTRATION

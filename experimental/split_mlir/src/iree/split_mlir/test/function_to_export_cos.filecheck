@@ -1,0 +1,4 @@
+// CHECK-LABEL: func.func @function_to_export_cos
+//  CHECK-SAME: ([[ARG0:%.+]]: f32) -> f32 {
+//  CHECK-NEXT: [[RES:%.+]] = math.cos [[ARG0]] : f32
+//  CHECK-NEXT: return [[RES]] : f32

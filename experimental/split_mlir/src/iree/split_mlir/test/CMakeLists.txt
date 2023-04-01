@@ -25,3 +25,14 @@ iree_lit_test_suite(
     FileCheck
     iree-opt
 )
+
+iree_py_test(
+  NAME
+    export_functions_test
+  SRCS
+    export_functions_test.py
+  ARGS
+    "--path"
+    "$<TARGET_FILE_DIR:FileCheck>"
+    "$<TARGET_FILE_DIR:iree-opt>"
+)

@@ -19,6 +19,9 @@ iree_cc_library(
   NAME
     split_mlir_lib
   HDRS
+    "ExportFunctionsPassImpl.h"
+    "MarkBisectPassImpl.h"
+    "OutlineFunctionsPassImpl.h"
     "Passes.h"
     "Passes.h.inc"
   SRCS
@@ -28,6 +31,7 @@ iree_cc_library(
     MLIRFuncDialect
     MLIRIR
     MLIRPass
+    MLIRTransforms
   PUBLIC
 )
 
