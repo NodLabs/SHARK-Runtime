@@ -10,17 +10,10 @@ iree_lit_test_suite(
   NAME
     lit
   SRCS
-    "mark_bisect.mlir"
-  TOOLS
-    FileCheck
-    iree-opt
-)
-
-iree_lit_test_suite(
-  NAME
-    lit
-  SRCS
     "function_outlining.mlir"
+    "mark_bisect.mlir"
+    "rename_functions.mlir"
+    "rename_functions_wrong_pass_options.mlir"
   TOOLS
     FileCheck
     iree-opt

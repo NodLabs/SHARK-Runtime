@@ -7,3 +7,4 @@
 #include "iree/split_mlir/ExportFunctionsPassImpl.h"
 #include "iree/split_mlir/MarkBisectPassImpl.h"
 #include "iree/split_mlir/OutlineFunctionsPassImpl.h"
+#include "iree/split_mlir/RenameFunctionsPassImpl.h"

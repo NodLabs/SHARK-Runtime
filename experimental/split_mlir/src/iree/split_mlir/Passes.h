@@ -26,6 +26,7 @@ namespace split_mlir {
 
 std::unique_ptr<OperationPass<ModuleOp>> createOutlineFunctionsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createExportFunctionsPass();
+std::unique_ptr<OperationPass<ModuleOp>> createRenameFunctionsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createMarkBisectPass();
 
 #define GEN_PASS_REGISTRATION

@@ -96,4 +96,18 @@ def ExportFunctions : Pass<"iree-export-functions", "mlir::ModuleOp"> {
   let dependentDialects = ["mlir::func::FuncDialect"];
 }
 
+def RenameFunctions : Pass<"iree-rename-functions", "mlir::ModuleOp"> {
+  let summary = "Rename functions.";
+  let description = [{
+  }];
+  let constructor = "mlir::iree::split_mlir::createRenameFunctionsPass()";
+  let options = [
+    ListOption<"functions", "functions", "std::string",
+      "Function names to rename.">,
+    ListOption<"newNames", "new-names", "std::string",
+      "New function names. The order corresponds to the one in the 'functions' option.">,
+  ];
+  let dependentDialects = ["mlir::func::FuncDialect"];
+}
+
 #endif // IREE_SPLIT_MLIR_TRANSFORM_PASSES
