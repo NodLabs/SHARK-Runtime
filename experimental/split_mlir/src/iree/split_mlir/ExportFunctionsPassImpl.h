@@ -71,8 +71,7 @@ struct ExportFunctionsPass
     mlir::ModuleOp moduleOp = getOperation();
     std::cmatch m;
     std::string filePath;
-    moduleOp.walk([&regexList = regexList, &pathPrefix = pathPrefix, &m,
-                   &filePath](func::FuncOp op) {
+    moduleOp.walk([&](func::FuncOp op) {
       if (!matchFunction(
               op, m, llvm::make_range(regexList.begin(), regexList.end()))) {
         return;
@@ -82,8 +81,9 @@ struct ExportFunctionsPass
       std::error_code error_code;
       llvm::raw_fd_ostream stream(filePath, error_code);
       if (error_code) {
-        report_fatal_error("Error writing to file \"" + StringRef(filePath) +
-                           "\". " + error_code.message());
+        op->emitError("Error writing to file \"" + StringRef(filePath) +
+                      "\". " + error_code.message());
+        return signalPassFailure();
       }
       generateLocationsFromIR(stream, filePath, op.getOperation(),
                               OpPrintingFlags());

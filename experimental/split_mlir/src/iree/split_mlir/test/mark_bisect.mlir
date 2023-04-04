@@ -20,21 +20,6 @@ func.func @two_ops(%arg0: tensor<2xf32>) -> tensor<2xf32> {
 
 // -----
 
-// Degenerate case with too few ops should not mark enything.
-// CHECK-LABEL: func.func @too_few_ops
-func.func @too_few_ops(%arg0: tensor<2xf32>) -> tensor<2xf32> {
-//      CHECK: mhlo.constant
-//  CHECK-NOT: outline_range_first
-//  CHECK-NOT: outline_range_last
-  %cts1 = mhlo.constant dense<1.000000e+00> : tensor<2xf32>
-// CHECK-NEXT: return
-//  CHECK-NOT: outline_range_first
-//  CHECK-NOT: outline_range_last
-  return %cts1 : tensor<2xf32>
-}
-
-// -----
-
 // Multiple ops per range.
 // CHECK-LABEL: func.func @multiple_ops
 func.func @multiple_ops(%arg0: tensor<2xf32>) -> tensor<2xf32> {

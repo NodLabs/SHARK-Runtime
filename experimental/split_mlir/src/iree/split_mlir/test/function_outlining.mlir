@@ -2,7 +2,7 @@
 // RUN:   --split-input-file \
 // RUN:   --iree-plugin=split_mlir \
 // RUN:   --pass-pipeline="builtin.module(iree-outline-functions)" %s \
-// RUN: | FileCheck --dump-input-context=100 %s
+// RUN: | FileCheck %s
 
 // Outline op that does not take any arguments and is not used anywhere.
 // CHECK-LABEL: func.func @no_args_and_result

@@ -46,12 +46,15 @@ struct MarkBisectPass : public impl::MarkBisectBase<MarkBisectPass> {
       return;
     }
     if (funcOp.getBody().getBlocks().size() > 1) {
+      funcOp->emitError("Functions with more than one block are unsupported.");
       return signalPassFailure();
     }
     Block& entryBlock = funcOp.getBody().front();
     if (entryBlock.getOperations().size() < 3) {
       // Degenerate case. Needs at least 1 op for each half + the return op.
-      return;
+      funcOp->emitError(
+          "Can't bisect function block with less than 3 operations.");
+      return signalPassFailure();
     }
     size_t opsCount = entryBlock.getOperations().size();
     size_t cutOpIndex = (opsCount - 1) / 2;

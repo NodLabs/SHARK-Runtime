@@ -45,6 +45,9 @@ LogicalResult getOutlineOpRanges(
   for (Block::iterator opIt = block.begin(); opIt != block.end(); ++opIt) {
     if (opIt->hasAttr("outline_range_first")) {
       if (isInOutliningRange) {
+        opIt->emitError(
+            Twine("Unexpected attribute outline_range_first encountered. ") +
+            "Possibly unclosed range with outline_range_last.");
         return LogicalResult::failure();
       }
       isInOutliningRange = true;
@@ -53,6 +56,9 @@ LogicalResult getOutlineOpRanges(
 
     if (opIt->hasAttr("outline_range_last")) {
       if (!isInOutliningRange) {
+        opIt->emitError(
+            Twine("Unexpected attribute outline_range_last encountered. ") +
+            "Possibly missing outline_range_first.");
         return LogicalResult::failure();
       }
       isInOutliningRange = false;
@@ -61,6 +67,8 @@ LogicalResult getOutlineOpRanges(
   }
   if (isInOutliningRange) {
     // No matching closing marker outline_range_last.
+    block.back().emitError(Twine("Unexpected end of block encountered. ") +
+                           "Possibly missing outline_range_last.");
     return LogicalResult::failure();
   }
 

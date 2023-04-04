@@ -11,7 +11,9 @@ iree_lit_test_suite(
     lit
   SRCS
     "function_outlining.mlir"
+    "function_outlining_errors.mlir"
     "mark_bisect.mlir"
+    "mark_bisect_errors.mlir"
     "rename_functions.mlir"
     "rename_functions_wrong_pass_options.mlir"
   TOOLS
