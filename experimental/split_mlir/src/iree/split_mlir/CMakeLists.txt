@@ -75,6 +75,7 @@ iree_py_library(
   SRCS
     "__init__.py"
     "_split_mlir.pyi"
+    "bisection.py"
     "execution.py"
     "iree_execution.py"
     "types.py"
