@@ -86,6 +86,9 @@ set(_SOURCE_COMPONENTS
   MLIRPythonSources.Dialects.tosa
   MLIRPythonSources.Dialects.transform
   MLIRPythonSources.Dialects.vector
+  
+  # SHARK: Add Dialect Registration extension.
+  MLIRPythonExtension.RegisterEverything
 
   # iree-dialects project.
   IREEDialectsPythonSources
