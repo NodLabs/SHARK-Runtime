@@ -9,6 +9,20 @@
 
 include "mlir/Pass/PassBase.td"
 
+def StableHLOToStableHLOPreprocessing :
+    Pass<"iree-stablehlo-to-stablehlo-preprocessing", "func::FuncOp"> {
+  let summary = "Applies IREE-specific stablehlo to stablehlo preprocessing transformations";
+  let options = [
+    Option<"orderConvFeatures", "order-conv-features", "bool", /*default=*/"true",
+           "Guarantees input/output features ordered from conv kernel">
+  ];
+}
+
+def StableHLOCanonicalize :
+    Pass<"iree-stablehlo-canonicalize", "func::FuncOp"> {
+  let summary = "Canonicalizes StableHLO operations";
+}
+
 def DotGeneralToDot :
     Pass<"iree-stablehlo-preprocessing-dot-general-to-dot", "func::FuncOp"> {
   let summary = "Lowers general dot to a non-batched dot when possible";
@@ -26,7 +40,7 @@ def GatherToTorchIndexSelect :
 
 def LowerComplex :
     Pass<"iree-stablehlo-preprocessing-lower-complex", "func::FuncOp"> {
-  let summary = "Lower complex operations into non-complex operations";
+  let summary = "Lowers complex operations into non-complex operations";
 }
 
 def UnfuseBatchNorm :

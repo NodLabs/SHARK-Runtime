@@ -72,6 +72,11 @@ static iree_hal_cuda_device_t* iree_hal_cuda_device_cast(
   return (iree_hal_cuda_device_t*)base_value;
 }
 
+static iree_hal_cuda_device_t* iree_hal_cuda_device_cast_unsafe(
+    iree_hal_device_t* base_value) {
+  return (iree_hal_cuda_device_t*)base_value;
+}
+
 iree_status_t iree_cuda_set_current_thread(iree_hal_device_t* device){
   iree_hal_cuda_device_t* cuda_device = iree_hal_cuda_device_cast(device);
   CUDA_RETURN_IF_ERROR(cuda_device->context_wrapper.syms,
@@ -197,13 +202,15 @@ iree_status_t iree_hal_cuda_device_create(
 }
 
 CUcontext iree_hal_cuda_device_context(iree_hal_device_t* base_device) {
-  iree_hal_cuda_device_t* device = iree_hal_cuda_device_cast(base_device);
+  iree_hal_cuda_device_t* device =
+      iree_hal_cuda_device_cast_unsafe(base_device);
   return device->context_wrapper.cu_context;
 }
 
 iree_hal_cuda_dynamic_symbols_t* iree_hal_cuda_device_dynamic_symbols(
     iree_hal_device_t* base_device) {
-  iree_hal_cuda_device_t* device = iree_hal_cuda_device_cast(base_device);
+  iree_hal_cuda_device_t* device =
+      iree_hal_cuda_device_cast_unsafe(base_device);
   return device->context_wrapper.syms;
 }
 
@@ -306,8 +313,10 @@ static iree_status_t iree_hal_cuda_device_create_channel(
   if (!device->context_wrapper.syms->nccl_library) {
     return iree_make_status(
         IREE_STATUS_UNAVAILABLE,
-        "NCCL runtime library not available; ensure installed and the "
-        "shared library is on your PATH/LD_LIBRARY_PATH (nccl.dll/libnccl.so)");
+        "NCCL runtime library (%d.%d.%d) not available; ensure installed and "
+        "the shared library is on your PATH/LD_LIBRARY_PATH "
+        "(nccl.dll/libnccl.so)",
+        NCCL_MAJOR, NCCL_MINOR, NCCL_PATCH);
   }
 
   // Today we only allow a single logical device per channel.
