@@ -82,6 +82,13 @@ static bool areFusableOps(MLIRContext *context, Operation *producerOp,
     }
   }
 
+  // Don't fuse if the consumer is contraction op.
+  if (auto linalgConsumerOp = dyn_cast<linalg::LinalgOp>(consumerOp)) {
+    if (linalg::isaContractionOpInterface(linalgConsumerOp)) {
+      return false;
+    }
+  }
+
   // If producer has a single user, always fuse
   if (producerOp->hasOneUse()) return true;
 

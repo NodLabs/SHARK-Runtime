@@ -245,6 +245,7 @@ void buildFlowTransformPassPipeline(OpPassManager &passManager,
       // Elementwise fusion.
       .addPass(
           []() { return createFusionOfTensorOpsPass(clEnableFuseMultiUse); })
+      .addPass(mlir::createLinalgFoldUnitExtentDimsPass)
       .addPass(mlir::createLinalgDetensorizePass)
       .addPass(mlir::createCanonicalizerPass)
       .addPass(mlir::createCSEPass)

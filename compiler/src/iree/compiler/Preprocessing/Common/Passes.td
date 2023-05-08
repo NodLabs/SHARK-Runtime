@@ -63,4 +63,16 @@ def PadLinalgOps :
   ];
 }
 
+def FoldReshapeOpsExpansion :
+    Pass<"iree-preprocessing-fold-reshape-expand", ""> {
+  let summary = "Fold reshape ops by expansion.";
+  let constructor = "mlir::iree_compiler::IREE::createFoldReshapeOpsExpansionPass()";
+}
+
+def ExpandGeneralizedConv :
+    Pass<"iree-preprocessing-expand-conv", ""> {
+  let summary = "Expand generalized conv to fuse with the dequantize op.";
+  let constructor = "mlir::iree_compiler::IREE::createExpandGeneralizedConvPass()";
+}
+
 #endif  // IREE_PREPROCESSING_COMMON_PASSES

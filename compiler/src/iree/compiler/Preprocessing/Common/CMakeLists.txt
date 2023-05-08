@@ -29,6 +29,8 @@ iree_cc_library(
     "ConvertConv2DToImg2Col.cpp"
     "ConvertConvNchwToNhwc.cpp"
     "ConvertLinalgMatmulToMmt.cpp"
+    "ExpandGeneralizedConv.cpp"
+    "FoldReshapeOpsExpansion.cpp"
     "GeneralizeAndFuse.cpp"
     "GeneralizeConvolutions.cpp"
     "ConvertConvToChannelsLast.cpp"

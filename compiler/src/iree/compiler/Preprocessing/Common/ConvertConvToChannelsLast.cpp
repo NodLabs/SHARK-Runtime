@@ -152,8 +152,15 @@ createTransposeAsTensorPack(
     PatternRewriter &rewriter, Location loc, Value input, AffineMap inputMap,
     TransposeIndices targetIndices, int tilingFactor,
     llvm::DenseMap<int64_t, int64_t> innerDimToDomainDim) {
-  if (isInnerIdentityIndices(targetIndices, inputMap.getNumResults()))
-    return std::make_tuple(input, std::nullopt, inputMap);
+  if (isInnerIdentityIndices(targetIndices, inputMap.getNumResults())) {
+    AffineMap expandedMap = inputMap;
+    if (tilingFactor > 0) {
+      expandedMap = AffineMap::get(
+          inputMap.getNumDims() + innerDimToDomainDim.size(),
+          inputMap.getNumSymbols(), inputMap.getResults(), input.getContext());
+    }
+    return std::make_tuple(input, std::nullopt, expandedMap);
+  }
 
   RankedTensorType inType = input.getType().cast<RankedTensorType>();
   auto elementType = inType.getElementType();
@@ -328,9 +335,9 @@ static LogicalResult transposeConvLikeLinalgOp(
   auto inputIndices =
       collectChannelTransposeIndices(inputMap, {convDims.inputChannel});
   auto filterIndices = collectChannelTransposeIndices(
-      filterMap, {convDims.inputChannel, convDims.outputChannel});
+      filterMap, {convDims.inputChannel});
   auto outputIndices =
-      collectChannelTransposeIndices(outputMap, {convDims.outputChannel});
+      collectChannelTransposeIndices(outputMap, {});
 
   // Don't transpose if there's no change to the op.
   if (isInnerIdentityIndices(inputIndices, inputMap.getNumResults()) &&
@@ -343,9 +350,9 @@ static LogicalResult transposeConvLikeLinalgOp(
   for (auto [index, dim] : llvm::enumerate(convDims.inputChannel)) {
     innerDimsToDomainDims[dim] = nDims + index;
   }
-  for (auto [index, dim] : llvm::enumerate(convDims.outputChannel)) {
-    innerDimsToDomainDims[dim] = nDims + index + convDims.inputChannel.size();
-  }
+//  for (auto [index, dim] : llvm::enumerate(convDims.outputChannel)) {
+//    innerDimsToDomainDims[dim] = nDims + index + convDims.inputChannel.size();
+//  }
 
   auto [transposedInput, inputPack, transposedInputMap] =
       createTransposeAsTensorPack(rewriter, loc, input, inputMap, inputIndices,
@@ -398,8 +405,8 @@ static LogicalResult transposeConvLikeLinalgOp(
   } else {
     newIteratorTypes.append(convDims.inputChannel.size(),
                             utils::IteratorType::reduction);
-    newIteratorTypes.append(convDims.outputChannel.size(),
-                            utils::IteratorType::parallel);
+//    newIteratorTypes.append(convDims.outputChannel.size(),
+//                            utils::IteratorType::parallel);
   }
 
   Value transposedConvResult =

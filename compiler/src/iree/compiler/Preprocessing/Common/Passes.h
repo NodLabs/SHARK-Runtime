@@ -40,6 +40,12 @@ std::unique_ptr<Pass> createConvertConvToChannelsLastPass();
 // A pass to pad linalg ops to the next integer multiple of `paddingSize`.
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
 
+// Creates a pass to fold reshape ops by expansion.
+std::unique_ptr<Pass> createFoldReshapeOpsExpansionPass();
+
+// Creates a pass to expand generalized conv whose producer is the dequantize filter.
+std::unique_ptr<Pass> createExpandGeneralizedConvPass();
+
 //===----------------------------------------------------------------------===//
 // Register all Passes
 //===----------------------------------------------------------------------===//

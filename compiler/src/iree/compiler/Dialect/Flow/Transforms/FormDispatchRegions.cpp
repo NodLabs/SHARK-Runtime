@@ -589,6 +589,14 @@ static bool isFusableWithProducer(
     return true;
   }
 
+  if (isa<linalg::GenericOp>(producer) && isa<linalg::GenericOp>(consumer)) {
+    auto convOp = cast<linalg::LinalgOp>(consumer);
+    linalg::detail::ConvolutionDimensions convDims;
+    auto errString = getMatchConvolutionMessage(
+    linalg::detail::isConvolutionInterfaceImpl(convOp, &convDims));
+    if (errString.empty()) return true;
+  }
+
   if (isPackLikeOp(consumer)) {
     if (auto linalgProducerOp = dyn_cast<linalg::LinalgOp>(producer)) {
       if (auto packOp = dyn_cast<tensor::PackOp>(consumer)) {
