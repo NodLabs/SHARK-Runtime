@@ -210,7 +210,11 @@ iree_hal_vulkan_populate_enabled_device_extensions(
     } else if (strcmp(extension_name,
                       VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME) == 0) {
       extensions.subgroup_size_control = true;
+    } else if (strcmp(extension_name,
+		      VK_AMD_MEMORY_OVERALLOCATION_BEHAVIOR_EXTENSION_NAME) == 0) {
+      extensions.amd_overallocation_behavior = true;
     }
+
   }
   return extensions;
 }
