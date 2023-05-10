@@ -905,9 +905,11 @@ iree_status_t iree_hal_vulkan_device_create(
                                              &supported_features);
 
   VkDeviceMemoryOverallocationCreateInfoAMD overallocInfo;
-  overallocInfo.sType = VK_STRUCTURE_TYPE_DEVICE_MEMORY_OVERALLOCATION_CREATE_INFO_AMD;
+  overallocInfo.sType = 
+      VK_STRUCTURE_TYPE_DEVICE_MEMORY_OVERALLOCATION_CREATE_INFO_AMD;
   overallocInfo.pNext = nullptr;
-  overallocInfo.overallocationBehavior = VK_MEMORY_OVERALLOCATION_BEHAVIOR_ALLOWED_AMD;
+  overallocInfo.overallocationBehavior = 
+      VK_MEMORY_OVERALLOCATION_BEHAVIOR_ALLOWED_AMD;
 
   // Create device and its queues.
   VkDeviceCreateInfo device_create_info;
@@ -922,7 +924,8 @@ iree_status_t iree_hal_vulkan_device_create(
   device_create_info.pEnabledFeatures = NULL;
 
   if (enabled_device_extensions.amd_overallocation_behavior)
-      overallocInfo.pNext = std::exchange(device_create_info.pNext, &overallocInfo);  
+    overallocInfo.pNext =
+        std::exchange(device_create_info.pNext, &overallocInfo);  
 
   VkPhysicalDeviceFeatures2 features2;
   memset(&features2, 0, sizeof(features2));
