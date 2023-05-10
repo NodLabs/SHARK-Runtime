@@ -349,6 +349,43 @@ def build_opt_command_line(
 
     # Tool paths.
     lld_path = find_tool("iree-lld")
+    cl.append(f"--iree-llvmcpu-embedded-linker-path={lld_path}")
+
+    crash_reproducer_path = tfs.alloc_optional(
+        "core-reproducer.mlir", export_as=options.crash_reproducer_path
+    )
+    if crash_reproducer_path:
+        cl.append(f"--mlir-pass-pipeline-crash-reproducer={crash_reproducer_path}")
+
+    cl.extend(options.extra_args)
+    print(cl)
+    return cl
+
+
+def build_opt_command_line(
+    input_file: str, tfs: TempFileSaver, options: CompilerOptions
+) -> List[str]:
+    """Builds a command line for applying specified patterns.
+
+    Args:
+      input_file: The input file name.
+      tfs: TempFileSaver.
+      options: Compiler options.
+    Returns:
+      List of strings of command line.
+    """
+    iree_opt = find_tool("iree-opt")
+    cl = [
+        iree_opt,
+        input_file,
+    ]
+
+    # Output file.
+    if options.output_file:
+        cl.append(f"-o={options.output_file}")
+
+    # Tool paths.
+    lld_path = find_tool("iree-lld")
     cl.append(f"--iree-llvm-embedded-linker-path={lld_path}")
 
     crash_reproducer_path = tfs.alloc_optional(
