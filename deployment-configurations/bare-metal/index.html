@@ -1328,10 +1328,10 @@ to retrieve the IREE compiler.</p>
 <li><code>--iree-hal-target-backends=llvm-cpu</code>: Compile using the LLVM CPU target</li>
 <li><code>--iree-llvmcpu-target-triple</code>: Use the <code>&lt;arch&gt;-pc-linux-elf</code> LLVM target triple
     so the artifact has a fixed ABI to be rendered by the
-    <a href="https://github.com/openxla/iree/tree/main/iree/hal/local/elf">elf_module library</a></li>
+    <a href="https://github.com/openxla/iree/tree/main/runtime/src/iree/hal/local/elf">elf_module library</a></li>
 <li><code>--iree-llvmcpu-debug-symbols=false</code>: To reduce the artifact size</li>
 </ul>
-<p>See <a href="https://github.com/openxla/iree/blob/main/iree/hal/local/elf/testdata/generate.sh">generate.sh</a>
+<p>See <a href="https://github.com/openxla/iree/blob/main/runtime/src/iree/hal/local/elf/testdata/generate.sh">generate.sh</a>
 for example command-line instructions of some common architectures</p>
 <p>You can replace the MLIR file with the other MLIR model files, following the
 <a href="../cpu/#compile-the-model">instructions</a></p>
