@@ -256,6 +256,8 @@ def prepare_installation():
             # Disable .so.0 style symlinking. Python wheels don't preserve links,
             # so this ~doubles the binary size if not disabled (yikes!).
             "-DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON",
+            "-DIREE_BUILD_TESTS=OFF",
+            "-DIREE_BUILD_SAMPLES=OFF",
             "-DPython3_EXECUTABLE={}".format(sys.executable),
             "-DCMAKE_BUILD_TYPE={}".format(cfg),
             # TODO(scotttodd): include IREE_TARGET_BACKEND_WEBGPU here (and in env)
