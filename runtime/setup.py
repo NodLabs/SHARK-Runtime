@@ -275,7 +275,7 @@ def build_configuration(cmake_build_dir, cmake_install_dir, extra_cmake_args=())
             "OFF" if platform.system() == "Darwin" else "ON",
         ),
         get_env_cmake_list("IREE_EXTERNAL_HAL_DRIVERS",
-            "" if platform.system() != "Linux" else "rocm"),
+            "" if sysconfig.get_platform() != "linux-x86_64" else "rocm;level_zero"),
         get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
     ] + list(extra_cmake_args)
     add_env_cmake_setting(cmake_args, "IREE_TRACING_PROVIDER")
