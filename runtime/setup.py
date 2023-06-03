@@ -262,7 +262,7 @@ def prepare_installation():
                 "OFF" if platform.system() == "Darwin" else "ON",
             ),
             get_env_cmake_list("IREE_EXTERNAL_HAL_DRIVERS",
-                "" if platform.system() != "Linux" else "rocm"),
+                "" if sysconfig.get_platform() != "linux-x86_64" else "rocm;level_zero"),
             get_env_cmake_option("IREE_ENABLE_RUNTIME_TRACING"),
             get_env_cmake_option("IREE_BUILD_TRACY"),
             get_env_cmake_option("IREE_ENABLE_CPUINFO", "ON"),
