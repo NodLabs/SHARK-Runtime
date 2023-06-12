@@ -249,12 +249,12 @@ struct ConvertTensorTraceOp
          llvm::zip_equal(op.getOperands(), adaptor.getOperands())) {
       auto source =
           consumeTensorOperand(op.getLoc(), resourceOperand, rewriter);
-      auto externalType = rewriter.getType<IREE::Stream::ResourceType>(
-          IREE::Stream::Lifetime::External);
+      auto stagingType = rewriter.getType<IREE::Stream::ResourceType>(
+          IREE::Stream::Lifetime::Staging);
       auto exportSource = resourceOperand;
-      if (source.resource.getType() != externalType) {
+      if (source.resource.getType() != stagingType) {
         exportSource = rewriter.create<IREE::Stream::AsyncTransferOp>(
-            op.getLoc(), externalType, source.resource, source.resourceSize,
+            op.getLoc(), stagingType, source.resource, source.resourceSize,
             source.resourceSize,
             /*source_affinity=*/getAffinityFor(op),
             /*result_affinity=*/nullptr);
