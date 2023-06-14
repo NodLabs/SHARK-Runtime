@@ -28,7 +28,7 @@ packages="${packages:-iree-runtime iree-compiler}"
 
 # Note that this typically is selected to match the version that the official
 # Python distributed is built at.
-export MACOSX_DEPLOYMENT_TARGET=11.0
+export MACOSX_DEPLOYMENT_TARGET=13.0
 
 # cpuinfo is incompatible with universal builds.
 export IREE_ENABLE_CPUINFO=OFF
@@ -81,6 +81,7 @@ function run() {
 
 function build_iree_runtime() {
   IREE_HAL_DRIVER_VULKAN=ON \
+  IREE_EXTERNAL_HAL_DRIVERS=metal \
   python3 -m pip wheel -v -w $output_dir $repo_root/runtime/
 }
 
@@ -89,10 +90,12 @@ function build_iree_runtime_instrumented() {
   # Add IREE_BUILD_TRACY=ON once it is.
   IREE_HAL_DRIVER_VULKAN=ON IREE_ENABLE_RUNTIME_TRACING=ON \
   IREE_RUNTIME_CUSTOM_PACKAGE_SUFFIX="-instrumented" \
+  IREE_EXTERNAL_HAL_DRIVERS=metal \
   python3 -m pip wheel -v -w $output_dir $repo_root/runtime/
 }
 
 function build_iree_compiler() {
+  IREE_TARGET_BACKEND_METAL=ON \
   python3 -m pip wheel -v -w $output_dir $repo_root/compiler/
 }
 
