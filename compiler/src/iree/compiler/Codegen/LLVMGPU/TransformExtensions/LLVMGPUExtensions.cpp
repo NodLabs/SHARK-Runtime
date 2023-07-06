@@ -126,9 +126,10 @@ void transform_dialect::MapNestedForallToGpuThreadsOp::build(
 void transform_dialect::MapNestedForallToGpuThreadsOp::build(
     OpBuilder &builder, OperationState &state, Value target,
     ArrayRef<int64_t> workgroupDims, ArrayRef<int64_t> warpDims,
-    int64_t subgroupSize) {
+    std::optional<int64_t> subgroupSize) {
   build(builder, state, {}, target, workgroupDims, warpDims,
-        builder.getI64IntegerAttr(subgroupSize));
+        subgroupSize ? builder.getI64IntegerAttr(*subgroupSize)
+                     : IntegerAttr());
 }
 
 void transform_dialect::MapNestedForallToGpuThreadsOp::getEffects(
