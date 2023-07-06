@@ -142,9 +142,12 @@ static std::pair<int64_t, int64_t> computeSplitPoint(int64_t upperBound,
 /// func.func.
 Value mlir::iree_compiler::gpu::buildMapToBlockAndThreads(
     ImplicitLocOpBuilder &b, Value funcH, ArrayRef<int64_t> blockSize,
-    ArrayRef<int64_t> warpDims) {
+    ArrayRef<int64_t> warpDims, std::optional<int64_t> subgroupSize) {
   b.create<ForallToWorkgroupOp>(funcH);
-  b.create<MapNestedForallToGpuThreadsOp>(funcH, blockSize, warpDims);
+  auto mapToThreadsOp =
+      b.create<MapNestedForallToGpuThreadsOp>(funcH, blockSize, warpDims);
+  if (subgroupSize)
+    mapToThreadsOp.setSubgroupSize(*subgroupSize);
   return funcH;
 }
 
