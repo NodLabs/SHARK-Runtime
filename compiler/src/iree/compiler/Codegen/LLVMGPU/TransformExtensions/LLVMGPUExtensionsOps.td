@@ -110,7 +110,7 @@ def MapNestedForallToGpuThreadsOp :
     OpBuilder<(ins "Value":$target,
                    "ArrayRef<int64_t>":$workgroup_dims,
                    "ArrayRef<int64_t>":$warp_dims,
-                   "int64_t":$subgroupSize)>
+                   "std::optional<int64_t>":$subgroupSize)>
   ];
   let extraClassDeclaration = [{
     ::mlir::DiagnosedSilenceableFailure applyToOne(
