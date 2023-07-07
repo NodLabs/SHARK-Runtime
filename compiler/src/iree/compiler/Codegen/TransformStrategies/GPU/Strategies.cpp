@@ -614,12 +614,14 @@ static LogicalResult matchAndSetConvolutionStrategy(func::FuncOp entryPoint,
   }
 
   // 1. Match a reduction and surrounding ops.
+  CapturingOpMatcher *pad;
   StructuredOpMatcher *fill;
   StructuredOpMatcher *convolution;
   StructuredOpMatcher *trailing;
   transform_ext::MatchedConvolutionCaptures captures;
   transform_ext::MatcherContext matcherContext;
-  makeConvolutionMatcher(matcherContext, convolution, fill, trailing, captures,
+  makeConvolutionMatcher(matcherContext, convolution, pad, fill, trailing,
+                         captures,
                          /*mustMatchEntireFunc=*/true);
   if (!matchPattern(op, *convolution)) {
     LDBG("--Implicit gemm strategy fail to match\n");
@@ -631,7 +633,7 @@ static LogicalResult matchAndSetConvolutionStrategy(func::FuncOp entryPoint,
   //   - Mandatory fill op.
   //   - Require minimum tile alignment due to img2col.
   //   - Otherwise, we take it.
-  if (!fill->getCaptured() || trailing->getCaptured()) {
+  if (!fill->getCaptured() || trailing->getCaptured() || pad->getCaptured()) {
     LDBG("--Implicit gemm strategy fill / trailing preconditions failed\n");
     return failure();
   }
