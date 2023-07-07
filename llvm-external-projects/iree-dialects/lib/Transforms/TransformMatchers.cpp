@@ -1704,6 +1704,7 @@ void transform_ext::makeSoftmaxMatcher(
 void transform_ext::makeConvolutionMatcher(
     transform_ext::MatcherContext &matcherContext,
     transform_ext::StructuredOpMatcher *&convolutionCapture,
+    transform_ext::CapturingOpMatcher *&padCapture,
     transform_ext::StructuredOpMatcher *&fillCapture,
     transform_ext::StructuredOpMatcher *&trailingCapture,
     MatchedConvolutionCaptures &captures, bool mustMatchEntireFunc) {
@@ -1720,6 +1721,15 @@ void transform_ext::makeConvolutionMatcher(
           .input(1, CaptureElementType(captures.filterElementType))
           .output(0, CaptureElementType(captures.outputElementType));
   convolutionCapture = &convolution;
+
+  auto &value = transform_ext::m_ShapedValue(matcherContext);
+  value.dim(transform_ext::AllDims(),
+            transform_ext::CaptureDims(captures.padOpSizes));
+  auto &pad = transform_ext::m_tensorPad(matcherContext)
+                  .result(0, value)
+                  .yieldsExternalValue();
+  convolution = convolution.input(0, pad, OptionalMatch());
+  padCapture = &pad;
 
   // Optional FillOp to create the unique output of the convolution.
   auto &fill = m_StructuredOp<linalg::FillOp>(matcherContext)
@@ -1757,10 +1767,11 @@ void transform_ext::makeConvolutionMatcher(
     transform_ext::MatcherContext &context,
     StructuredOpMatcher *&convolutionCapture,
     MatchedConvolutionCaptures &captures, bool mustMatchEntireFunc) {
+  CapturingOpMatcher *pad;
   StructuredOpMatcher *fill;
   StructuredOpMatcher *trailing;
-  makeConvolutionMatcher(context, convolutionCapture, fill, trailing, captures,
-                         mustMatchEntireFunc);
+  makeConvolutionMatcher(context, convolutionCapture, pad, fill, trailing,
+                         captures, mustMatchEntireFunc);
 }
 
 void transform_ext::makePadMatcher(MatcherContext &context,
