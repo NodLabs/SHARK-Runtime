@@ -696,10 +696,11 @@ convolutionCallback(transform_ext::MatchCallbackResult &res, Location loc,
            << "expected one handle to one operation";
   }
 
+  transform_ext::CapturingOpMatcher *pad;
   transform_ext::StructuredOpMatcher *pattern, *fill, *trailing;
   transform_ext::MatchedConvolutionCaptures ignore;
   transform_ext::MatcherContext matcherContext;
-  makeConvolutionMatcher(matcherContext, pattern, fill, trailing, ignore,
+  makeConvolutionMatcher(matcherContext, pattern, pad, fill, trailing, ignore,
                          /*mustMatchEntireFunc=*/true);
 
   // TODO: need a mechanism for this to go around the entire IR,
@@ -713,6 +714,9 @@ convolutionCallback(transform_ext::MatchCallbackResult &res, Location loc,
 
     // TODO: notify properly.
     LLVM_DEBUG({
+      DBGS() << "pad:\n";
+      if (pad->getCaptured())
+        DBGS() << pad->getCaptured() << "\n";
       DBGS() << "fill:\n";
       if (fill->getCaptured())
         DBGS() << fill->getCaptured() << "\n";
@@ -722,6 +726,7 @@ convolutionCallback(transform_ext::MatchCallbackResult &res, Location loc,
         DBGS() << trailing->getCaptured() << "\n";
     });
 
+    res.addPotentiallyEmptyPayloadGroup(pad->getCaptured());
     res.addPotentiallyEmptyPayloadGroup(fill->getCaptured());
     res.addPayloadGroup({pattern->getCaptured()});
     res.addPotentiallyEmptyPayloadGroup(trailing->getCaptured());
