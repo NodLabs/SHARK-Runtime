@@ -44,13 +44,6 @@ jobs:
         with:
           python-version: 3.x
           cache: 'pip'
-      - id: "gcp-auth"
-        name: "Authenticating to Google Cloud"
-        uses: "google-github-actions/auth@v1"
-        with:
-          token_format: "access_token"
-          credentials_json: "${{ secrets.IREE_OSS_GITHUB_RUNNER_BASIC_TRUST_SERVICE_ACCOUNT_KEY }}"
-          create_credentials_file: false
       - name: Installing dependencies
         run: |
           pip install -r docs/website/requirements.txt
@@ -60,14 +53,6 @@ jobs:
           ./build_tools/scripts/generate_release_index.py \
             --repo="${GITHUB_REPOSITORY}" \
             --output=docs/website/docs/pip-release-links.html
-      - name: Building documentation files
-        run: |
-          ./build_tools/github_actions/docker_run.sh \
-            --env "IREE_CCACHE_GCP_TOKEN=${{ steps.gcp-auth.outputs.access_token }}" \
-            --env "IREE_WRITE_REMOTE_CCACHE=1" \
-            --env "CCACHE_NAMESPACE=gcr.io/iree-oss/base@sha256:ec7faf4d80655fd436b324716bea4504ed47375dbf018e36b835f1d8ed10991c" \
-            gcr.io/iree-oss/base@sha256:ec7faf4d80655fd436b324716bea4504ed47375dbf018e36b835f1d8ed10991c \
-            ./docs/website/generate_extra_files.sh
       - name: Setting git config
         run: |
           git config --local user.email "iree-github-actions-bot@google.com"
