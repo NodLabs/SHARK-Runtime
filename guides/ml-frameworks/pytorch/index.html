@@ -17,7 +17,7 @@
         <link rel="next" href="../../deployment-configurations/">
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.16">
+      <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.18">
     
     
       
@@ -998,6 +998,8 @@
         
           
         
+          
+        
       
       
         
@@ -1136,6 +1138,22 @@
       
         
           
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
         
           
         
@@ -1143,13 +1161,191 @@
         
       
       
-        <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../../reference/mlir-dialects/">MLIR dialects</a>
+          
+            <label for="__nav_4_3">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4_3">
+          <span class="md-nav__icon md-icon"></span>
+          MLIR dialects
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/Check.md" class="md-nav__link">
+        Check
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/Flow.md" class="md-nav__link">
+        Flow
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/HAL.md" class="md-nav__link">
+        HAL
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/HALInline.md" class="md-nav__link">
+        HALInline
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/HALLoader.md" class="md-nav__link">
+        HALLoader
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/Stream.md" class="md-nav__link">
+        Stream
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/Util.md" class="md-nav__link">
+        Util
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/VM.md" class="md-nav__link">
+        VM
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/mlir-dialects/VMVX.md" class="md-nav__link">
+        VMVX
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
           Other topics
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_4_3">
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4_4">
           <span class="md-nav__icon md-icon"></span>
           Other topics
         </label>
@@ -1497,6 +1693,39 @@
 <p>IREE supports compiling and running PyTorch programs represented as
 <code>nn.Module</code> <a href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html">classes</a>
 as well as models defined using <a href="https://pytorch.org/functorch/"><code>functorch</code></a>.</p>
+<pre class="mermaid"><code>graph LR
+  accTitle: PyTorch to runtime deployment workflow overview
+  accDescr {
+    Programs start as either PyTorch nn.Module or functorch programs.
+    Programs are imported into MLIR as either StableHLO, TOSA, or Linalg.
+    The IREE compiler uses the imported MLIR.
+    Compiled programs are used by the runtime.
+  }
+
+  subgraph A[PyTorch]
+    direction TB
+    A1[nn.Module]
+    A2[functorch]
+
+    A1 --- A2
+  end
+
+  subgraph B[MLIR]
+    direction TB
+    B1[StableHLO]
+    B2[TOSA]
+    B3[Linalg]
+
+    B1 --- B2
+    B2 --- B3
+  end
+
+  C[IREE compiler]
+  D[Runtime deployment]
+
+  A -- torch_mlir --&gt; B
+  B --&gt; C
+  C --&gt; D</code></pre>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">link</a></h2>
 <p>Install IREE pip packages, either from pip or by
 <a href="../../../building-from-source/getting-started/#python-bindings">building from source</a>:</p>
@@ -1698,10 +1927,10 @@ This binary runs a model without a Python interpreter.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["content.code.annotate", "content.code.copy", "content.tabs.link", "navigation.instant", "navigation.tracking", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.indexes", "toc.follow"], "search": "../../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["content.code.annotate", "content.code.copy", "content.tabs.link", "navigation.instant", "navigation.tracking", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.indexes", "toc.follow"], "search": "../../../assets/javascripts/workers/search.74e28a9f.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.a51614de.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.220ee61c.min.js"></script>
       
     
   </body>
