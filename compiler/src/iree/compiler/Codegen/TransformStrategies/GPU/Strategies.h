@@ -21,6 +21,7 @@ class BatchMatmulStrategy;
 class MatmulStrategy;
 class ConvolutionStrategy;
 class DataTiledConvolutionStrategy;
+class DataTiledMatmulStrategy;
 class PadStrategy;
 class SmallReductionStrategy;
 class StagedReductionStrategy;
@@ -89,6 +90,14 @@ void buildMatmulTensorCoreStrategy(ImplicitLocOpBuilder &b, Value variantH,
 /// for linalg.fill + linalg.batch_matmul.
 void buildBatchMatmulStrategy(ImplicitLocOpBuilder &b, Value variantH,
                               const BatchMatmulStrategy &strategy);
+
+//===--------------------------------------------------------------------===//
+// Data tiled matmul strategies.
+//===--------------------------------------------------------------------===//
+/// Entry point to build the transform IR corresponding to an FMA-based strategy
+/// for linalg.fill + linalg.batch_matmul.
+void buildDataTiledMatmulStrategy(ImplicitLocOpBuilder &b, Value variantH,
+                                  const DataTiledMatmulStrategy &strategy);
 
 //===--------------------------------------------------------------------===//
 // Convolution strategies.
