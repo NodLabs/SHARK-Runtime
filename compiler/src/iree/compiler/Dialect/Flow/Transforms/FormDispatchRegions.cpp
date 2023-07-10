@@ -629,8 +629,11 @@ isFusableWithProducer(OpOperand &operand,
     return false;
   }
 
+  mlir::linalg::detail::ConvolutionDimensions ignore;
   if (options.fusePadWithConsumers && isa<tensor::PadOp>(producer) &&
-      isa<linalg::ConvolutionOpInterface>(consumer)) {
+      linalg::detail::getMatchConvolutionMessage(
+          linalg::detail::isConvolutionInterfaceImpl(consumer, &ignore))
+          .empty()) {
     return true;
   }
 
