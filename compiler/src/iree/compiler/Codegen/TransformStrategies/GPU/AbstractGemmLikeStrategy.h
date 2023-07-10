@@ -114,6 +114,7 @@ struct AbstractGemmLikeStrategy : GPUStrategy {
 
   virtual bool hasLhsCopy() const { return true; }
   virtual bool hasRhsCopy() const { return true; }
+  virtual bool hasResCopy() const { return true; }
 
   virtual MappingInfo lhsCopyMapping() const = 0;
   virtual LogicalResult validateLhsCopyMapping() const = 0;

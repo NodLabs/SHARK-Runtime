@@ -108,6 +108,9 @@ public:
   bool hasLhsCopy() const override { return true; }
   // Filter is not copied.
   bool hasRhsCopy() const override { return false; }
+  bool hasResCopy() const override {
+    return captures.convolutionDims.inputChannel.size() == 2;
+  }
 
   MappingInfo getBlockMapping() const override {
     SmallVector<int64_t> tileSizes;
@@ -131,8 +134,8 @@ public:
     int64_t inputTileH =
         captures.convolutionOpSizes[captures.convolutionDims.filterLoop[0]];
     int64_t inputTileW =
-        captures.convolutionOpSizes[captures.convolutionDims.filterLoop[1]];
-    +blockTileM() - 1;
+        captures.convolutionOpSizes[captures.convolutionDims.filterLoop[1]] +
+        blockTileM() - 1;
     int64_t icInnerTileSize =
         captures
             .convolutionOpSizes[captures.convolutionDims.inputChannel.back()];
@@ -165,10 +168,11 @@ public:
     MappingInfo mapping = CopyMapping::getMappingInfo(
         ctx, totalNumThreads(),
         /*alignment=*/n(),
-        /*copySizes=*/ArrayRef<int64_t>{blockTileM(), blockTileN()},
+        /*copySizes=*/
+        ArrayRef<int64_t>{outputTileH, outputTileW, ocInnerTileSize},
         /*favorPredication=*/false,
         /*elementalBitWidth=*/resElementalBitWidth());
-    if (captures.convolutionDims.inputChannel.size() == 2) {
+    if (captures.convolutionDims.outputChannel.size() == 2) {
       mapping.tileSizes.insert(mapping.tileSizes.begin(), 1);
       mapping.numThreads.insert(mapping.numThreads.begin(), 0);
     }
