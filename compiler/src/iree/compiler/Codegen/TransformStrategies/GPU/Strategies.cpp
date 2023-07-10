@@ -15,6 +15,7 @@
 #include "iree/compiler/Codegen/TransformStrategies/Common/Common.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/Common.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionImplicitGemmStrategy.h"
+#include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionTensorCoreStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/MatmulTensorCoreStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/PadStrategy.h"
@@ -61,6 +62,9 @@ llvm::cl::opt<bool> clGPUEnableTransformDialectConvolutionTensorCoreStrategy(
     "strategy",
     llvm::cl::desc("activate the convolution tensorcore strategy"),
     llvm::cl::init(true));
+llvm::cl::opt<bool> clGPUEnableTransformDialectConvolutionStrategy(
+    "iree-codegen-llvmgpu-enable-transform-dialect-convolution-strategy",
+    llvm::cl::desc("activate the convolution strategy"), llvm::cl::init(true));
 llvm::cl::opt<bool> clGPUEnableTransformDialectAlignedMatmul(
     "iree-codegen-llvmgpu-enable-transform-dialect-aligned-matmul",
     llvm::cl::desc(
@@ -83,6 +87,7 @@ llvm::cl::opt<bool> clGPUEnableTransformDialectBatchMatmulStrategy(
 // TODO: significantly better namespacing.
 using iree_compiler::gpu::AbstractGemmLikeStrategy;
 using iree_compiler::gpu::BatchMatmulStrategy;
+using iree_compiler::gpu::ConvolutionStrategy;
 using iree_compiler::gpu::DataTiledConvolutionStrategy;
 using iree_compiler::gpu::GPUModel;
 using iree_compiler::gpu::ImplicitGemmStrategy;
@@ -612,9 +617,8 @@ getImplicitGemmConfig(MLIRContext *context,
   return strategy;
 }
 
-static LogicalResult matchAndSetConvolutionStrategy(func::FuncOp entryPoint,
-                                                    linalg::LinalgOp op,
-                                                    const GPUModel &gpuModel) {
+static LogicalResult matchAndSetConvolutionImplicitGemmStrategy(
+    func::FuncOp entryPoint, linalg::LinalgOp op, const GPUModel &gpuModel) {
   if (!clGPUEnableTransformDialectImplicitGemmStrategy) {
     LDBG("--Implicit gemm strategy flag turned off\n");
     return failure();
@@ -715,7 +719,7 @@ static void failSafeOverrides(DataTiledConvolutionStrategy &strategy,
 /// The configurations below have been determined empirically.
 // TODO: Significantly improve these heuristics.
 static DataTiledConvolutionStrategy
-getConvolutionConfig(MLIRContext *context,
+getDataTiledConvolutionConfig(MLIRContext *context,
                      const transform_ext::MatchedConvolutionCaptures &captures,
                      const GPUModel &gpuModel) {
   DataTiledConvolutionStrategy strategy(context, captures, gpuModel);
@@ -786,7 +790,7 @@ static LogicalResult matchAndSetDataTiledConvolutionStrategy(
   //   derivedK *= captures.convolutionOpSizes[dim];
 
   iree_compiler::gpu::DataTiledConvolutionStrategy strategy =
-      getConvolutionConfig(op->getContext(), captures, gpuModel);
+      getDataTiledConvolutionConfig(op->getContext(), captures, gpuModel);
 
   // Validate the strategy configuration against the compilation target.
   if (failed(strategy.validate(gpuModel))) {
@@ -798,6 +802,73 @@ static LogicalResult matchAndSetDataTiledConvolutionStrategy(
   // TODO: Generalize along the HW axis.
   auto strategyBuilder = [&](ImplicitLocOpBuilder &b, Value variant) {
     return buildConvolutionTensorCoreStrategy(b, variant, strategy);
+  };
+
+  // 3. Build strategy embedded into the IR.
+  mlir::iree_compiler::createTransformRegion(entryPoint, strategyBuilder);
+
+  return success();
+}
+
+/// The configurations below have been determined empirically.
+// TODO: Significantly improve these heuristics.
+static ConvolutionStrategy
+getDirectConvolutionConfig(MLIRContext *context,
+                     const transform_ext::MatchedConvolutionCaptures &captures,
+                     const GPUModel &gpuModel) {
+  return ConvolutionStrategy(context, captures, gpuModel);
+}
+
+static LogicalResult matchAndSetDirectConvolutionStrategy(
+    func::FuncOp entryPoint, linalg::LinalgOp op, const GPUModel &gpuModel) {
+  if (!clGPUEnableTransformDialectConvolutionStrategy) {
+    LDBG("--Convolution strategy flag turned off\n");
+    return failure();
+  }
+
+  // 1. Match a reduction and surrounding ops.
+  CapturingOpMatcher *pad;
+  StructuredOpMatcher *fill;
+  StructuredOpMatcher *convolution;
+  StructuredOpMatcher *trailing;
+  transform_ext::MatchedConvolutionCaptures captures;
+  transform_ext::MatcherContext matcherContext;
+  makeConvolutionMatcher(matcherContext, convolution, pad, fill, trailing,
+                         captures,
+                         /*mustMatchEntireFunc=*/true);
+  if (!matchPattern(op, *convolution)) {
+    LDBG("--Convolution strategy fail to match\n");
+    return failure();
+  }
+
+  if (!fill->getCaptured() || pad->getCaptured()) {
+    LDBG("--Convolution strategy capture preconditions failed\n");
+    return failure();
+  }
+
+  if (captures.convolutionDims.outputImage.size() != 2) {
+    return failure();
+  }
+  if (captures.convolutionDims.filterLoop.size() != 2) {
+    return failure();
+  }
+  if (captures.convolutionDims.batch.size() != 0) {
+    return failure();
+  }
+
+  iree_compiler::gpu::ConvolutionStrategy strategy =
+      getDirectConvolutionConfig(op->getContext(), captures, gpuModel);
+
+  // Validate the strategy configuration against the compilation target.
+  if (failed(strategy.validate(gpuModel))) {
+    LDBG("--Convolution strategy failed to validate\n");
+    return failure();
+  }
+
+  // 2. Construct the configuration and the strategy builder.
+  // TODO: Generalize along the HW axis.
+  auto strategyBuilder = [&](ImplicitLocOpBuilder &b, Value variant) {
+    return buildConvolutionStrategy(b, variant, strategy);
   };
 
   // 3. Build strategy embedded into the IR.
@@ -925,8 +996,13 @@ LogicalResult mlir::iree_compiler::gpu::matchAndSetTransformStrategy(
     LDBG("Activate convolution\n");
     return success();
   }
+  if (succeeded(matchAndSetConvolutionImplicitGemmStrategy(entryPoint, linalgOp,
+                                                           gpuModel))) {
+    LDBG("Activate convolution\n");
+    return success();
+  }
   if (succeeded(
-          matchAndSetConvolutionStrategy(entryPoint, linalgOp, gpuModel))) {
+          matchAndSetDirectConvolutionStrategy(entryPoint, linalgOp, gpuModel))) {
     LDBG("Activate convolution\n");
     return success();
   }
