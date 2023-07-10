@@ -443,22 +443,30 @@ mlir::iree_compiler::gpu::buildDistributeMatmulCopies(
       paddedMatmulOpH.getType(), paddedMatmulOpH, b.getI64IntegerAttr(1));
 
   // Rewrite aligned pads as destination passing (linalg.copy)
-  if (strategy.alignedLhs() && strategy.packingDimensions[0])
+  if (strategy.alignedLhs() && strategy.packingDimensions[0] &&
+      strategy.hasLhsCopy())
     lhsH = b.create<RewriteInDestinationPassingStyleOp>(lhsH.getType(), lhsH);
-  if (strategy.alignedRhs() && strategy.packingDimensions[1])
+  if (strategy.alignedRhs() && strategy.packingDimensions[1] &&
+      strategy.hasRhsCopy())
     rhsH = b.create<RewriteInDestinationPassingStyleOp>(rhsH.getType(), rhsH);
 
-  MappingInfo lhsCopyMapping = strategy.lhsCopyMapping();
-  Value lhsCopyOpH = buildDistributeOnePadOrCopyWithNumThreads(
-      b, variantH, lhsH, /*numThreads=*/lhsCopyMapping.numThreads,
-      /*threadDimMapping=*/lhsCopyMapping.threadMapping,
-      /*foldIfBranch=*/!strategy.alignedLhs());
+  Value lhsCopyOpH = lhsH;
+  if (strategy.hasLhsCopy()) {
+    MappingInfo lhsCopyMapping = strategy.lhsCopyMapping();
+    lhsCopyOpH = buildDistributeOnePadOrCopyWithNumThreads(
+        b, variantH, lhsH, /*numThreads=*/lhsCopyMapping.numThreads,
+        /*threadDimMapping=*/lhsCopyMapping.threadMapping,
+        /*foldIfBranch=*/!strategy.alignedLhs());
+  }
 
-  MappingInfo rhsCopyMapping = strategy.rhsCopyMapping();
-  Value rhsCopyOpH = buildDistributeOnePadOrCopyWithNumThreads(
-      b, variantH, rhsH, /*numThreads=*/rhsCopyMapping.numThreads,
-      /*threadDimMapping=*/rhsCopyMapping.threadMapping,
-      /*foldIfBranch=*/!strategy.alignedRhs());
+  Value rhsCopyOpH = rhsH;
+  if (strategy.hasRhsCopy()) {
+    MappingInfo rhsCopyMapping = strategy.rhsCopyMapping();
+    rhsCopyOpH = buildDistributeOnePadOrCopyWithNumThreads(
+        b, variantH, rhsH, /*numThreads=*/rhsCopyMapping.numThreads,
+        /*threadDimMapping=*/rhsCopyMapping.threadMapping,
+        /*foldIfBranch=*/!strategy.alignedRhs());
+  }
 
   if (!strategy.alignedRes()) {
     MappingInfo resCopyMapping = strategy.resCopyMapping();
