@@ -102,15 +102,18 @@ struct AbstractGemmLikeStrategy : GPUStrategy {
     return getResElementalType().getIntOrFloatBitWidth();
   }
 
-  bool alignedLhs() const {
+  virtual bool alignedLhs() const {
     return m() % blockTileM() == 0 && k() % reductionTileSize == 0;
   }
-  bool alignedRhs() const {
+  virtual bool alignedRhs() const {
     return n() % blockTileN() == 0 && k() % reductionTileSize == 0;
   }
-  bool alignedRes() const {
+  virtual bool alignedRes() const {
     return m() % blockTileM() == 0 && n() % blockTileN() == 0;
   }
+
+  virtual bool hasLhsCopy() const { return true; }
+  virtual bool hasRhsCopy() const { return true; }
 
   virtual MappingInfo lhsCopyMapping() const = 0;
   virtual LogicalResult validateLhsCopyMapping() const = 0;
