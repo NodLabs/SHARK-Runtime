@@ -15,6 +15,7 @@
 #include "iree/compiler/Codegen/TransformStrategies/Common/Common.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/Common.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionImplicitGemmStrategy.h"
+#include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionTensorCoreStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/MatmulTensorCoreStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/PadStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/SmallReductionStrategy.h"
@@ -55,6 +56,11 @@ llvm::cl::opt<bool> clGPUEnableTransformDialectImplicitGemmStrategy(
     "iree-codegen-llvmgpu-enable-transform-dialect-implicit-gemm-strategy",
     llvm::cl::desc("activate the convolution implicit gemm strategy"),
     llvm::cl::init(false));
+llvm::cl::opt<bool> clGPUEnableTransformDialectConvolutionTensorCoreStrategy(
+    "iree-codegen-llvmgpu-enable-transform-dialect-convolution-tensorcore-"
+    "strategy",
+    llvm::cl::desc("activate the convolution tensorcore strategy"),
+    llvm::cl::init(true));
 llvm::cl::opt<bool> clGPUEnableTransformDialectAlignedMatmul(
     "iree-codegen-llvmgpu-enable-transform-dialect-aligned-matmul",
     llvm::cl::desc(
@@ -77,6 +83,7 @@ llvm::cl::opt<bool> clGPUEnableTransformDialectBatchMatmulStrategy(
 // TODO: significantly better namespacing.
 using iree_compiler::gpu::AbstractGemmLikeStrategy;
 using iree_compiler::gpu::BatchMatmulStrategy;
+using iree_compiler::gpu::DataTiledConvolutionStrategy;
 using iree_compiler::gpu::GPUModel;
 using iree_compiler::gpu::ImplicitGemmStrategy;
 using iree_compiler::gpu::kCudaMaxVectorLoadBitWidth;
@@ -546,7 +553,7 @@ static LogicalResult matchAndSetMatmulStrategy(func::FuncOp entryPoint,
 /// precedence over other heuristics. In the future, this could be lifted to
 /// e.g. `gpuModel` or higher up in some transform dialect database summary of
 /// "known good things".
-static FailureOr<ImplicitGemmStrategy> applyKnownGoodConvolutionConfigurations(
+static FailureOr<ImplicitGemmStrategy> applyKnownGoodImplicitGemmConfigurations(
     const transform_ext::MatchedConvolutionCaptures &captures,
     const GPUModel &gpuModel) {
   return failure();
@@ -585,15 +592,15 @@ static void failSafeOverrides(ImplicitGemmStrategy &strategy,
 /// The configurations below have been determined empirically.
 // TODO: Significantly improve these heuristics.
 static ImplicitGemmStrategy
-getConvolutionConfig(MLIRContext *context,
-                     const transform_ext::MatchedConvolutionCaptures &captures,
-                     const GPUModel &gpuModel) {
+getImplicitGemmConfig(MLIRContext *context,
+                      const transform_ext::MatchedConvolutionCaptures &captures,
+                      const GPUModel &gpuModel) {
   ImplicitGemmStrategy strategy(context, captures, gpuModel);
   if (strategy.cliOptionsSpecified)
     return strategy;
 
   auto maybeHardcodedConfiguration =
-      applyKnownGoodConvolutionConfigurations(captures, gpuModel);
+      applyKnownGoodImplicitGemmConfigurations(captures, gpuModel);
   if (succeeded(maybeHardcodedConfiguration))
     return *maybeHardcodedConfiguration;
 
@@ -675,7 +682,7 @@ static LogicalResult matchAndSetConvolutionStrategy(func::FuncOp entryPoint,
   }
 
   iree_compiler::gpu::ImplicitGemmStrategy strategy =
-      getConvolutionConfig(op->getContext(), captures, gpuModel);
+      getImplicitGemmConfig(op->getContext(), captures, gpuModel);
 
   // Validate the strategy configuration against the compilation target.
   if (failed(strategy.validate(gpuModel))) {
@@ -687,6 +694,110 @@ static LogicalResult matchAndSetConvolutionStrategy(func::FuncOp entryPoint,
   // TODO: Generalize along the HW axis.
   auto strategyBuilder = [&](ImplicitLocOpBuilder &b, Value variant) {
     return buildConvolutionImplicitGemmStrategy(b, variant, strategy);
+  };
+
+  // 3. Build strategy embedded into the IR.
+  mlir::iree_compiler::createTransformRegion(entryPoint, strategyBuilder);
+
+  return success();
+}
+
+static FailureOr<DataTiledConvolutionStrategy>
+applyKnownGoodConvolutionConfigurations(
+    const transform_ext::MatchedConvolutionCaptures &captures,
+    const GPUModel &gpuModel) {
+  return failure();
+}
+
+static void failSafeOverrides(DataTiledConvolutionStrategy &strategy,
+                              const GPUModel &gpuModel) {}
+
+/// The configurations below have been determined empirically.
+// TODO: Significantly improve these heuristics.
+static DataTiledConvolutionStrategy
+getConvolutionConfig(MLIRContext *context,
+                     const transform_ext::MatchedConvolutionCaptures &captures,
+                     const GPUModel &gpuModel) {
+  DataTiledConvolutionStrategy strategy(context, captures, gpuModel);
+  if (strategy.cliOptionsSpecified)
+    return strategy;
+
+  auto maybeHardcodedConfiguration =
+      applyKnownGoodConvolutionConfigurations(captures, gpuModel);
+  if (succeeded(maybeHardcodedConfiguration))
+    return *maybeHardcodedConfiguration;
+
+  // TODO: encode a decision tree of reasonnable heuristics here.
+
+  // Apply failsafe overrides to avoid identified bad corner cases.
+  failSafeOverrides(strategy, gpuModel);
+
+  return strategy;
+}
+
+static LogicalResult matchAndSetDataTiledConvolutionStrategy(
+    func::FuncOp entryPoint, linalg::LinalgOp op, const GPUModel &gpuModel) {
+  if (!clGPUEnableTransformDialectConvolutionTensorCoreStrategy) {
+    LDBG("--Convolution strategy flag turned off\n");
+    return failure();
+  }
+
+  // 1. Match a reduction and surrounding ops.
+  CapturingOpMatcher *pad;
+  StructuredOpMatcher *fill;
+  StructuredOpMatcher *convolution;
+  StructuredOpMatcher *trailing;
+  transform_ext::MatchedConvolutionCaptures captures;
+  transform_ext::MatcherContext matcherContext;
+  makeConvolutionMatcher(matcherContext, convolution, pad, fill, trailing,
+                         captures,
+                         /*mustMatchEntireFunc=*/true);
+  if (!matchPattern(op, *convolution)) {
+    LDBG("--Convolution strategy fail to match\n");
+    return failure();
+  }
+
+  if (!fill->getCaptured() || pad->getCaptured()) {
+    LDBG("--Convolution strategy capture preconditions failed\n");
+    return failure();
+  }
+
+  if (captures.convolutionDims.outputImage.size() != 2) {
+    return failure();
+  }
+  if (captures.convolutionDims.filterLoop.size() != 2) {
+    return failure();
+  }
+  if (captures.convolutionDims.batch.size() != 0) {
+    return failure();
+  }
+
+  // int64_t channelSize = 1;
+  // for (auto dim : captures.convolutionDims.outputChannel)
+  //   channelSize *= captures.convolutionOpSizes[dim];
+  // int64_t imageSize = 1;
+  // for (auto dim : captures.convolutionDims.outputImage)
+  //   imageSize *= captures.convolutionOpSizes[dim];
+
+  // int64_t derivedK = 1;
+  // for (auto dim : captures.convolutionDims.filterLoop)
+  //   derivedK *= captures.convolutionOpSizes[dim];
+  // for (auto dim : captures.convolutionDims.inputChannel)
+  //   derivedK *= captures.convolutionOpSizes[dim];
+
+  iree_compiler::gpu::DataTiledConvolutionStrategy strategy =
+      getConvolutionConfig(op->getContext(), captures, gpuModel);
+
+  // Validate the strategy configuration against the compilation target.
+  if (failed(strategy.validate(gpuModel))) {
+    LDBG("--Convolution strategy failed to validate\n");
+    return failure();
+  }
+
+  // 2. Construct the configuration and the strategy builder.
+  // TODO: Generalize along the HW axis.
+  auto strategyBuilder = [&](ImplicitLocOpBuilder &b, Value variant) {
+    return buildConvolutionTensorCoreStrategy(b, variant, strategy);
   };
 
   // 3. Build strategy embedded into the IR.
@@ -807,6 +918,11 @@ LogicalResult mlir::iree_compiler::gpu::matchAndSetTransformStrategy(
   if (succeeded(
           matchAndSetBatchMatmulStrategy(entryPoint, linalgOp, gpuModel))) {
     LDBG("Activate batch matmul\n");
+    return success();
+  }
+  if (succeeded(matchAndSetDataTiledConvolutionStrategy(entryPoint, linalgOp,
+                                                        gpuModel))) {
+    LDBG("Activate convolution\n");
     return success();
   }
   if (succeeded(
