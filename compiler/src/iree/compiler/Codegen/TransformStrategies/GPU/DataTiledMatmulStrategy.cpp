@@ -4,7 +4,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionTensorCoreStrategy.h"
+#include "iree/compiler/Codegen/TransformStrategies/GPU/DataTiledMatmulStrategy.h"
 
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
 #include "iree/compiler/Codegen/Common/TransformExtensions/CommonExtensions.h"
@@ -38,12 +38,16 @@ using iree_compiler::buildSelectFirstNonEmpty;
 using iree_compiler::buildTileFuseDistToForallWithNumThreads;
 using iree_compiler::buildTileFuseDistToForallWithTileSizes;
 using iree_compiler::TileToForallAndFuseAndDistributeResult;
+using iree_compiler::gpu::BatchMatmulStrategy;
 using iree_compiler::gpu::buildBufferize;
 using iree_compiler::gpu::buildConvertToAsyncCopies;
 using iree_compiler::gpu::buildConvertToTensorCoreOp;
 using iree_compiler::gpu::buildDistributeMatmulCopies;
 using iree_compiler::gpu::buildHoistOutputPaddingOp;
-using iree_compiler::gpu::DataTiledConvolutionStrategy;
+using iree_compiler::gpu::buildMatmulVectorization;
+using iree_compiler::gpu::buildMultiBuffering;
+using iree_compiler::gpu::buildPipelineSharedMemoryCopies;
+using iree_compiler::gpu::DataTiledMatmulStrategy;
 using iree_compiler::gpu::MappingInfo;
 using iree_compiler::gpu::scaleUpByBitWidth;
 using iree_compiler::IREE::transform_dialect::
@@ -55,58 +59,74 @@ using transform::FuseIntoContainingOp;
 using transform::MatchOp;
 using transform_ext::RegisterMatchCallbacksOp;
 
-void DataTiledConvolutionStrategy::initDefaultValues(const GPUModel &gpuModel) {
+void DataTiledMatmulStrategy::initDefaultValues(const GPUModel &gpuModel) {
   // Set the configuration for padding the matmul.
-  paddingValueTypes = {captures.inputElementType, captures.filterElementType,
+  paddingValueTypes = {captures.lhsElementType, captures.rhsElementType,
                        captures.outputElementType};
   paddingDimensions = {0, 1, 2};
-  packingDimensions = {1, 0, 1};
+  packingDimensions = {1, 1, 1};
 
   // Pull in tile configs from flags.
   AbstractGemmLikeStrategy::initDefaultValues(gpuModel);
-  if (!cliOptionsSpecified) {
-    numThreads = SmallVector<int64_t>{32, 1, 1};
-    numWarps = SmallVector<int64_t>{1, 1, 1};
-    blockTileSizes[0] = 64;
-    blockTileSizes[1] = 1;
-    while (
-        captures
-            .convolutionOpSizes[captures.convolutionDims.outputImage.back()] %
-        blockTileSizes[0]) {
-      blockTileSizes[0] /= 2;
+
+  // Data tiled strategies have specific requirements so adjust here.
+
+  // Consolidate the warps/threads along X.
+  numWarps[0] *= numWarps[1];
+  numWarps[1] = 1;
+  numThreads[0] *= numThreads[1];
+  numThreads[1] *= 1;
+  // BlockTileN is effectively the inner tile.
+  blockTileSizes[1] = captures.matmulOpSizes[captures.contractionDims.n.back()];
+  // Adjust downwards to force alignment along M.
+  while (m() % blockTileSizes[0]) {
+    blockTileSizes[0] /= 2;
+    if (numWarps[0] > 1) {
+      numWarps[0] /= 2;
+      numThreads[0] /= 2;
     }
-    useWmma = true;
   }
+  // Reduction tile size is unused.
+  reductionTileSize = 1;
+  // Force wmma.
+  useWmma = true;
+  useMmaSync = false;
+  useFma = false;
+  // Disable pipelining.
+  useAsyncCopies = false;
+  pipelineDepth = 0;
+  if (gpuModel.minSubgroupSize)
+    targetSubgroupSize = *gpuModel.minSubgroupSize;
 }
 
-LLVM_DUMP_METHOD void DataTiledConvolutionStrategy::dump() const {
+LLVM_DUMP_METHOD void DataTiledMatmulStrategy::dump() const {
   print(llvm::errs());
 }
 
-void DataTiledConvolutionStrategy::print(llvm::raw_ostream &os) const {
-  os << "\n--- Data Tiled Convolution strategy ---\n";
+void DataTiledMatmulStrategy::print(llvm::raw_ostream &os) const {
+  os << "\n--- Data Tiled Matmul strategy ---\n";
   AbstractGemmLikeStrategy::print(os);
 }
 
-// TODO: implement validator.
+// TODO: Implement a validator.
 LogicalResult
-DataTiledConvolutionStrategy::validate(const GPUModel &gpuModel) const {
+DataTiledMatmulStrategy::validate(const GPUModel &gpuModel) const {
   return success();
 }
 
-static std::tuple<Value, Value, Value, Value, Value>
-buildDataTiledConvolutionStrategyBlockDistribution(
+static std::tuple<Value, Value, Value, Value>
+buildDataTiledMatmulStrategyBlockDistribution(
     ImplicitLocOpBuilder &b, Value variantH,
-    const DataTiledConvolutionStrategy &strategy) {
+    const DataTiledMatmulStrategy &strategy) {
   // Step 1. Call the matcher. Note that this is the same matcher as used to
   // trigger this compilation path, so it must always apply.
   b.create<RegisterMatchCallbacksOp>();
-  auto [padH, fillH, convH, maybeTrailingH] = unpackRegisteredMatchCallback<4>(
-      b, "convolution", transform::FailurePropagationMode::Propagate, variantH);
+  auto [fillH, matmulH, maybeTrailingH] = unpackRegisteredMatchCallback<3>(
+      b, "contraction", transform::FailurePropagationMode::Propagate, variantH);
 
   // Step 2. Create the block/mapping tiling level and fusee.
   auto [fusionTargetH, fusionGroupH] =
-      buildSelectFirstNonEmpty(b, maybeTrailingH, convH);
+      buildSelectFirstNonEmpty(b, maybeTrailingH, matmulH);
   MappingInfo blockMapping = strategy.getBlockMapping();
   TileToForallAndFuseAndDistributeResult tileResult =
       buildTileFuseDistToForallWithTileSizes(
@@ -119,11 +139,9 @@ buildDataTiledConvolutionStrategyBlockDistribution(
           /*threadDimMapping=*/
           b.getArrayAttr(blockMapping.threadMapping));
 
-  auto [blockConvH, maybeBlockTrailingH] = buildSelectFirstNonEmpty(
+  auto [blockMatmulH, maybeBlockTrailingH] = buildSelectFirstNonEmpty(
       b, tileResult.resultingFusedOpsHandles.front(), tileResult.tiledOpH);
 
-  Value fusedPadH =
-      b.create<FuseIntoContainingOp>(padH, tileResult.forallH).getFusedOp();
   Value fusedFillH =
       b.create<FuseIntoContainingOp>(fillH, tileResult.forallH).getFusedOp();
 
@@ -131,46 +149,50 @@ buildDataTiledConvolutionStrategyBlockDistribution(
   b.create<IREEPopulateWorkgroupCountRegionUsingNumThreadsSliceOp>(
       tileResult.forallH);
 
-  return std::make_tuple(fusedPadH, fusedFillH, blockConvH, maybeBlockTrailingH,
+  // TODO: handle trailing op.
+  return std::make_tuple(fusedFillH, blockMatmulH, maybeBlockTrailingH,
                          tileResult.forallH);
 }
 
 /// Builds the common part of the schedule for matmuls and batched matmuls.
-static void buildCommonConvolutionLikeThreadSchedule(
-    ImplicitLocOpBuilder &b, Value variantH, Value padH, Value fillH,
-    Value convH, Value trailingH,
-    const DataTiledConvolutionStrategy &strategy) {
+static void
+buildCommonMatmulLikeThreadSchedule(ImplicitLocOpBuilder &b, Value variantH,
+                                    Value fillH, Value matmulH, Value trailingH,
+                                    const DataTiledMatmulStrategy &strategy) {
   using mlir::iree_compiler::buildLowerVectorMasksAndCleanup;
   using mlir::iree_compiler::buildTileFuseToScfFor;
   using namespace mlir::iree_compiler::gpu;
 
-  // Tile the outer input channel dimension.
-  if (strategy.captures.convolutionDims.inputChannel.size() > 1) {
-    SmallVector<int64_t> tileSizes(
-        strategy.captures.convolutionDims.outputChannel.size(), 0);
-    tileSizes.append(strategy.captures.convolutionDims.outputImage.size(), 0);
-    // tileSizes.append(strategy.captures.convolutionDims.filterLoop.size(), 0);
+  // Tile the reduction loop (last in the list).
+  SmallVector<int64_t> tileSizes(strategy.captures.matmulOpSizes.size() -
+                                     strategy.captures.contractionDims.k.size(),
+                                 0);
+  if (strategy.captures.contractionDims.k.size() == 2) {
     tileSizes.push_back(1);
-
-    // Avoid canonicalizing before the pad to avoid folding away the
-    // extract_slice on the output needed to hoist the output pad.
-    auto tileReductionResult = buildTileFuseToScfFor(
-        b, variantH, convH, {}, getAsOpFoldResult(b.getI64ArrayAttr(tileSizes)),
-        /*canonicalize=*/false);
-    convH = tileReductionResult.tiledOpH;
+  } else {
+    tileSizes.push_back(
+        strategy.captures
+            .matmulOpSizes[strategy.captures.contractionDims.k.back()]);
   }
 
+  // Avoid canonicalizing before the pad to avoid folding away the extract_slice
+  // on the output needed to hoist the output pad.
+  auto tileReductionResult = buildTileFuseToScfFor(
+      b, variantH, matmulH, {}, getAsOpFoldResult(b.getI64ArrayAttr(tileSizes)),
+      /*canonicalize=*/false);
+
   // Step 2. Pad the (batch) matmul op.
-  auto paddedConvOpH = buildPad(
-      b, convH, strategy.getZeroPadAttrFromElementalTypes(b).getValue(),
-      strategy.paddingDimensions, strategy.packingDimensions);
+  auto paddedMatmulOpH =
+      buildPad(b, tileReductionResult.tiledOpH,
+               strategy.getZeroPadAttrFromElementalTypes(b).getValue(),
+               strategy.paddingDimensions, strategy.packingDimensions);
 
   // Step 3. Hoist the padding of the output operand above the reduction loop.
   // The resulting fillOp will be mapped with the contraction using an SIMD
   // programming model.
   Value fillOpH = fillH;
   if (!strategy.alignedRes()) {
-    fillOpH = buildHoistOutputPaddingOp(b, variantH, paddedConvOpH);
+    fillOpH = buildHoistOutputPaddingOp(b, variantH, paddedMatmulOpH);
   }
 
   // Running canonicalization is required here to enable aligned pads to become
@@ -180,55 +202,41 @@ static void buildCommonConvolutionLikeThreadSchedule(
   iree_compiler::buildCanonicalizationAndEnablingTransforms(b, funcH);
 
   // Step 4. Distribute pad and copies: SIMT programming model.
-  // auto [lhsCopyOpH, rhsCopyOpH, copyBackOpH] =
-  buildDistributeMatmulCopies(b, variantH, paddedConvOpH, strategy);
+  auto [lhsCopyOpH, rhsCopyOpH, copyBackOpH] =
+      buildDistributeMatmulCopies(b, variantH, paddedMatmulOpH, strategy);
 
-  // Step 5. Tile the filter loop dimensions.
-  SmallVector<int64_t> tileSizes(
-      strategy.captures.convolutionDims.outputChannel.size(), 0);
-  tileSizes.append(strategy.captures.convolutionDims.inputChannel.size() - 1,
-                   0);
-  tileSizes.append(strategy.captures.convolutionDims.outputImage.size(), 0);
-  tileSizes.append(strategy.captures.convolutionDims.filterLoop.size(), 1);
-
-  auto tileReductionResult =
-      buildTileFuseToScfFor(b, variantH, paddedConvOpH, {},
-                            getAsOpFoldResult(b.getI64ArrayAttr(tileSizes)),
-                            /*canonicalize=*/true);
-  Value filterTiledConvH = tileReductionResult.tiledOpH;
-
-  // Step 6. Distribute to warps: SIMD programming model.
+  // Step 5. Distribute to warps: SIMD programming model.
   // TODO: get the number of warps from strategy.
   MappingInfo computeMapping = strategy.computeMapping();
   buildTileFuseDistToForallWithNumThreads(
-      b, variantH, filterTiledConvH, ValueRange(),
+      b, variantH, paddedMatmulOpH, ValueRange(),
+      getAsOpFoldResult(b.getI64ArrayAttr(computeMapping.numThreads)),
+      b.getArrayAttr(computeMapping.threadMapping));
+  buildTileFuseDistToForallWithNumThreads(
+      b, variantH, fillOpH, ValueRange(),
       getAsOpFoldResult(b.getI64ArrayAttr(computeMapping.numThreads)),
       b.getArrayAttr(computeMapping.threadMapping));
 
-  // Step 6.5 Distribute to threads: SIMT programming model.
+  // Step 5.5. Distribute to threads: SIMT programming model.
   MappingInfo resCopyMapping = strategy.resCopyMapping();
-  fillOpH = b.create<MatchOp>(variantH, linalg::FillOp::getOperationName());
-  buildTileFuseDistToForallWithNumThreads(
-      b, variantH, fillOpH, ValueRange(),
-      getAsOpFoldResult(b.getI64ArrayAttr(resCopyMapping.numThreads)),
-      b.getArrayAttr(resCopyMapping.threadMapping));
   buildTileFuseDistToForallWithNumThreads(
       b, variantH, trailingH, ValueRange(),
       getAsOpFoldResult(b.getI64ArrayAttr(resCopyMapping.numThreads)),
       b.getArrayAttr(resCopyMapping.threadMapping));
 
-  // Step 7. Apply vectorization + cleanups to what remains.
+  // Step 6. Rank-reduce and vectorize.
   b.create<transform::ApplyPatternsOp>(funcH, [](OpBuilder &b, Location loc) {
     b.create<ApplyFoldReshapeIntoTensorHalInterfacePatternsOp>(loc);
     b.create<transform::ApplyFoldUnitExtentDimsViaSlicesPatternsOp>(loc);
     b.create<transform::ApplyCastAwayVectorLeadingOneDimPatternsOp>(loc);
   });
-  funcH = iree_compiler::buildVectorize(b, funcH, /*applyCleanups=*/true);
+  buildMatmulVectorization(b, variantH, lhsCopyOpH, rhsCopyOpH, copyBackOpH,
+                           strategy);
 
-  // Step 8. Bufferize and drop HAL descriptor from memref ops.
+  // Step 7. Bufferize and drop HAL descriptor from memref ops.
   variantH = buildBufferize(b, variantH);
 
-  // Step 9. Post-bufferization mapping to blocks and threads.
+  // Step 8. Post-bufferization mapping to blocks and threads.
   // Need to match again since bufferize invalidated all handles.
   // TODO: assumes a single func::FuncOp to transform, needs hardening.
   funcH = b.create<MatchOp>(variantH, func::FuncOp::getOperationName());
@@ -237,24 +245,40 @@ static void buildCommonConvolutionLikeThreadSchedule(
                                 /*blockSize=*/strategy.numThreads,
                                 /*warpDims=*/strategy.numWarps,
                                 /*subgroupSize=*/strategy.targetSubgroupSize);
-  // funcH = b.create<EliminateGpuBarriersOp>(funcH);
+  funcH = b.create<EliminateGpuBarriersOp>(funcH);
 
-  // Step 10. Convert to tensor core ops.
+  // Step 9. Convert to tensor core ops.
   // TODO: avoid consuming handles and returning here.
   funcH = buildConvertToTensorCoreOp(b, funcH, strategy);
 
-  // Step 11. Late lowerings and cleanups.
+  // TODO: Support pipelining strategies without async copy (e.g. store to
+  // shared memory in stage 0).
+  if (strategy.useAsyncCopies) {
+    // Step 10. Multi-buffering.
+    if (strategy.pipelineDepth > 1)
+      buildMultiBuffering(b, funcH, strategy);
+
+    // Step 11. Convert to async copies.
+    // TODO: avoid consuming handles and returning here.
+    funcH = buildConvertToAsyncCopies(b, funcH, strategy);
+
+    // Step 12. Pipeline shared memory copies.
+    if (strategy.pipelineDepth > 1)
+      buildPipelineSharedMemoryCopies(b, funcH, strategy);
+  }
+
+  // Step 13. Late lowerings and cleanups.
   buildLowerVectorMasksAndCleanup(b, funcH);
 }
 
-void iree_compiler::gpu::buildConvolutionTensorCoreStrategy(
+void iree_compiler::gpu::buildDataTiledMatmulStrategy(
     ImplicitLocOpBuilder &b, Value variantH,
-    const DataTiledConvolutionStrategy &strategy) {
+    const DataTiledMatmulStrategy &strategy) {
   LLVM_DEBUG(strategy.print(DBGS()));
 
   // Step 1. Apply block-level part of the strategy, keeps everything fused.
-  auto [padH, fillH, convH, trailingH, forall] =
-      buildDataTiledConvolutionStrategyBlockDistribution(b, variantH, strategy);
-  buildCommonConvolutionLikeThreadSchedule(b, variantH, padH, fillH, convH,
-                                           trailingH, strategy);
+  auto [fillH, matmulH, maybeTiledTrailingHBlock, forall] =
+      buildDataTiledMatmulStrategyBlockDistribution(b, variantH, strategy);
+  buildCommonMatmulLikeThreadSchedule(b, variantH, fillH, matmulH,
+                                      maybeTiledTrailingHBlock, strategy);
 }
