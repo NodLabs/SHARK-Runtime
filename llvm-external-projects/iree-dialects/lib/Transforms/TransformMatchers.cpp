@@ -1526,6 +1526,33 @@ void transform_ext::makeBatchMatmulMatcher(
     bmm = bmm.allTilableOpsCaptured<func::FuncOp>();
 }
 
+void transform_ext::makeAnyContractionMatcher(
+    transform_ext::MatcherContext &matcherContext,
+    transform_ext::StructuredOpMatcher *&dtmCapture,
+    transform_ext::StructuredOpMatcher *&fillCapture,
+    transform_ext::StructuredOpMatcher *&trailingCapture,
+    transform_ext::MatchedMatmulCaptures &captures, bool mustMatchEntireFunc) {
+  auto &dtm =
+      transform_ext::m_StructuredOp<linalg::GenericOp>(matcherContext)
+          .contractionDims(CaptureContractionDims(captures.contractionDims))
+          .dim(AllDims(), CaptureDims(captures.matmulOpSizes))
+          .input(NumEqualsTo(2))
+          .input(0, CaptureElementType(captures.lhsElementType))
+          .input(1, CaptureElementType(captures.rhsElementType))
+          .output(0, CaptureElementType(captures.outputElementType));
+  dtmCapture = &dtm;
+
+  auto &fill = transform_ext::m_StructuredOp<linalg::FillOp>(matcherContext);
+  dtm = dtm.output(0, fill);
+  fillCapture = &fill;
+
+  auto &trailing = m_StructuredOp<linalg::GenericOp>(matcherContext);
+  dtm = dtm.result(0, HasAnyUse(), trailing, OptionalMatch());
+  if (mustMatchEntireFunc)
+    dtm = dtm.allTilableOpsCaptured<func::FuncOp>();
+  trailingCapture = &trailing;
+}
+
 /// Match sum(%src, broadcast(%reduction))
 static void
 matchSubBroadcast(transform_ext::MatcherContext &matcherContext,
