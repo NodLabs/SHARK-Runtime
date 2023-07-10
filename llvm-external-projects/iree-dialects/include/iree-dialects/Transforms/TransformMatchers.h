@@ -1118,6 +1118,13 @@ void makeBatchMatmulMatcher(transform_ext::MatcherContext &matcherContext,
                             transform_ext::MatchedMatmulCaptures &captures,
                             bool mustMatchEntireFunc);
 
+void makeAnyContractionMatcher(MatcherContext &matcherContext,
+                               StructuredOpMatcher *&dtmCapture,
+                               StructuredOpMatcher *&fillCapture,
+                               StructuredOpMatcher *&trailingCapture,
+                               MatchedMatmulCaptures &captures,
+                               bool mustMatchEntireFunc);
+
 /// Create a group of matchers for a different code sequence of operations
 /// matching exactly a softmax operation.
 ///
