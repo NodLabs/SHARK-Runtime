@@ -17,8 +17,9 @@ namespace iree_compiler {
 namespace gpu {
 
 /// Forward declarations of all supported strategies.
-struct BatchMatmulStrategy;
-struct MatmulStrategy;
+class BatchMatmulStrategy;
+class MatmulStrategy;
+class DataTiledConvolutionStrategy;
 class PadStrategy;
 class SmallReductionStrategy;
 class StagedReductionStrategy;
@@ -87,6 +88,13 @@ void buildMatmulTensorCoreStrategy(ImplicitLocOpBuilder &b, Value variantH,
 /// for linalg.fill + linalg.batch_matmul.
 void buildBatchMatmulStrategy(ImplicitLocOpBuilder &b, Value variantH,
                               const BatchMatmulStrategy &strategy);
+
+//===--------------------------------------------------------------------===//
+// Convolution strategies.
+//===--------------------------------------------------------------------===//
+void buildConvolutionTensorCoreStrategy(
+    ImplicitLocOpBuilder &b, Value variantH,
+    const DataTiledConvolutionStrategy &strategy);
 
 //===--------------------------------------------------------------------===//
 // Pad strategies.
