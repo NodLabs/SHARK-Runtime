@@ -17,6 +17,7 @@
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionImplicitGemmStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/ConvolutionTensorCoreStrategy.h"
+#include "iree/compiler/Codegen/TransformStrategies/GPU/DataTiledMatmulStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/MatmulTensorCoreStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/PadStrategy.h"
 #include "iree/compiler/Codegen/TransformStrategies/GPU/SmallReductionStrategy.h"
@@ -83,12 +84,18 @@ llvm::cl::opt<bool> clGPUEnableTransformDialectBatchMatmulStrategy(
     llvm::cl::desc("activate the batch matmul strategy, additional "
                    "configuration flags are shared with matmul"),
     llvm::cl::init(false));
+llvm::cl::opt<bool> clGPUEnableTransformDialectDataTiledMatmulStrategy(
+    "iree-codegen-llvmgpu-enable-transform-dialect-data-tiled-matmul-strategy",
+    llvm::cl::desc("activate the data tiled matmul strategy, additional "
+                   "configuration flags are shared with matmul"),
+    llvm::cl::init(true));
 
 // TODO: significantly better namespacing.
 using iree_compiler::gpu::AbstractGemmLikeStrategy;
 using iree_compiler::gpu::BatchMatmulStrategy;
 using iree_compiler::gpu::ConvolutionStrategy;
 using iree_compiler::gpu::DataTiledConvolutionStrategy;
+using iree_compiler::gpu::DataTiledMatmulStrategy;
 using iree_compiler::gpu::GPUModel;
 using iree_compiler::gpu::ImplicitGemmStrategy;
 using iree_compiler::gpu::kCudaMaxVectorLoadBitWidth;
@@ -551,6 +558,58 @@ static LogicalResult matchAndSetMatmulStrategy(func::FuncOp entryPoint,
   return success();
 }
 
+static DataTiledMatmulStrategy
+getDataTiledMatmulConfig(MLIRContext *context, MatchedMatmulCaptures &captures,
+                         const GPUModel &gpuModel) {
+  return DataTiledMatmulStrategy(context, captures, gpuModel);
+}
+
+/// Match the supported batch matmuls and set the transform dialect strategy for
+/// them.
+static LogicalResult
+matchAndSetDataTiledMatmulStrategy(func::FuncOp entryPoint, linalg::LinalgOp op,
+                                   const GPUModel &gpuModel) {
+  if (!clGPUEnableTransformDialectDataTiledMatmulStrategy) {
+    LDBG("--Data tiled matmul strategy flag turned off\n");
+    return failure();
+  }
+
+  StructuredOpMatcher *fill;
+  StructuredOpMatcher *dtm;
+  StructuredOpMatcher *trailing;
+  transform_ext::MatchedMatmulCaptures captures;
+  transform_ext::MatcherContext matcherContext;
+  transform_ext::makeAnyContractionMatcher(matcherContext, dtm, fill, trailing,
+                                           captures,
+                                           /*mustMatchEntireFunc=*/true);
+  if (!matchPattern(op, *dtm)) {
+    LDBG("--Data tiled matmul strategy failed to match\n");
+    return failure();
+  }
+
+  if (captures.contractionDims.batch.size() != 0 ||
+      captures.contractionDims.m.size() != 1 ||
+      (captures.contractionDims.n.size() != 2 &&
+       captures.contractionDims.k.size() != 2)) {
+    LDBG("--Data tiled matmul failed problem type check\n");
+    return failure();
+  }
+
+  DataTiledMatmulStrategy strategy =
+      getDataTiledMatmulConfig(entryPoint->getContext(), captures, gpuModel);
+  if (failed(strategy.validate(gpuModel))) {
+    LDBG("--Data tiled matmul strategy failed to validate\n");
+    return failure();
+  }
+
+  iree_compiler::createTransformRegion(
+      entryPoint, [&](ImplicitLocOpBuilder &b, Value variantH) {
+        return iree_compiler::gpu::buildDataTiledMatmulStrategy(b, variantH,
+                                                                strategy);
+      });
+  return success();
+}
+
 //===--------------------------------------------------------------------===//
 // Convolution strategies.
 //===--------------------------------------------------------------------===//
@@ -989,6 +1048,11 @@ LogicalResult mlir::iree_compiler::gpu::matchAndSetTransformStrategy(
   if (succeeded(
           matchAndSetBatchMatmulStrategy(entryPoint, linalgOp, gpuModel))) {
     LDBG("Activate batch matmul\n");
+    return success();
+  }
+  if (succeeded(
+              matchAndSetDataTiledMatmulStrategy(entryPoint, linalgOp, gpuModel))) {
+    LDBG("Activate data tiled matmul\n");
     return success();
   }
   if (succeeded(matchAndSetDataTiledConvolutionStrategy(entryPoint, linalgOp,

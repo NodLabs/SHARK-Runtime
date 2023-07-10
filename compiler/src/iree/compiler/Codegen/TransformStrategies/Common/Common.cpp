@@ -109,6 +109,7 @@ void mlir::iree_compiler::createTransformRegion(
   (void)sequence;
   LDBG("transformation script:\n");
   LDBG("verification: " << sequence.verify().succeeded() << "\n");
+  LLVM_DEBUG(sequence.dump());
 }
 
 //===----------------------------------------------------------------------===//
