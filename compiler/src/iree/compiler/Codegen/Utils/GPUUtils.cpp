@@ -578,7 +578,7 @@ std::optional<SmallVector<int64_t>> getWmmaNativeVectorSize(Operation *op) {
   int64_t m = 16;
   int64_t n = 16;
   if (auto contract = dyn_cast<vector::ContractionOp>(op)) {
-    int64_t k = contract.getLhsType().getElementType().isF16() ? 16 : 8;
+    int64_t k = contract.getLhsType().getElementType().isF32() ? 8 : 16;
     SmallVector<int64_t> nativeSize(contract.getIteratorTypes().size() - 3, 1);
     nativeSize.append({m, n, k});
     return nativeSize;
