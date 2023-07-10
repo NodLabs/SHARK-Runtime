@@ -19,6 +19,7 @@ namespace gpu {
 /// Forward declarations of all supported strategies.
 class BatchMatmulStrategy;
 class MatmulStrategy;
+class ConvolutionStrategy;
 class DataTiledConvolutionStrategy;
 class PadStrategy;
 class SmallReductionStrategy;
@@ -95,6 +96,8 @@ void buildBatchMatmulStrategy(ImplicitLocOpBuilder &b, Value variantH,
 void buildConvolutionTensorCoreStrategy(
     ImplicitLocOpBuilder &b, Value variantH,
     const DataTiledConvolutionStrategy &strategy);
+void buildConvolutionStrategy(ImplicitLocOpBuilder &b, Value variantH,
+                              const ConvolutionStrategy &strategy);
 
 //===--------------------------------------------------------------------===//
 // Pad strategies.
