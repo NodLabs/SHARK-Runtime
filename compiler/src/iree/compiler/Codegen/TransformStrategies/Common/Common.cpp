@@ -291,7 +291,13 @@ Value mlir::iree_compiler::buildPad(
 Value mlir::iree_compiler::buildVectorize(ImplicitLocOpBuilder &b, Value funcH,
                                           bool applyCleanups,
                                           bool vectorizePadding,
-                                          bool vectorizeNdExtract) {
+                                          bool vectorizeNdExtract,
+                                          bool useIreePadHandling) {
+  if (useIreePadHandling) {
+    funcH = b.create<transform::ApplyRegisteredPassOp>(
+        funcH.getType(), funcH,
+        b.getStringAttr("iree-codegen-vectorize-tensor-pad"));
+  }
   funcH = b.create<VectorizeOp>(funcH, vectorizePadding, vectorizeNdExtract);
   if (applyCleanups) {
     iree_compiler::buildCanonicalizationAndEnablingTransforms(b, funcH);

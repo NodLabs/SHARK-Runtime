@@ -255,7 +255,11 @@ static void buildCommonConvolutionLikeThreadSchedule(
     b.create<transform::ApplyFoldUnitExtentDimsViaSlicesPatternsOp>(loc);
     b.create<transform::ApplyCastAwayVectorLeadingOneDimPatternsOp>(loc);
   });
-  funcH = iree_compiler::buildVectorize(b, funcH, /*applyCleanups=*/true);
+  funcH = iree_compiler::buildVectorize(b, funcH,
+                                        /*vectorizeNdExtract=*/false,
+                                        /*vectorizePadding=*/false,
+                                        /*useIreePadHandling=*/true,
+                                        /*applyCleanups=*/true);
 
   // Step 8. Bufferize and drop HAL descriptor from memref ops.
   variantH = buildBufferize(b, variantH);

@@ -29,11 +29,10 @@ int64_t iree_compiler::gpu::CopyMapping::maxContiguousElementsToTransfer(
 }
 
 FailureOr<iree_compiler::gpu::CopyMapping>
-iree_compiler::gpu::CopyMapping::numThreadsForCopy(int totalNumThreads,
-                                                   int64_t alignment,
-                                                   ArrayRef<int64_t> sizes,
-                                                   bool favorPredication,
-                                                   int64_t elementalBitWidth) {
+iree_compiler::gpu::CopyMapping::numThreadsForCopy(
+    int totalNumThreads, int64_t alignment, ArrayRef<int64_t> sizes,
+    bool favorPredication, int64_t elementalBitWidth,
+    bool favorLazyOuterDistributing) {
   LDBG("\nSTART numThreadsForCopy, favorPredication: " << favorPredication);
   LLVM_DEBUG(llvm::interleaveComma(sizes, DBGS() << "--sizes: ");
              llvm::dbgs() << "\n";);
@@ -81,18 +80,34 @@ iree_compiler::gpu::CopyMapping::numThreadsForCopy(int totalNumThreads,
   SmallVector<int64_t> scaledSizes{sizes.begin(), sizes.end()};
   scaledSizes.back() /= actualVectorSize;
 
-  int64_t numThreadsRemaining = totalNumThreads;
-  LDBG("--numThreadsRemaining: " << numThreadsRemaining);
   SmallVector<int64_t> factors;
-  for (auto s : llvm::reverse(scaledSizes)) {
-    int64_t gcd = std::gcd(numThreadsRemaining, s);
-    factors.push_back(gcd);
-    numThreadsRemaining /= gcd;
-    LDBG("--new factors: " << gcd);
+  if (favorLazyOuterDistributing) {
+    int64_t numThreadsUsed = 1;
+    for (auto s : scaledSizes) {
+      int newThreads = 1;
+      for (auto maybeFactor : llvm::seq(1l, s + 1)) {
+        if (maybeFactor * numThreadsUsed > totalNumThreads)
+          break;
+        if (s % maybeFactor == 0)
+          newThreads = maybeFactor;
+      }
+      factors.push_back(newThreads);
+      numThreadsUsed *= newThreads;
+      LDBG("--new factors: " << newThreads);
+      LDBG("--numThreadsUsed: " << numThreadsUsed);
+    }
+  } else {
+    int64_t numThreadsRemaining = totalNumThreads;
     LDBG("--numThreadsRemaining: " << numThreadsRemaining);
+    for (auto s : llvm::reverse(scaledSizes)) {
+      int64_t gcd = std::gcd(numThreadsRemaining, s);
+      factors.push_back(gcd);
+      numThreadsRemaining /= gcd;
+      LDBG("--new factors: " << gcd);
+      LDBG("--numThreadsRemaining: " << numThreadsRemaining);
+    }
+    std::reverse(factors.begin(), factors.end());
   }
-
-  std::reverse(factors.begin(), factors.end());
 
   LLVM_DEBUG(llvm::interleaveComma(factors, DBGS() << "numThreads: ");
              llvm::dbgs() << "\n";
@@ -104,12 +119,12 @@ iree_compiler::gpu::CopyMapping::numThreadsForCopy(int totalNumThreads,
 iree_compiler::gpu::MappingInfo iree_compiler::gpu::CopyMapping::getMappingInfo(
     MLIRContext *ctx, int totalNumThreads, int64_t alignment,
     ArrayRef<int64_t> copySizes, bool favorPredication,
-    int64_t elementalBitWidth) {
+    int64_t elementalBitWidth, bool favorLazyOuterDistributing) {
   assert(!copySizes.empty() && copySizes.size() <= 3 &&
          "only 1,2,3-D copies are supported for now");
-  FailureOr<CopyMapping> maybeCopyMapping =
-      CopyMapping::numThreadsForCopy(totalNumThreads, alignment, copySizes,
-                                     favorPredication, elementalBitWidth);
+  FailureOr<CopyMapping> maybeCopyMapping = CopyMapping::numThreadsForCopy(
+      totalNumThreads, alignment, copySizes, favorPredication,
+      elementalBitWidth, favorLazyOuterDistributing);
   // If failed, try again with predication; this must succeed.
   if (failed(maybeCopyMapping)) {
     assert(!favorPredication &&
