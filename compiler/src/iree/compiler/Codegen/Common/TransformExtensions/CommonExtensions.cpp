@@ -270,6 +270,12 @@ void transform_dialect::ApplyPrepareVectorToMMAPatternsOp::populatePatterns(
   populatePrepareVectorToMMAPatterns(patterns, getUseNvGpu());
 }
 
+void transform_dialect::ApplySwapTensorPadWithExtractSliceOp::populatePatterns(
+    RewritePatternSet &patterns) {
+  patterns.insert<linalg::ExtractSliceOfPadTensorSwapPattern>(
+      patterns.getContext(), [](tensor::ExtractSliceOp) { return false; });
+}
+
 //===---------------------------------------------------------------------===//
 // ApplyCommonSubexpressionEliminationOp
 //===---------------------------------------------------------------------===//
