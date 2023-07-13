@@ -820,8 +820,8 @@ static LogicalResult matchAndSetDataTiledConvolutionStrategy(
     return failure();
   }
 
-  if (!fill->getCaptured() || pad->getCaptured()) {
-    LDBG("--Convolution strategy capture preconditions failed\n");
+  if (!fill->getCaptured()) {
+    LDBG("--Convolution strategy capture precondition failed\n");
     return failure();
   }
 
