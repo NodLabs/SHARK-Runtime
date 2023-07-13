@@ -47,7 +47,11 @@ using iree_compiler::gpu::DataTiledConvolutionStrategy;
 using iree_compiler::gpu::MappingInfo;
 using iree_compiler::gpu::scaleUpByBitWidth;
 using iree_compiler::IREE::transform_dialect::
+    ApplyCommonSubexpressionEliminationOp;
+using iree_compiler::IREE::transform_dialect::
     ApplyFoldReshapeIntoTensorHalInterfacePatternsOp;
+using iree_compiler::IREE::transform_dialect::
+    ApplySwapTensorPadWithExtractSliceOp;
 using iree_compiler::IREE::transform_dialect::EliminateGpuBarriersOp;
 using iree_compiler::IREE::transform_dialect::
     IREEPopulateWorkgroupCountRegionUsingNumThreadsSliceOp;
@@ -219,11 +223,36 @@ static void buildCommonConvolutionLikeThreadSchedule(
 
   // Step 7. Apply vectorization + cleanups to what remains.
   b.create<transform::ApplyPatternsOp>(funcH, [](OpBuilder &b, Location loc) {
+    b.create<ApplySwapTensorPadWithExtractSliceOp>(loc);
+  });
+  funcH = b.create<transform::ApplyRegisteredPassOp>(
+      funcH.getType(), funcH,
+      b.getStringAttr("iree-codegen-concretize-pad-result-shape"));
+  b.create<ApplyCommonSubexpressionEliminationOp>(funcH);
+  b.create<transform::ApplyPatternsOp>(funcH, [](OpBuilder &b, Location loc) {
+    b.create<ApplySwapTensorPadWithExtractSliceOp>(loc);
+  });
+  funcH = b.create<transform::ApplyRegisteredPassOp>(
+      funcH.getType(), funcH,
+      b.getStringAttr("iree-codegen-concretize-pad-result-shape"));
+  b.create<ApplyCommonSubexpressionEliminationOp>(funcH);
+  b.create<transform::ApplyPatternsOp>(funcH, [](OpBuilder &b, Location loc) {
+    b.create<ApplySwapTensorPadWithExtractSliceOp>(loc);
+  });
+  funcH = b.create<transform::ApplyRegisteredPassOp>(
+      funcH.getType(), funcH,
+      b.getStringAttr("iree-codegen-concretize-pad-result-shape"));
+  b.create<ApplyCommonSubexpressionEliminationOp>(funcH);
+  b.create<transform::ApplyPatternsOp>(funcH, [](OpBuilder &b, Location loc) {
     b.create<ApplyFoldReshapeIntoTensorHalInterfacePatternsOp>(loc);
     b.create<transform::ApplyFoldUnitExtentDimsViaSlicesPatternsOp>(loc);
     b.create<transform::ApplyCastAwayVectorLeadingOneDimPatternsOp>(loc);
   });
-  funcH = iree_compiler::buildVectorize(b, funcH, /*applyCleanups=*/true);
+  funcH = iree_compiler::buildVectorize(b, funcH,
+                                        /*vectorizeNdExtract=*/false,
+                                        /*vectorizePadding=*/false,
+                                        /*useIreePadHandling=*/true,
+                                        /*applyCleanups=*/true);
 
   // Step 8. Bufferize and drop HAL descriptor from memref ops.
   variantH = buildBufferize(b, variantH);

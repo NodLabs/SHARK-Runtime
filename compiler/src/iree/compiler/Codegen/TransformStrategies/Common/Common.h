@@ -188,7 +188,8 @@ Value buildPad(ImplicitLocOpBuilder &b, Value opH,
 /// If `applyCleanups` is true, also apply cleanup patterns.
 Value buildVectorize(ImplicitLocOpBuilder &b, Value funcH,
                      bool applyCleanups = false, bool vectorizePadding = false,
-                     bool vectorizeNdExtract = false);
+                     bool vectorizeNdExtract = false,
+                     bool useIreePadHandling = false);
 
 /// Build transform IR that applies lowering of masked vector transfer
 /// operations and subsequent cleanup patterns (fold-memref-aliases).
