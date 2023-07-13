@@ -57,7 +57,8 @@ struct CopyMapping {
   static FailureOr<CopyMapping>
   numThreadsForCopy(int totalNumThreads, int64_t alignment,
                     ArrayRef<int64_t> sizes, bool favorPredication,
-                    int64_t elementalBitWidth = 32);
+                    int64_t elementalBitWidth = 32,
+                    bool favorLazyOuterDistributing = false);
 
   /// Greedily compute the MappingInfo to use to perform a copy of `sizes`
   /// elements of bitwidth `elementalBitWidth`.
@@ -75,7 +76,8 @@ struct CopyMapping {
   static MappingInfo getMappingInfo(MLIRContext *ctx, int totalNumThreads,
                                     int64_t alignment, ArrayRef<int64_t> sizes,
                                     bool favorPredication = false,
-                                    int64_t elementalBitWidth = 32);
+                                    int64_t elementalBitWidth = 32,
+                                    bool favorLazyOuterDistributing = false);
 };
 
 } // namespace gpu
