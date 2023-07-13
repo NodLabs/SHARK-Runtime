@@ -519,4 +519,17 @@ def IREEPopulateWorkgroupCountRegionUsingNumThreadsSliceOp :
   }];
 }
 
+def ApplySwapTensorPadWithExtractSliceOp : Op<Transform_Dialect,
+    "apply_patterns.iree.swap_tensor_pad",
+    [DeclareOpInterfaceMethods<PatternDescriptorOpInterface>,
+     ReportTrackingListenerFailuresOpTrait]> {
+  let description = [{
+    Populate patterns to swap tensor pad with consumer tensor.extract_slice
+    operations.
+  }];
+
+  let cppNamespace = "mlir::iree_compiler::IREE::transform_dialect";
+  let assemblyFormat = "attr-dict";
+}
+
 #endif // IREE_COMPILER_CODEGEN_COMMON_TRANSFORMEXTENSIONS_COMMONEXTENSIONS
