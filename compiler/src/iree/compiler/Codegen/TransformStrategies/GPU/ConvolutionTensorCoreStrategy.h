@@ -144,8 +144,9 @@ public:
         /*alignment=*/k(),
         /*copySizes=*/
         ArrayRef<int64_t>{inputTileH, inputTileW, icInnerTileSize},
-        /*favorPredication=*/false,
-        /*elementalBitWidth=*/lhsElementalBitWidth());
+        /*favorPredication=*/true,
+        /*elementalBitWidth=*/lhsElementalBitWidth(),
+        /*favorLazyOuterDistributing=*/true);
     if (captures.convolutionDims.inputChannel.size() == 2) {
       mapping.tileSizes.insert(mapping.tileSizes.begin(), 1);
       mapping.numThreads.insert(mapping.numThreads.begin(), 0);
@@ -171,7 +172,8 @@ public:
         /*copySizes=*/
         ArrayRef<int64_t>{outputTileH, outputTileW, ocInnerTileSize},
         /*favorPredication=*/false,
-        /*elementalBitWidth=*/resElementalBitWidth());
+        /*elementalBitWidth=*/resElementalBitWidth(),
+        /*favorLazyOuterDistributing=*/false);
     if (captures.convolutionDims.outputChannel.size() == 2) {
       mapping.tileSizes.insert(mapping.tileSizes.begin(), 1);
       mapping.numThreads.insert(mapping.numThreads.begin(), 0);
