@@ -34,6 +34,7 @@ iree_cc_library(
     "GeneralizeConvolutions.cpp"
     "MakeSingleDispatchForFunction.cpp"
     "PadLinalgOps.cpp"
+    "DequantizationMatmulFuse.cpp"
     "PassDetail.h"
     "Passes.cpp"
   DEPS
