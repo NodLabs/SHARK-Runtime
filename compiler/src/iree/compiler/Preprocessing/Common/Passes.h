@@ -49,6 +49,9 @@ std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createRematerializeParallelOpsPass();
 
+// A pass to fuse dequantization and matmul linalg.generic ops
+std::unique_ptr<Pass> createDequantizationMatmulFusePass();
+
 //===----------------------------------------------------------------------===//
 // Register all Passes
 //===----------------------------------------------------------------------===//
