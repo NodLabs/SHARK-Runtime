@@ -63,4 +63,10 @@ def PadLinalgOps :
   ];
 }
 
+def DequantizationMatmulFuse:
+    Pass<"iree-preprocessing-dequantization-matmul-fuse", ""> {
+  let summary = "Fuse dequantization and matmul linalg.generic ops";
+  let constructor = "mlir::iree_compiler::IREE::createDequantizationMatmulFusePass()";
+}
+
 #endif  // IREE_PREPROCESSING_COMMON_PASSES
