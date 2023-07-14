@@ -33,6 +33,7 @@ iree_cc_library(
     "GeneralizeConvolutions.cpp"
     "ConvertConvToChannelsLast.cpp"
     "PadLinalgOps.cpp"
+    "DequantizationMatmulFuse.cpp"
     "PassDetail.h"
     "Passes.cpp"
   DEPS

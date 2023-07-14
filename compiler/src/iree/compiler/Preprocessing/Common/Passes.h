@@ -40,6 +40,9 @@ std::unique_ptr<Pass> createConvertConvToChannelsLastPass();
 // A pass to pad linalg ops to the next integer multiple of `paddingSize`.
 std::unique_ptr<Pass> createPadLinalgOpsToIntegerMultiplePass();
 
+// A pass to fuse dequantization and matmul linalg.generic ops
+std::unique_ptr<Pass> createDequantizationMatmulFusePass();
+
 //===----------------------------------------------------------------------===//
 // Register all Passes
 //===----------------------------------------------------------------------===//
