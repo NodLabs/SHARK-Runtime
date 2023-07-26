@@ -83,9 +83,9 @@ iree_compiler::gpu::CopyMapping::numThreadsForCopy(
   SmallVector<int64_t> factors;
   if (favorLazyOuterDistributing) {
     int64_t numThreadsUsed = 1;
-    for (auto s : scaledSizes) {
+    for (int64_t s : scaledSizes) {
       int newThreads = 1;
-      for (auto maybeFactor : llvm::seq(1l, s + 1)) {
+      for (auto maybeFactor : llvm::seq(static_cast<int64_t>(1), s + 1)) {
         if (maybeFactor * numThreadsUsed > totalNumThreads)
           break;
         if (s % maybeFactor == 0)
