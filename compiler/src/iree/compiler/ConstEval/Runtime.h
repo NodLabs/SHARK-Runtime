@@ -82,8 +82,17 @@ public:
   LogicalResult translateFromModule(mlir::ModuleOp moduleOp);
   ~InMemoryCompiledBinary() override;
 
+  const void *getAlignedPointer() {
+    return alignedBinary;
+  }
+
+  const void *getOriginalPointer() {
+    return originalPointer;
+  }
+  
 private:
-  std::string binary;
+  void *originalPointer = nullptr;
+  void *alignedBinary = nullptr;
 };
 
 // Simple wrapper around IREE runtime library sufficient for loading and

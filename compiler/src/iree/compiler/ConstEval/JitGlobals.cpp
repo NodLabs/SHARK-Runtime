@@ -538,6 +538,8 @@ struct JitGlobalsPass : public JitGlobalsBase<JitGlobalsPass> {
     }
     if (debugEnabled) {
       compileTimer->stopTimer();
+      dbgs() << "::: Binary loaded at " << binary.getAlignedPointer() 
+             << " (original " << binary.getOriginalPointer() << ")\n";
     }
 
     // Kill the temporary program.

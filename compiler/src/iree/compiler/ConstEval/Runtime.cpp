@@ -6,11 +6,15 @@
 
 #include "iree/compiler/ConstEval/Runtime.h"
 
+#include "iree/base/alignment.h"
 #include "iree/compiler/Dialect/Util/IR/UtilDialect.h"
 #include "iree/compiler/Dialect/VM/Target/Bytecode/BytecodeModuleTarget.h"
 #include "iree/hal/drivers/local_task/registration/driver_module.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
+
+#include <memory>
+#include <cstdlib>
 
 #define DEBUG_TYPE "iree-const-eval"
 using llvm::dbgs;
@@ -462,10 +466,18 @@ void CompiledBinary::initialize(void *data, size_t length) {
       modules.data(), iree_allocator_system(), &context));
 }
 
-InMemoryCompiledBinary::~InMemoryCompiledBinary() { deinitialize(); }
+InMemoryCompiledBinary::~InMemoryCompiledBinary() { 
+  deinitialize();
+  #if defined(_MSC_VER )
+  _aligned_free(alignedBinary);
+  #else
+  free(alignedBinary);
+  #endif
+}
 
 LogicalResult
 InMemoryCompiledBinary::translateFromModule(mlir::ModuleOp moduleOp) {
+  std::string binary;
   llvm::raw_string_ostream os(binary);
   iree_compiler::IREE::VM::TargetOptions vmOptions;
   iree_compiler::IREE::VM::BytecodeTargetOptions bytecodeOptions;
@@ -474,7 +486,15 @@ InMemoryCompiledBinary::translateFromModule(mlir::ModuleOp moduleOp) {
     return failure();
   }
   os.flush();
-  initialize(&binary[0], binary.length());
+  iree_host_size_t alignedSize = iree_host_align(binary.length(), 64);
+  #if defined(_MSC_VER )
+  alignedBinary = _aligned_malloc(binary.length(), 64);
+  #else
+  alignedBinary = aligned_alloc(64, alignedSize);
+  #endif
+  originalPointer = &binary[0];
+  std::memcpy(alignedBinary, originalPointer, binary.length());
+  initialize(alignedBinary, binary.length());
   return success();
 }
 
