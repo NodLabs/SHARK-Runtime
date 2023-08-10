@@ -688,6 +688,7 @@ static void addLowerToLLVMPasses(OpPassManager &passManager) {
   // memory space through the stack.
   passManager.addNestedPass<func::FuncOp>(
       createEraseHALDescriptorTypeFromMemRefPass());
+  passManager.addPass(memref::createFoldMemRefAliasOpsPass());
 
   // Lower `ukernel.*` ops to function calls
   passManager.addPass(createLowerUKernelOpsToCallsPass());
