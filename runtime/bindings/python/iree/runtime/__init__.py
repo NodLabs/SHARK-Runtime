@@ -65,4 +65,5 @@ from .system_setup import (
 from .function import *
 from .io import *
 
+from . import distributed
 from . import flags
