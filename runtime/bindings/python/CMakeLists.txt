@@ -145,6 +145,11 @@ iree_py_library(
     "iree/_runtime/scripts/iree_run_trace/__main__.py"
     "iree/_runtime/scripts/iree_run_module/__main__.py"
     "iree/_runtime/scripts/iree_tracy_capture/__main__.py"
+    "iree/runtime/distributed/__init__.py"
+    "iree/runtime/distributed/distributed.py"
+    "iree/runtime/distributed/run_rank.py"
+    "iree/runtime/distributed/sharding_pass_validation.py"
+    "iree/runtime/distributed/utils.py"
   PYEXT_DEPS
     iree_runtime_bindings_python_PyExtRt
 )
