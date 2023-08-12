@@ -1,7 +1,7 @@
 import iree.compiler
 import iree.runtime
 import os
-from iree.runtime.distributed import run_ranks
+from .distributed import run_ranks
 import subprocess
 from pathlib import Path
 from jax._src.lib import xla_client
