@@ -66,5 +66,4 @@ from .function import *
 from .io import *
 from .tracing import *
 
-from . import distributed
 from . import flags
