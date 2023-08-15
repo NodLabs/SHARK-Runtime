@@ -192,6 +192,7 @@ jobs:
           packages: "iree-runtime"
           output_dir: "${{ github.workspace }}/bindist"
         run: |
+          [ -e ./bindist/* ] && rm ./bindist/*
           ./c/build_tools/python_deploy/build_linux_packages.sh
 
       - name: Build runtime wheels (MacOS)
