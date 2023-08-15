@@ -181,6 +181,7 @@ jobs:
           packages: "iree-runtime"
           output_dir: "${{ github.workspace }}/bindist"
         run: |
+          [ -e ./bindist/* ] && rm ./bindist/*
           ./c/build_tools/python_deploy/build_linux_packages.sh
 
       - name: Build runtime wheels (Linux-AArch64)
@@ -191,6 +192,7 @@ jobs:
           packages: "iree-runtime"
           output_dir: "${{ github.workspace }}/bindist"
         run: |
+          [ -e ./bindist/* ] && rm ./bindist/*
           ./c/build_tools/python_deploy/build_linux_packages.sh
 
       - name: Build runtime wheels (MacOS)
@@ -213,7 +215,11 @@ jobs:
           packages: "iree-runtime"
           output_dir: "${{ github.workspace }}/bindist"
           override_python_versions: "3.11"
-        run: ./c/build_tools/python_deploy/build_windows_packages.ps1
+        run: |
+          if (Test-Path -Path "${{ github.workspace }}/bindist") {
+            Remove-Item -Path "${{ github.workspace }}/bindist" -Recurse -Force
+          }
+          ./c/build_tools/python_deploy/build_windows_packages.ps1
 
       ##########################################################################
       # py-compiler-pkg
@@ -260,7 +266,11 @@ jobs:
           packages: "iree-compiler"
           output_dir: "${{ github.workspace }}/bindist"
           override_python_versions: "3.11"
-        run: ./c/build_tools/python_deploy/build_windows_packages.ps1
+        run: |
+          if (Test-Path -Path "${{ github.workspace }}/bindist") {
+            Remove-Item -Path "${{ github.workspace }}/bindist" -Recurse -Force
+          }
+          ./c/build_tools/python_deploy/build_windows_packages.ps1
 
       ##########################################################################
       # TF Compiler Tools
