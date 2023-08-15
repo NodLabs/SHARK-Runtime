@@ -60,11 +60,11 @@ jobs:
 
           # Windows packages.
           - runs-on:
-              - ${{ github.repository == 'openxla/iree' && 'windows-2022-64core' || 'windows-2022'}}
+              - ${{ github.repository == 'openxla/iree' && 'windows-2022-64core' || '7950X'}}
             build-family: windows
             build-package: py-compiler-pkg
             experimental: true
-          - runs-on: windows-2022
+          - runs-on: 7950X
             build-family: windows
             build-package: py-runtime-pkg
             experimental: true
@@ -105,13 +105,15 @@ jobs:
       # OS specific setup
       ##########################################################################
 
-      - name: Install dependencies (Windows)
-        if: "matrix.build-family == 'windows'"
-        shell: powershell
-        run: ./c/build_tools/python_deploy/install_windows_deps.ps1
+      #- name: Install dependencies (Windows)
+      #  if: "matrix.build-family == 'windows'"
+      #  shell: powershell
+      #  run: ./c/build_tools/python_deploy/install_windows_deps.ps1
       - name: "Configure MSVC (Windows)"
         if: "matrix.build-family == 'windows'"
         uses: ilammy/msvc-dev-cmd@7315a94840631165970262a99c72cfb48a65d25d # v1.12.0
+        with:
+          arch: x64
 
       ##########################################################################
       # Write version_info.json
