@@ -69,12 +69,6 @@ def PadLinalgOps :
   ];
 }
 
-def RematerializeParallelOps :
-    Pass<"iree-preprocessing-rematerialize-parallel-ops", "func::FuncOp"> {
-  let summary = "Pass to rematerialize and merge parallel ops on pre-formed dispatches.";
-  let constructor = "mlir::iree_compiler::IREE::createRematerializeParallelOpsPass()";
-}
-
 def DequantizationMatmulFuse:
     Pass<"iree-preprocessing-dequantization-matmul-fuse", ""> {
   let summary = "Fuse dequantization and matmul linalg.generic ops";
