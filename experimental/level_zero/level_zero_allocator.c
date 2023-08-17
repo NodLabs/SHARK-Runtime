@@ -192,7 +192,7 @@ static void iree_hal_level_zero_buffer_free(
 static iree_status_t iree_hal_level_zero_allocator_allocate_buffer(
     iree_hal_allocator_t* IREE_RESTRICT base_allocator,
     const iree_hal_buffer_params_t* IREE_RESTRICT params,
-    iree_device_size_t allocation_size, iree_const_byte_span_t initial_data,
+    iree_device_size_t allocation_size,
     iree_hal_buffer_t** IREE_RESTRICT out_buffer) {
   iree_hal_level_zero_allocator_t* allocator =
       iree_hal_level_zero_allocator_cast(base_allocator);
@@ -265,18 +265,6 @@ static iree_status_t iree_hal_level_zero_allocator_allocate_buffer(
         compat_params.access, compat_params.usage, allocation_size,
         /*byte_offset=*/0,
         /*byte_length=*/allocation_size, device_ptr, host_ptr, &buffer);
-  }
-
-  // Copy the initial contents into the buffer. This may require staging.
-  if (iree_status_is_ok(status) &&
-      !iree_const_byte_span_is_empty(initial_data)) {
-    status = iree_hal_device_transfer_range(
-        allocator->base_device,
-        iree_hal_make_host_transfer_buffer_span((void*)initial_data.data,
-                                                initial_data.data_length),
-        0, iree_hal_make_device_transfer_buffer(buffer), 0,
-        initial_data.data_length, IREE_HAL_TRANSFER_BUFFER_FLAG_DEFAULT,
-        iree_infinite_timeout());
   }
 
   if (iree_status_is_ok(status)) {
