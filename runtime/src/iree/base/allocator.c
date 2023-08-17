@@ -111,7 +111,17 @@ static iree_status_t iree_allocator_system_alloc(
   }
 
   if (existing_ptr) {
+    // When compiling On ARM64,
+    // GCC wrongly flags this as an error [-Werror=use-after-free]
+    // due to the realloc above.
+#if defined(__GNUC__) && (__GNUC__ >= 7) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuse-after-free"
+#endif
     IREE_TRACE_FREE(existing_ptr);
+#if defined(__GNUC__) && (__GNUC__ >= 7) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
   }
   IREE_TRACE_ALLOC(new_ptr, byte_length);
 
