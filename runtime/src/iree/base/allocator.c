@@ -96,9 +96,12 @@ static iree_status_t iree_allocator_system_alloc(
 
   void* new_ptr = NULL;
   if (existing_ptr && command == IREE_ALLOCATOR_COMMAND_REALLOC) {
+    // This will erroneusly trace the free if the realloc fails.
+    // It can't be after it because it may trigger use-after-free error on
+    // GCC 12.
+    IREE_TRACE_FREE(existing_ptr);
     new_ptr = realloc(existing_ptr, byte_length);
   } else {
-    existing_ptr = NULL;
     if (command == IREE_ALLOCATOR_COMMAND_CALLOC) {
       new_ptr = calloc(1, byte_length);
     } else {
@@ -110,9 +113,6 @@ static iree_status_t iree_allocator_system_alloc(
                             "system allocator failed the request");
   }
 
-  if (existing_ptr) {
-    IREE_TRACE_FREE(existing_ptr);
-  }
   IREE_TRACE_ALLOC(new_ptr, byte_length);
 
   *inout_ptr = new_ptr;
