@@ -7,6 +7,7 @@
 #include "iree/hal/drivers/cuda/nccl_channel.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "iree/base/api.h"
@@ -316,6 +317,7 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
 
   switch (entry->op.kind) {
     case IREE_HAL_COLLECTIVE_KIND_ALL_GATHER: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -331,9 +333,17 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
           ncclAllGather((const void*)sendbuff, (void*)recvbuff,
                         entry->element_count, datatype, comm, stream),
           "ncclAllGather");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "allgather");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_ALL_REDUCE: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -352,9 +362,18 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
           ncclAllReduce((const void*)sendbuff, (void*)recvbuff,
                         entry->element_count, datatype, redop, comm, stream),
           "ncclAllReduce");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "allreduce");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
+
     }
     case IREE_HAL_COLLECTIVE_KIND_ALL_TO_ALL: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -380,9 +399,17 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                                       send_count, datatype, r, comm, stream),
                              "ncclRecv");
       }
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "sendrecv");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_BROADCAST: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -398,9 +425,17 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                                          entry->element_count, datatype,
                                          entry->param, comm, stream),
                            "ncclBroadcast");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "broadcast");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_REDUCE: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -419,9 +454,17 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                                       entry->element_count, datatype, redop,
                                       entry->param, comm, stream),
                            "ncclReduce");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "reduce");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_REDUCE_SCATTER: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -441,9 +484,17 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                             entry->element_count, datatype, redop, comm,
                             stream),
           "ncclReduceScatter");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "reducescatter");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_SEND: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr sendbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->send_binding.buffer)) +
@@ -453,9 +504,16 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                            ncclSend((const void*)sendbuff, entry->element_count,
                                     datatype, entry->param, comm, stream),
                            "ncclSend");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "send");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(sendbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_RECV: {
+      IREE_TRACE_ZONE_BEGIN(z0);
       CUdeviceptr recvbuff =
           iree_hal_cuda_buffer_device_pointer(
               iree_hal_buffer_allocated_buffer(entry->recv_binding.buffer)) +
@@ -465,6 +523,12 @@ static iree_status_t iree_hal_cuda_nccl_submit_batch_entry(
                            ncclRecv((void*)recvbuff, entry->element_count,
                                     datatype, entry->param, comm, stream),
                            "ncclRecv");
+      IREE_TRACE_ZONE_APPEND_TEXT(z0, "recv");
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, sizeof(recvbuff));
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->rank);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, channel->count);
+      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, comm);
+      IREE_TRACE_ZONE_END(z0);
       break;
     }
     case IREE_HAL_COLLECTIVE_KIND_SEND_RECV: {
