@@ -25,7 +25,7 @@ set(IREE_ROCM_BC_DIR "${IREE_ROCM_BC_DIR_DEFAULT}" CACHE STRING
 iree_add_all_subdirs()
 
 if(NOT ROCM_HEADERS_API_ROOT)
-  set(ROCM_HEADERS_API_ROOT "/opt/rocm/include")
+	set(ROCM_HEADERS_API_ROOT ${CMAKE_CURRENT_LIST_DIR})
 endif()
 
 if(EXISTS ${ROCM_HEADERS_API_ROOT})
@@ -68,7 +68,7 @@ iree_cc_library(
   INCLUDES
     "${CMAKE_CURRENT_LIST_DIR}/../.."
     "${PROJECT_BINARY_DIR}"
-    "${ROCM_HEADERS_API_ROOT}"
+    "${ROCM_HEADERS_API_ROOT}/.."
   DEPS
     ::dynamic_symbols
     iree::base
