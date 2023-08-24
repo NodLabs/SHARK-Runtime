@@ -61,17 +61,12 @@ extern "C" {
 #define hipMemcpyDtoD hipMemcpyDtoD
 #define hipMemcpyHtoA hipMemcpyHtoA
 #define hipMemcpyAtoH hipMemcpyAtoH
-#define hipMemcpyAsync hipMemcpyAsync
 #define hipMemcpyHtoDAsync hipMemcpyHtoDAsync
 #define hipMemcpyDtoHAsync hipMemcpyDtoHAsync
 #define hipMemcpyDtoDAsync hipMemcpyDtoDAsync
 #define hipMemsetD8 hipMemsetD8
 #define hipMemsetD16 hipMemsetD16
 #define hipMemsetD32 hipMemsetD32
-#define hipMemsetAsync hipMemsetAsync
-#define hipMemsetD8Async hipMemsetD8Async
-#define hipMemsetD16Async hipMemsetD16Async
-#define hipMemsetD32Async hipMemsetD32Async
 #define hipArrayCreate hipArrayCreate
 #define hipArray3DCreate hipArray3DCreate
 #define hipPointerGetAttributes hipPointerGetAttributes
@@ -92,7 +87,7 @@ typedef uint64_t hipuint64_t;
 #endif
 
 #if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64) || defined (__aarch64__)
-typedef unsigned long long hipDeviceptr_t;
+typedef void * hipDeviceptr_t;
 #else
 typedef unsigned int hipDeviceptr_t;
 #endif
