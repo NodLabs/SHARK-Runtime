@@ -30,7 +30,6 @@ iree_cc_library(
     "InterpreterPass.cpp"
     "ConvertConvNchwToNhwc.cpp"
     "ConvertConvToChannelsLast.cpp"
-    "ConvertLinalgMatmulToMmt.cpp"
     "GeneralizeConvolutions.cpp"
     "MakeSingleDispatchForFunction.cpp"
     "PadLinalgOps.cpp"
