@@ -22,18 +22,6 @@ def ConvertConvNchwToNhwc :
       "mlir::iree_compiler::Preprocessing::createConvertConvNchwToNhwcPass()";
 }
 
-def ConvertLinalgMatmulToMmt :
-    Pass<"iree-flow-convert-linalg-matmul-to-mmt", ""> {
-  let summary = "Convert linalg.matmul to linalg.transpose + linalg.matmul";
-  let constructor = "mlir::iree_compiler::IREE::createConvertLinalgMatmulToMmtPass()";
-}
-
-def GeneralizeAndFuse :
-    Pass<"iree-flow-generalize-and-fuse", ""> {
-  let summary = "Generalizes named op and try to fuse them.";
-  let constructor = "mlir::iree_compiler::IREE::createGeneralizeAndFusePass()";
-}
-
 def MakeSingleDispatchForFunction :
     Pass<"iree-preprocessing-make-single-dispatch-for-function", "func::FuncOp"> {
   let summary = "Convert entire function into a single dispatch";
