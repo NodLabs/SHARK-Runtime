@@ -26,12 +26,6 @@ std::unique_ptr<Pass> createConvertConv2DToImg2ColPass();
 std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
 createConvertConvNchwToNhwcPass();
 
-// Pass to convert a linalg.matmul into linalg.transpose + linalg.matmul.
-std::unique_ptr<Pass> createConvertLinalgMatmulToMmtPass();
-
-// Generalizes named op and try to fuse them
-std::unique_ptr<Pass> createGeneralizeAndFusePass();
-
 /// Moves the body of the entire function into a single dispatch.
 std::unique_ptr<OperationPass<func::FuncOp>>
 createMakeSingleDispatchForFunctionPass();
