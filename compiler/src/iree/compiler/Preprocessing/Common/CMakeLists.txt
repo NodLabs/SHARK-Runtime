@@ -29,7 +29,6 @@ iree_cc_library(
     "ConvertConv2DToImg2Col.cpp"
     "ConvertConvNchwToNhwc.cpp"
     "ConvertConvToChannelsLast.cpp"
-    "ConvertLinalgMatmulToMmt.cpp"
     "GeneralizeConvolutions.cpp"
     "MakeSingleDispatchForFunction.cpp"
     "PadLinalgOps.cpp"
