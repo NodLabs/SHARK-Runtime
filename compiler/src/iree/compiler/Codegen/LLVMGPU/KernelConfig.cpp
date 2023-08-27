@@ -206,7 +206,7 @@ static TargetInfo getRocmTargetInfo(func::FuncOp entryPoint) {
   // If no target name is set assume all the features are off.
   if (targetName == "")
     return info;
-  if (!targetName.starts_with("gfx")) {
+  if (!StringRef(targetName).starts_with("gfx")) {
     entryPoint.emitError("unknown target name ") << targetName;
     return info;
   }
@@ -805,15 +805,16 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
     return failure();
 
   // Make sure reduction dimensions are the innermost ones.
-  int64_t numParallelDims = op.getNumParallelLoops();
-  if (llvm::any_of(reductionDims, [&](int64_t reductionDim) {
-        return reductionDim < numParallelDims;
-      })) {
-    return failure();
+  for (int i = 0; i < reductionDims.size(); ++i) {
+    if (reductionDims[reductionDims.size() - 1 - i] !=
+        op.getNumLoops() - 1 - i) {
+      return failure();
+    }
   }
 
   if (op.getRegionOutputArgs().size() != 1)
     return failure();
+
 
   // Only support projected permutation, this could be extended to projected
   // permutated with broadcast.
@@ -856,6 +857,7 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   // Reduction distribution only supports 8/16/32 bit types now.
   if (bitWidth != 32 && bitWidth != 16 && bitWidth != 8)
     return failure();
+
 
   const unsigned largestLoadSizeInBits = 128;
   unsigned vectorSize = largestLoadSizeInBits / bitWidth;
