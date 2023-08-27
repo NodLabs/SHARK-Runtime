@@ -117,7 +117,6 @@ struct ConvertToROCDLPass : public ConvertToROCDLBase<ConvertToROCDLPass> {
       if (failed(applyPartialConversion(m, target, std::move(llvmPatterns))))
         signalPassFailure();
     }
-    ConvertToDynamicSharedMemory(m);
   }
 };
 
