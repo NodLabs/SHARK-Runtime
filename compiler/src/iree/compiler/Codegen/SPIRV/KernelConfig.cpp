@@ -40,7 +40,6 @@ using llvm::APIntOps::GreatestCommonDivisor;
 constexpr unsigned numTilesPerSubgroupDimK = 2;
 
 constexpr int kMaxVectorNumBits = 128;
-constexpr int kPreferredReductionVectorUnrollAmount = 8;
 
 namespace mlir {
 namespace iree_compiler {
@@ -1259,8 +1258,7 @@ static LogicalResult setReductionConfig(const spirv::TargetEnv &targetEnv,
     return failure();
 
   // Let each thread handle `vectorSize` elements.
-  unsigned vectorSize =
-      kPreferredReductionVectorUnrollAmount * kMaxVectorNumBits / bitWidth;
+  unsigned vectorSize = kMaxVectorNumBits / bitWidth;
   while ((dimSize / vectorSize) % subgroupSize != 0)
     vectorSize /= 2;
 
