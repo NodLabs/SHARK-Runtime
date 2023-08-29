@@ -167,7 +167,8 @@ verifyGPUMatmulPipeline(Operation *op,
 
   // Return success for SIMT/CUDA cores.
   if (pipeline.getValue() ==
-      IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUMatmulSimt)
+      IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUMatmulSimt ||
+      pipeline.getValue() == IREE::Codegen::DispatchLoweringPassPipeline::LLVMGPUVectorize)
     return success();
 
   //
