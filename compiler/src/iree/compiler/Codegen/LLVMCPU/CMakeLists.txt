@@ -58,6 +58,7 @@ iree_cc_library(
     "LLVMCPUBreakDownSubbyteExtend.cpp"
     "LLVMCPUCheckIRBeforeLLVMConversion.cpp"
     "LLVMCPUEmitVectorizationRemarks.cpp"
+    "LLVMCPUFoldUnitReductionDims.cpp"
     "LLVMCPULinkExecutables.cpp"
     "LLVMCPULowerExecutableTarget.cpp"
     "LLVMCPULowerToUKernels.cpp"

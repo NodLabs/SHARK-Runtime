@@ -77,6 +77,7 @@ void LLVMCPUVectorLoweringPass::runOnOperation() {
           .setVectorTransformsOptions(vectorContractLowering)
           .setVectorMultiReductionLowering(vectorMultiReductionLowering)
           .setVectorTransferSplit(vectorTransferSplit);
+
   // Lower high level vector operations like contract or multidim reduce ops
   // to lower level vector ops.
   {
