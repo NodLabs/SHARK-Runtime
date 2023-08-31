@@ -45,6 +45,11 @@ def LLVMCPUAssignImportOrdinals :
   let constructor = "mlir::iree_compiler::createLLVMCPUAssignImportOrdinalsPass()";
 }
 
+def LLVMCPUBreakDownSubbyteExtend : Pass<"iree-llvmcpu-breakdown-subbyte-extend", "func::FuncOp"> {
+  let summary = "Pass to break down subbyte extui ops.";
+  let constructor = "mlir::iree_compiler::createLLVMCPUBreakDownSubbyteExtendPass()";
+}
+
 def LLVMCPUCheckIRBeforeLLVMConversion :
     Pass<"iree-llvmcpu-check-ir-before-llvm-conversion", "ModuleOp"> {
   let summary = "Checks CPU backend specific IR constraints (like no allocas)";
@@ -56,6 +61,13 @@ def LLVMCPUEmitVectorizationRemarks :
   let summary = "Emit vectorization remarks on Linalg ops";
   let constructor =
       "mlir::iree_compiler::createLLVMCPUEmitVectorizationRemarksPass()";
+}
+
+def LLVMCPUFoldUnitReductionDims :
+    Pass<"iree-llvmcpu-FolfUnitReductionDims", "func::FuncOp"> {
+  let summary = "Fold unit dims on linalg.generic ops";
+  let constructor =
+      "mlir::iree_compiler::createLLVMCPUFoldUnitReductionDimsPass()";
 }
 
 def LLVMCPULinkExecutables :
