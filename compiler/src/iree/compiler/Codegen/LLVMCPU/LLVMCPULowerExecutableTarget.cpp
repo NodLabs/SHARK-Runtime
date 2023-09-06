@@ -235,6 +235,13 @@ void LLVMCPULowerExecutableTargetPass::runOnOperation() {
     default:
       moduleOp.emitOpError("Unsupported pipeline on CPU target.");
       return signalPassFailure();
+
+    case IREE::Codegen::DispatchLoweringPassPipeline::AccelMatmulExpert: {
+      TilingConfig tilingConfig = getTilingConfigForPipeline(moduleOp);
+      addAccelMatmulExpertPassPipeline(executableLoweringPipeline,
+                                       tilingConfig,
+                                       enableAccelMicrokernels);
+      break;
     }
   }
 

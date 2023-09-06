@@ -64,6 +64,8 @@ def SPIRV_WinogradVectorize
 
 def VMVX_Default : I32EnumAttrCase<"VMVXDefault", 300>;
 
+def CPU_AccelMatmulExpert
+    : I32EnumAttrCase<"AccelMatmulExpert", 25>;
 
 def Linalg_TransformDialectCodegen
     : I32EnumAttrCase<"TransformDialectCodegen", 1000>;
@@ -79,7 +81,7 @@ def DispatchLoweringPassPipelineEnum : I32EnumAttr<
     CPU_Default, CPU_DoubleTilingExpert, CPU_DoubleTilingPadExpert,
     CPU_DoubleTilingPeelingExpert, CPU_ConvTileAndDecomposeExpert,
     CPU_Mmt4dTilingExpert, CPU_BufferOpsTileAndVectorize,
-    CPU_DataTiling,
+    CPU_DataTiling, CPU_AccelMatmulExpert,
 
     // LLVMGPU CodeGen pipelines
     LLVMGPU_Default, LLVMGPU_SimpleDistribute, LLVMGPU_Vectorize,

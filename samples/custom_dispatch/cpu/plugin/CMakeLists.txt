@@ -21,6 +21,7 @@ target_include_directories(iree_samples_custom_dispatch_cpu_system_plugin
     ${IREE_SOURCE_DIR}/runtime/src/
 )
 
+iree_add_all_subdirs()
 # NOTE: this is only required because we want this sample to run on all
 # platforms without needing to change the library name (libfoo.so/foo.dll).
 set_target_properties(iree_samples_custom_dispatch_cpu_system_plugin

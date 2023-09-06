@@ -61,6 +61,7 @@ iree_cc_library(
     "LLVMCPUFoldVectorContractUnitDims.cpp"
     "LLVMCPULinkExecutables.cpp"
     "LLVMCPULowerExecutableTarget.cpp"
+    "LLVMCPULowerToAccelUKernels.cpp"
     "LLVMCPUMmt4dVectorLowering.cpp"
     "LLVMCPUPeel.cpp"
     "LLVMCPUSelectLoweringStrategy.cpp"
