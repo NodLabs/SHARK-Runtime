@@ -781,14 +781,20 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
     return failure();
   if (!isa<linalg::GenericOp>(op))
     return failure();
-  // TODO(thomasraoux): Enable dynamic shape.
-  bool hasDynamicShape = false;
-  entryPoint.walk([&hasDynamicShape](linalg::LinalgOp op) {
-    if (op.hasDynamicShape())
-      hasDynamicShape = true;
+  // TODO: Enable dynamic shape.
+  auto walkResult = entryPoint.walk([](linalg::LinalgOp op) {
+    using utils::IteratorType;
+    SmallVector<IteratorType, 4> kinds = op.getIteratorTypesArray();
+    SmallVector<int64_t, 4> bounds = op.getStaticLoopRanges();
+    for (auto [kind, bound] : llvm::zip_equal(kinds, bounds)) {
+      if (kind == IteratorType::reduction && ShapedType::isDynamic(bound))
+        return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
   });
-  if (hasDynamicShape)
+  if (walkResult.wasInterrupted()) {
     return failure();
+  }
   SmallVector<unsigned> reductionDims;
   op.getReductionDims(reductionDims);
   if (reductionDims.empty())
@@ -830,7 +836,6 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   }
   if (!foundSingleReductionOutput)
     return failure();
-
 
   SmallVector<int64_t, 4> bounds = op.getStaticLoopRanges();
   int64_t dimSize = 1;
