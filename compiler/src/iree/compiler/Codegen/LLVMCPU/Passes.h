@@ -108,6 +108,14 @@ createVectorContractCustomKernelsPass();
 std::unique_ptr<OperationPass<ModuleOp>>
 createVerifyLinalgTransformLegalityPass();
 
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLLVMCPUFoldVectorContractUnitDimsPass();
+
+std::unique_ptr<Pass> createLLVMCPUFoldMemRefAliasOpsPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+createSetSpecialTilingConfigsPass();
+
 //------------------------------------------------------------------------------
 // LLVMCPU Codegen specific patterns.
 //------------------------------------------------------------------------------

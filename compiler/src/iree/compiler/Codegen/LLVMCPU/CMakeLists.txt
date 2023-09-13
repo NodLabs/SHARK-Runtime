@@ -71,6 +71,7 @@ iree_cc_library(
     "LLVMCPUVectorTransposeLowering.cpp"
     "LLVMCPUVirtualVectorLowering.cpp"
     "Passes.cpp"
+    "SetSpecialTilingConfigs.cpp"
     "TargetMLTransformInfo.cpp"
     "Utils.cpp"
     "VectorContractCustomKernels.cpp"
