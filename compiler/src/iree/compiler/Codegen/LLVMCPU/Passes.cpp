@@ -709,8 +709,10 @@ static void addLowerToLLVMPasses(OpPassManager &passManager,
 
 void buildLLVMCPUCodegenConfigurationPassPipeline(OpPassManager &passManager) {
   {
-    addCommonTargetExecutablePreprocessingPasses(passManager);
     OpPassManager &modulePassManager = passManager.nest<ModuleOp>();
+    modulePassManager.addNestedPass<func::FuncOp>(
+        createSetSpecialTilingConfigsPass());
+    addCommonTargetExecutablePreprocessingPasses(passManager);
     modulePassManager.addNestedPass<func::FuncOp>(
         createRematerializeParallelOpsPass());
     // TODO(#13888): This(createExpandF16OpToF32Pass()) pass is being added way
