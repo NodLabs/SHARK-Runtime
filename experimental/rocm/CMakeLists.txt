@@ -61,6 +61,8 @@ iree_cc_library(
     "pipeline_layout.h"
     "status_util.c"
     "status_util.h"
+    "stream_command_buffer.c"
+    "stream_command_buffer.h"
     "tracing.c"
     "tracing.h"
   INCLUDES
@@ -76,8 +78,11 @@ iree_cc_library(
     iree::base::internal::synchronization
     iree::hal
     iree::hal::utils::buffer_transfer
+    iree::hal::utils::collective_batch
+    iree::hal::utils::deferred_command_buffer
     iree::hal::utils::file_transfer
     iree::hal::utils::memory_file
+    iree::hal::utils::resource_set
     iree::hal::utils::semaphore_base
     iree::schemas::rocm_executable_def_c_fbs
   COPTS
