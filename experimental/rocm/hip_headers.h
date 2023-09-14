@@ -434,6 +434,12 @@ typedef enum hipDeviceAttribute_t {
   // Extended attributes for vendors
 } hipDeviceAttribute_t;
 
+typedef enum hipFuncAttribute {
+  hipFuncAttributeMaxDynamicSharedMemorySize = 8,
+  hipFuncAttributePreferredSharedMemoryCarveout = 9,
+  hipFuncAttributeMax,
+} hipFuncAttribute;
+
 typedef struct HIPdevprop_st {
   int maxThreadsPerBlock;
   int maxThreadsDim[3];
