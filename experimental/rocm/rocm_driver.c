@@ -21,6 +21,7 @@ typedef struct iree_hal_rocm_driver_t {
   // We allow overriding so that multiple ROCM versions can be exposed in the
   // same process.
   iree_string_view_t identifier;
+  iree_hal_rocm_device_params_t default_params;
   int default_device_index;
   // ROCM symbols.
   iree_hal_rocm_dynamic_symbols_t syms;
@@ -45,6 +46,7 @@ IREE_API_EXPORT void iree_hal_rocm_driver_options_initialize(
 
 static iree_status_t iree_hal_rocm_driver_create_internal(
     iree_string_view_t identifier,
+    const iree_hal_rocm_device_params_t* default_params,
     const iree_hal_rocm_driver_options_t* options,
     iree_allocator_t host_allocator, iree_hal_driver_t** out_driver) {
   iree_hal_rocm_driver_t* driver = NULL;
@@ -56,6 +58,8 @@ static iree_status_t iree_hal_rocm_driver_create_internal(
   iree_string_view_append_to_buffer(
       identifier, &driver->identifier,
       (char*)driver + total_size - identifier.size);
+  memcpy(&driver->default_params, default_params,
+         sizeof(driver->default_params));
   driver->default_device_index = options->default_device_index;
   iree_status_t status =
       iree_hal_rocm_dynamic_symbols_initialize(host_allocator, &driver->syms);
@@ -80,14 +84,16 @@ static void iree_hal_rocm_driver_destroy(iree_hal_driver_t* base_driver) {
 
 IREE_API_EXPORT iree_status_t iree_hal_rocm_driver_create(
     iree_string_view_t identifier,
+    const iree_hal_rocm_device_params_t* default_params,
     const iree_hal_rocm_driver_options_t* options,
     iree_allocator_t host_allocator, iree_hal_driver_t** out_driver) {
+  IREE_ASSERT_ARGUMENT(default_params);
   IREE_ASSERT_ARGUMENT(options);
   IREE_ASSERT_ARGUMENT(out_driver);
   IREE_TRACE_ZONE_BEGIN(z0);
 
   iree_status_t status = iree_hal_rocm_driver_create_internal(
-      identifier, options, host_allocator, out_driver);
+      identifier, default_params, options, host_allocator, out_driver);
 
   IREE_TRACE_ZONE_END(z0);
   return status;
@@ -206,7 +212,7 @@ static iree_status_t iree_hal_rocm_driver_create_device_by_id(
 
   // Attempt to create the device.
   iree_status_t status =
-      iree_hal_rocm_device_create(base_driver, device_name, &driver->syms,
+      iree_hal_rocm_device_create(base_driver, device_name, &driver->default_params, &driver->syms,
                                   device, host_allocator, out_device);
 
   IREE_TRACE_ZONE_END(z0);
