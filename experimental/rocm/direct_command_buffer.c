@@ -213,7 +213,7 @@ static iree_status_t iree_hal_rocm_direct_command_buffer_fill_buffer(
       ROCM_RETURN_IF_ERROR(
           command_buffer->context->syms,
           hipMemsetD8Async(dst, *(const uint8_t*)(pattern), num_elements, 0),
-          "hipMemsetD*Async");
+          "hipMemsetD8Async");
       break;
     }
     default:
@@ -371,8 +371,8 @@ static iree_status_t iree_hal_rocm_direct_command_buffer_dispatch(
       command_buffer->context->syms,
       hipModuleLaunchKernel(kernel_params.function, workgroup_x, workgroup_y,
                             workgroup_z, kernel_params.block_size[0],
-                            kernel_params.block_size[1],
-                            kernel_params.block_size[2], 0, 0,
+                            kernel_params.block_size[1], kernel_params.block_size[2],
+                            kernel_params.shared_memory_size, 0,
                             command_buffer->current_descriptor, NULL),
       "hipModuleLaunchKernel");
 
