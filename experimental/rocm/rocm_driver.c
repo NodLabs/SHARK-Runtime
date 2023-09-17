@@ -106,10 +106,17 @@ static uint8_t* iree_hal_rocm_populate_device_info(
     hipDevice_t device, iree_hal_rocm_dynamic_symbols_t* syms,
     uint8_t* buffer_ptr, iree_hal_device_info_t* out_device_info) {
   char device_name[IREE_MAX_ROCM_DEVICE_NAME_LENGTH];
+  HIPuuid device_uuid;
   ROCM_IGNORE_ERROR(syms,
                     hipDeviceGetName(device_name, sizeof(device_name), device));
+  ROCM_IGNORE_ERROR(syms, hipDeviceGetUuid(&device_uuid, device));
   memset(out_device_info, 0, sizeof(*out_device_info));
   out_device_info->device_id = (iree_hal_device_id_t)device;
+
+  iree_string_view_t device_path_string =
+      iree_make_string_view(device_uuid.bytes, 16);
+  buffer_ptr += iree_string_view_append_to_buffer(
+      device_path_string, &out_device_info->path, (char*)buffer_ptr);
 
   iree_string_view_t device_name_string =
       iree_make_string_view(device_name, strlen(device_name));
