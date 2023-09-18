@@ -139,6 +139,7 @@ static iree_status_t iree_hal_rocm_device_create_internal(
   }
   if (iree_status_is_ok(status)) {
     status = iree_hal_rocm_allocator_create(&device->context_wrapper,
+                                            device->device, device->stream,
                                             &device->device_allocator);
   }
   if (iree_status_is_ok(status) &&
