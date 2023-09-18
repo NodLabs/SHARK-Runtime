@@ -19,6 +19,8 @@ extern "C" {
 // Create a ROCM allocator.
 iree_status_t iree_hal_rocm_allocator_create(
     iree_hal_rocm_context_wrapper_t* context,
+    hipDevice_t device,
+    hipStream_t stream,
     iree_hal_allocator_t** out_allocator);
 
 #ifdef __cplusplus
