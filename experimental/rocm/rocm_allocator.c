@@ -285,6 +285,16 @@ static iree_status_t iree_hal_rocm_allocator_allocate_buffer(
       status = ROCM_RESULT_TO_STATUS(
           allocator->context->syms,
           hipMallocManaged(&device_ptr, allocation_size, hipMemAttachGlobal));
+      if (iree_status_is_ok(status)) {
+        status = ROCM_RESULT_TO_STATUS(
+            allocator->context->syms,
+            hipMemAdvise(device_ptr, allocation_size,
+                         hipMemAdviseSetPreferredLocation, allocator->device));
+        status = ROCM_RESULT_TO_STATUS(
+            allocator->context->syms,
+            hipMemAdvise(device_ptr, allocation_size,
+                         hipMemAdviseSetCoarseGrain, allocator->device));
+      }
       if (iree_status_is_ok(status) &&
           allocator->supports_concurrent_managed_access) {
         // Prefetch the buffer on the GPU device.
