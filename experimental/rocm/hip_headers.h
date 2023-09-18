@@ -234,6 +234,17 @@ typedef enum HIPmemAttach_flags_enum {
   HIP_MEM_ATTACH_SINGLE = 0x4,
 } HIPmemAttach_flags;
 
+typedef enum HIPmemoryAdvise_flags_enum {
+  hipMemAdviseSetReadMostly = 1,
+  hipMemAdviseUnsetReadMostly = 2,
+  hipMemAdviseSetPreferredLocation = 3,
+  hipMemAdviseUnsetPreferredLocation = 4,
+  hipMemAdviseSetAccessedBy = 5,
+  hipMemAdviseUnsetAccessedBy = 6,
+  hipMemAdviseSetCoarseGrain = 100,
+  hipMemAdviseUnsetCoarseGrain = 101,
+} HIPmemoryAdvise_flags;
+
 typedef enum HIPctx_flags_enum {
   hipDeviceScheduleAuto = 0x00,
   hipDeviceScheduleSpin = 0x01,
