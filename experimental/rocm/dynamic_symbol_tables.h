@@ -35,6 +35,7 @@ RC_PFN_DECL(hipMemcpyAsync, void *, const void *, size_t, hipMemcpyKind,
             hipStream_t)
 RC_PFN_DECL(hipMalloc, void **, size_t)
 RC_PFN_DECL(hipMallocManaged, hipDeviceptr_t *, size_t, unsigned int)
+RC_PFN_DECL(hipMemPrefetchAsync, const void *, size_t, int, hipStream_t)
 RC_PFN_DECL(hipFree, void *)
 RC_PFN_DECL(hipHostFree, void *)
 RC_PFN_DECL(hipMemAllocHost, void **, size_t, unsigned int)
