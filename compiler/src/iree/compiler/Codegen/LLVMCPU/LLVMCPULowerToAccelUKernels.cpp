@@ -16,6 +16,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -74,7 +75,7 @@ getFnNameAndDefAttrs(const char *ukernelName, RewriterBase &rewriter,
 }
 
 /// Matches an (linalg.fill -> )? linalg.mmt4d operation sequence and converts
-/// it into a iree_codegen.ukernel.generic "accel_matmul_f32" operation, that is
+/// it into a iree_codegen.ukernel.generic "accel_matmul_t_f32" operation, that is
 /// later lowered into a call to the microkernel.
 static FailureOr<IREE::Codegen::UKernelOpInterface>
 matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
@@ -105,14 +106,27 @@ matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
   if (outType.getShape()[0] != 1 || outType.getShape()[1] != 1) {
     return rewriter.notifyMatchFailure(op, "outer dims need to be 1");
   }
-
   auto outTypeRanked = out.getType().cast<RankedTensorType>();
   RankedTensorType intermediateOutType =
       RankedTensorType::Builder(outTypeRanked).dropDim(0);
   RankedTensorType reducedOutType =
       RankedTensorType::Builder(intermediateOutType).dropDim(0);
-  Value reducedOut = tensor::createCanonicalRankReducingExtractSliceOp(
-      rewriter, loc, out, reducedOutType);
+  Value reducedOut;
+  Value initTensor;
+  if (auto oldFillOp = out.getDefiningOp<linalg::FillOp>()) {
+    initTensor = oldFillOp.output();
+    auto newInit = tensor::createCanonicalRankReducingExtractSliceOp(
+        rewriter, loc, initTensor, reducedOutType);
+    reducedOut =
+        rewriter
+            .create<linalg::FillOp>(loc, ValueRange{oldFillOp.value()},
+                                    ValueRange{newInit})
+            .result();
+  } else {
+    reducedOut = tensor::createCanonicalRankReducingExtractSliceOp(
+        rewriter, loc, out, reducedOutType);
+    initTensor = out;
+    }
 
   auto lhsTypeRanked = lhs.getType().cast<RankedTensorType>();
   RankedTensorType intermediateLhsType =
@@ -146,14 +160,14 @@ matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
   //Value flagsVal = rewriter.create<arith::ConstantOp>(
   //    loc, rewriter.getI32IntegerAttr(flags));
   auto targetAttr = IREE::HAL::ExecutableTargetAttr::lookup(op);
-  auto fn = getFnNameAndDefAttrs("accel_matmul_f32", rewriter, targetAttr);
+  auto fn = getFnNameAndDefAttrs("accel_matmul_t_f32", rewriter, targetAttr);
   auto genericMicroKernelOp = rewriter.create<IREE::Codegen::UKernelGenericOp>(
       loc, reducedOutType, fn.name, ValueRange{reducedLhs, reducedRhs},
       reducedOut, ValueRange{m, n, k},
       /*fn_def_attrs=*/rewriter.getDictionaryAttr(fn.defAttrs),
       /*strided_outer_dims=*/rewriter.getIndexAttr(0));
   auto insertSliceOp = tensor::createCanonicalRankReducingInsertSliceOp(
-      rewriter, loc, genericMicroKernelOp.getResult(0), out);
+      rewriter, loc, genericMicroKernelOp.getResult(0), initTensor);
   op.getResults()[0].replaceAllUsesWith(insertSliceOp);
   return cast<IREE::Codegen::UKernelOpInterface>(
       genericMicroKernelOp.getOperation());
@@ -179,16 +193,14 @@ struct LowerToAccelUKernelPattern : OpRewritePattern<OpType> {
 
 void LLVMCPULowerToAccelUKernelsPass::runOnOperation() {
   MLIRContext *context = &getContext();
+  // Convert mmt4d ops to iree_codegen.ukernel.generic "accel_matmul_f32" ops.
   RewritePatternSet patterns(context);
-  // Enabling a lowering of an op to a microkernel is a trade-off between the
-  // potential performance advantage of a microkernel over pure code generation
-  // for that op, and the potential benefits of fusions. Indeed, once an op
-  // lowered into a microkernel, it will never be fused at any MLIR level.
-  // Since microkernels are linked as bitcode, they will still undergo LTO-like
-  // optimization in their calling contexts, but we shouldn't expect this to
-  // achieve similar results as fusing structured ops.
   patterns.insert<LowerToAccelUKernelPattern<linalg::Mmt4DOp>>(context);
-  mlir::memref::populateResolveShapedTypeResultDimsPatterns(patterns);
+  // Canonicalize extract and insert slice ops created during the conversion.
+  tensor::populateMergeConsecutiveInsertExtractSlicePatterns(patterns);
+  tensor::InsertSliceOp::getCanonicalizationPatterns(patterns, context);
+  tensor::ExtractSliceOp::getCanonicalizationPatterns(patterns, context);
+  //mlir::memref::populateResolveShapedTypeResultDimsPatterns(patterns);
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
     return signalPassFailure();
