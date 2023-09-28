@@ -30,6 +30,7 @@ iree_lit_test_suite(
     "hal_interface_constants.mlir"
     "hal_interface_workgroup_info.mlir"
     "illegal_configuration.mlir"
+    "lower_to_accel_ukernel_ops.mlir"
     "lower_to_ukernel_ops.mlir"
     "materialize_aarch64_launch_configuration.mlir"
     "materialize_configuration_without_distribution.mlir"

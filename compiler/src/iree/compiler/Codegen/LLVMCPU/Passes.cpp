@@ -55,6 +55,11 @@ static llvm::cl::opt<bool> clEnablePadConsumerFusion(
     llvm::cl::desc("Flag to enable the fusion for pad + consumer"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> clEnableAccelMicrokernels(
+    "iree-llvmcpu-enable-accel-ukernels",
+    llvm::cl::desc("Flag to enable lowering to accel microkernels"),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<bool> clEnableMicrokernelsDecomposeLinalgGeneric(
     "iree-vmvx-enable-microkernels-decompose-linalg-generic",
     llvm::cl::desc("Enables decomposition of linalg.generic ops when "
@@ -599,7 +604,21 @@ void addMmt4dTilingExpertPassPipeline(OpPassManager &passManager,
 
   OpPassManager &nestedModulePM = passManager.nest<ModuleOp>();
 
-  if (enableMicrokernels) {
+  if (clEnableAccelMicrokernels) {
+    nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTileAndFusePass(
+        static_cast<int64_t>(tilingConfig.getVectorCommonParallelLevel())));
+    nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTilePass(
+        static_cast<int64_t>(tilingConfig.getVectorReductionLevel())));
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createDecomposeBatchMmt4DOpsPass());
+    nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createConvertToDestinationPassingStylePass());
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createGenericVectorizationPass());
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createHoistRedundantVectorTransfersPass());
+  } else if (enableMicrokernels) {
     nestedModulePM.addNestedPass<func::FuncOp>(
         createDecomposeBatchMmt4DOpsPass());
     nestedModulePM.addPass(
@@ -620,7 +639,7 @@ void addMmt4dTilingExpertPassPipeline(OpPassManager &passManager,
 
   addBufferizePasses(nestedModulePM);
 
-  if (!enableMicrokernels) {
+  if (!enableMicrokernels && !clEnableAccelMicrokernels) {
     nestedModulePM.addNestedPass<func::FuncOp>(
         createLLVMCPUMmt4dVectorLoweringPass());
   }

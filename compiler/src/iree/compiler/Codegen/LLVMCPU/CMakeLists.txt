@@ -59,6 +59,7 @@ iree_cc_library(
     "LLVMCPUEmitVectorizationRemarks.cpp"
     "LLVMCPULinkExecutables.cpp"
     "LLVMCPULowerExecutableTarget.cpp"
+    "LLVMCPULowerToAccelUKernels.cpp"
     "LLVMCPULowerToUKernels.cpp"
     "LLVMCPUMmt4dVectorLowering.cpp"
     "LLVMCPUPeel.cpp"
