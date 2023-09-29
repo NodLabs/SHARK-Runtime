@@ -604,25 +604,22 @@ void addMmt4dTilingExpertPassPipeline(OpPassManager &passManager,
 
   OpPassManager &nestedModulePM = passManager.nest<ModuleOp>();
 
-  if (clEnableAccelMicrokernels) {
+  if (enableMicrokernels) {
     nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTileAndFusePass(
         static_cast<int64_t>(tilingConfig.getVectorCommonParallelLevel())));
     nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTilePass(
         static_cast<int64_t>(tilingConfig.getVectorReductionLevel())));
     nestedModulePM.addNestedPass<func::FuncOp>(
         createDecomposeBatchMmt4DOpsPass());
-    nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
     nestedModulePM.addNestedPass<func::FuncOp>(
-        createConvertToDestinationPassingStylePass());
+        createDecomposeBatchMmt4DOpsPass());
+    nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
+    nestedModulePM.addPass(
+        createLLVMCPULowerToUKernelsPass(clSkipIntermediateRoundings));
     nestedModulePM.addNestedPass<func::FuncOp>(
         createGenericVectorizationPass());
     nestedModulePM.addNestedPass<func::FuncOp>(
         createHoistRedundantVectorTransfersPass());
-  } else if (enableMicrokernels) {
-    nestedModulePM.addNestedPass<func::FuncOp>(
-        createDecomposeBatchMmt4DOpsPass());
-    nestedModulePM.addPass(
-        createLLVMCPULowerToUKernelsPass(clSkipIntermediateRoundings));
   } else {
     nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTileAndFusePass(
         static_cast<int64_t>(tilingConfig.getVectorCommonParallelLevel())));

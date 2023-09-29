@@ -59,13 +59,17 @@ struct FnNameAndDefAttrs {
 /// `ukernelName` on the target described by `targetAttr`.
 static FnNameAndDefAttrs
 getFnNameAndDefAttrs(const char *ukernelName, RewriterBase &rewriter,
-                     IREE::HAL::ExecutableTargetAttr targetAttr) {
+                     IREE::HAL::ExecutableTargetAttr targetAttr,
+                     bool importBitcode = false) {
   FnNameAndDefAttrs result;
   result.name = ukernelName;
   result.defAttrs.emplace_back(
       rewriter.getStringAttr("hal.import.fields"),
-      rewriter.getArrayAttr({rewriter.getStringAttr("processor_data"),
-                             rewriter.getStringAttr("processor_id")}));
+      rewriter.getArrayAttr({rewriter.getStringAttr("processor_data")}));
+  if (importBitcode) {
+    result.defAttrs.emplace_back(rewriter.getStringAttr("hal.import.bitcode"),
+                                 rewriter.getBoolAttr(true));
+  }
   result.defAttrs.emplace_back(
       rewriter.getStringAttr("hal.import.cconv"),
       IREE::HAL::CallingConventionAttr::get(
@@ -75,15 +79,15 @@ getFnNameAndDefAttrs(const char *ukernelName, RewriterBase &rewriter,
 }
 
 /// Matches an (linalg.fill -> )? linalg.mmt4d operation sequence and converts
-/// it into a iree_codegen.ukernel.generic "accel_matmul_t_f32" operation, that is
-/// later lowered into a call to the microkernel.
+/// it into a iree_codegen.ukernel.generic "accel_matmul_t_f32" operation, that
+/// is later lowered into a call to the microkernel.
 static FailureOr<IREE::Codegen::UKernelOpInterface>
 matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
   Value lhs = op.getDpsInputOperand(0)->get();
   Value rhs = op.getDpsInputOperand(1)->get();
   Value out = op.getDpsInitOperand(0)->get();
-  //auto lhsType = llvm::cast<ShapedType>(lhs.getType());
-  //auto rhsType = llvm::cast<ShapedType>(rhs.getType());
+  // auto lhsType = llvm::cast<ShapedType>(lhs.getType());
+  // auto rhsType = llvm::cast<ShapedType>(rhs.getType());
   auto outType = llvm::cast<ShapedType>(out.getType());
   /*
   Type lhsElemType = lhsType.getElementType();
@@ -113,20 +117,22 @@ matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
       RankedTensorType::Builder(intermediateOutType).dropDim(0);
   Value reducedOut;
   Value initTensor;
+  uint32_t flags = IREE_UK_FLAG_MMT4D_TYPE_F32F32F32;
   if (auto oldFillOp = out.getDefiningOp<linalg::FillOp>()) {
     initTensor = oldFillOp.output();
     auto newInit = tensor::createCanonicalRankReducingExtractSliceOp(
         rewriter, loc, initTensor, reducedOutType);
-    reducedOut =
-        rewriter
-            .create<linalg::FillOp>(loc, ValueRange{oldFillOp.value()},
-                                    ValueRange{newInit})
-            .result();
+    reducedOut = rewriter
+                     .create<linalg::FillOp>(loc, ValueRange{oldFillOp.value()},
+                                             ValueRange{newInit})
+                     .result();
   } else {
     reducedOut = tensor::createCanonicalRankReducingExtractSliceOp(
         rewriter, loc, out, reducedOutType);
     initTensor = out;
-    }
+    flags |= IREE_UK_FLAG_MMT4D_ACCUMULATE;
+  }
+  flags |= IREE_UK_FLAG_MMT4D_SKIP_INTERMEDIATE_ROUNDINGS;
 
   auto lhsTypeRanked = lhs.getType().cast<RankedTensorType>();
   RankedTensorType intermediateLhsType =
@@ -143,31 +149,40 @@ matchDAGForUKernel(RewriterBase &rewriter, linalg::Mmt4DOp op) {
       RankedTensorType::Builder(intermediateRhsType).dropDim(0);
   auto reducedRhs = tensor::createCanonicalRankReducingExtractSliceOp(
       rewriter, loc, rhs, reducedRhsType);
-  /*
-    auto getDimAsI32 = [](RewriterBase &rewriter, Location loc, Value value,
-                          int dim) -> Value {
-      return rewriter.create<arith::IndexCastOp>(
-          loc, rewriter.getI32Type(),
-          rewriter.create<tensor::DimOp>(loc, value, dim));
-    };
-    Value m = getDimAsI32(rewriter, loc, reducedLhs, 0);
-    Value n = getDimAsI32(rewriter, loc, reducedRhs, 0);
-    Value k = getDimAsI32(rewriter, loc, reducedRhs, 1);
-  */
   Value m = rewriter.create<tensor::DimOp>(loc, reducedLhs, 0);
-  Value n = rewriter.create<tensor::DimOp>(loc, reducedLhs, 1);
-  Value k = rewriter.create<tensor::DimOp>(loc, reducedRhs, 0);
-  //Value flagsVal = rewriter.create<arith::ConstantOp>(
-  //    loc, rewriter.getI32IntegerAttr(flags));
+  Value k = rewriter.create<tensor::DimOp>(loc, reducedLhs, 1);
+  Value n = rewriter.create<tensor::DimOp>(loc, reducedRhs, 0);
   auto targetAttr = IREE::HAL::ExecutableTargetAttr::lookup(op);
-  auto fn = getFnNameAndDefAttrs("accel_matmul_t_f32", rewriter, targetAttr);
-  auto genericMicroKernelOp = rewriter.create<IREE::Codegen::UKernelGenericOp>(
-      loc, reducedOutType, fn.name, ValueRange{reducedLhs, reducedRhs},
-      reducedOut, ValueRange{m, n, k},
-      /*fn_def_attrs=*/rewriter.getDictionaryAttr(fn.defAttrs),
-      /*strided_outer_dims=*/rewriter.getIndexAttr(0));
+  Value result;
+  IREE::Codegen::UKernelGenericOp genericMicroKernelOp;
+
+  bool iree_internal_plugin = false;
+  if (!iree_internal_plugin) {
+    auto fn = getFnNameAndDefAttrs("accel_matmul_t_f32", rewriter, targetAttr);
+    genericMicroKernelOp = rewriter.create<IREE::Codegen::UKernelGenericOp>(
+        loc, reducedOutType, fn.name, ValueRange{reducedLhs, reducedRhs},
+        reducedOut, ValueRange{m, k, n},
+        /*fn_def_attrs=*/rewriter.getDictionaryAttr(fn.defAttrs),
+        /*strided_outer_dims=*/rewriter.getIndexAttr(0));
+    result = genericMicroKernelOp.getResult(0);
+  } else {
+    m = rewriter.create<arith::IndexCastOp>(loc, rewriter.getI32Type(), m);
+    n = rewriter.create<arith::IndexCastOp>(loc, rewriter.getI32Type(), n);
+    k = rewriter.create<arith::IndexCastOp>(loc, rewriter.getI32Type(), k);
+    Value flagsVal = rewriter.create<arith::ConstantOp>(
+        loc, rewriter.getI32IntegerAttr(flags));
+
+    auto fn = getFnNameAndDefAttrs("iree_uk_mmt4d", rewriter, targetAttr, true);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    genericMicroKernelOp = rewriter.create<IREE::Codegen::UKernelGenericOp>(
+        loc, outType, fn.name, ValueRange{lhs, rhs}, out,
+        ValueRange{one, one, one, m, n, k, flagsVal},
+        rewriter.getDictionaryAttr(fn.defAttrs), rewriter.getIndexAttr(1));
+    result = tensor::createCanonicalRankReducingExtractSliceOp(
+        rewriter, loc, genericMicroKernelOp.getResult(0), reducedOutType);
+  }
   auto insertSliceOp = tensor::createCanonicalRankReducingInsertSliceOp(
-      rewriter, loc, genericMicroKernelOp.getResult(0), initTensor);
+      rewriter, loc, result, initTensor);
   op.getResults()[0].replaceAllUsesWith(insertSliceOp);
   return cast<IREE::Codegen::UKernelOpInterface>(
       genericMicroKernelOp.getOperation());
@@ -200,7 +215,7 @@ void LLVMCPULowerToAccelUKernelsPass::runOnOperation() {
   tensor::populateMergeConsecutiveInsertExtractSlicePatterns(patterns);
   tensor::InsertSliceOp::getCanonicalizationPatterns(patterns, context);
   tensor::ExtractSliceOp::getCanonicalizationPatterns(patterns, context);
-  //mlir::memref::populateResolveShapedTypeResultDimsPatterns(patterns);
+  // mlir::memref::populateResolveShapedTypeResultDimsPatterns(patterns);
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
     return signalPassFailure();
