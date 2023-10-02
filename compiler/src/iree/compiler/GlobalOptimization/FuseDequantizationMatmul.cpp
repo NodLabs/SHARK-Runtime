@@ -342,8 +342,8 @@ QuantizedMatmulRewriter::QuantizedMatmulRewriter(RewriterBase &rewriter,
 
 LogicalResult QuantizedMatmulRewriter::precondition() {
   if (ins.size() != 5) {
-    llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                 << "expected `ins` to have 5 inputs\n";
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                            << "expected `ins` to have 5 inputs\n");
     return failure();
   }
   OpOperand *unquantizedInputOperand = ins[1];
@@ -356,16 +356,17 @@ LogicalResult QuantizedMatmulRewriter::precondition() {
   SmallVector<utils::IteratorType> matmulIteratorTypes =
       matmul.getIteratorTypesArray();
   if (unquantizedInputShape.size() < 2) {
-    llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                 << "input expected to have a rank of at least 2\n";
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                            << "input expected to have a rank of at least 2\n");
     return failure();
   }
   if (matmulIteratorTypes[indexingMap.getNumDims() - 1] ==
           utils::IteratorType::parallel ||
       matmulIteratorTypes[indexingMap.getNumDims() - 2] ==
           utils::IteratorType::parallel) {
-    llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                 << "inner 2 dimensions of matmul expected to be reduction\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "]: "
+               << "inner 2 dimensions of matmul expected to be reduction\n");
     return failure();
   }
   auto affineExprs = indexingMap.getResults();
@@ -374,13 +375,14 @@ LogicalResult QuantizedMatmulRewriter::precondition() {
   if (!innerDim0 || !innerDim1 ||
       innerDim0.getPosition() != indexingMap.getNumDims() - 1 ||
       innerDim1.getPosition() != indexingMap.getNumDims() - 2) {
-    llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                 << "inner shape of input expected to be reduced in matmul\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "]: "
+               << "inner shape of input expected to be reduced in matmul\n");
     return failure();
   }
   if (!unquantizedInputType.getElementType().isa<FloatType>()) {
-    llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                 << "expected float type\n";
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                            << "expected float type\n");
     return failure();
   }
   Value scales = ins[2]->get();
@@ -391,24 +393,24 @@ LogicalResult QuantizedMatmulRewriter::precondition() {
   auto scalesType = llvm::dyn_cast<RankedTensorType>(scales.getType());
   auto zpsType = llvm::dyn_cast<RankedTensorType>(zps.getType());
   if (!scalesType || !zpsType) {
-    llvm::dbgs()
-        << "[" DEBUG_TYPE "]: "
-        << "expected scales and zero points to have RankedTensorType\n";
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "]: "
+               << "expected scales and zero points to have RankedTensorType\n");
     return failure();
   }
   if (scalesType.getShape().size() != matmulDequantizedInputExprs.size() - 1) {
     if (scalesType.getShape().size() != matmulDequantizedInputExprs.size() ||
         scalesType.getShape().back() != 1) {
-      llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                   << "unexpected rank for scales\n";
+      LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                              << "unexpected rank for scales\n");
       return failure();
     }
   }
   if (zpsType.getShape().size() != matmulDequantizedInputExprs.size() - 1) {
     if (zpsType.getShape().size() != matmulDequantizedInputExprs.size() ||
         zpsType.getShape().back() != 1) {
-      llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                   << "unexpected rank for zero points\n";
+      LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                              << "unexpected rank for zero points\n");
       return failure();
     }
   }
@@ -483,8 +485,8 @@ Value QuantizedMatmulRewriter::generateGroupMaxGeneric() {
         Value max = b.create<arith::MaximumFOp>(nestedLoc, abs, args[1]);
         b.create<linalg::YieldOp>(nestedLoc, max);
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "groupMaxOp:   " << groupMaxOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "groupMaxOp:   " << groupMaxOp << "\n");
   return groupMaxOp.getResult(0);
 }
 
@@ -508,8 +510,8 @@ Value QuantizedMatmulRewriter::generateScalesGeneric(Value groupMax) {
         Value scale = b.create<arith::DivFOp>(nestedLoc, args[0], cst);
         b.create<linalg::YieldOp>(nestedLoc, scale);
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "scalesOp:   " << scalesOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "scalesOp:   " << scalesOp << "\n");
   return scalesOp.getResult(0);
 }
 
@@ -529,8 +531,8 @@ Value QuantizedMatmulRewriter::generateGroupSumsGeneric() {
         Value sum = b.create<arith::AddFOp>(nestedLoc, args[0], args[1]);
         b.create<linalg::YieldOp>(nestedLoc, sum);
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "groupSumsOp:   " << groupSumsOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "groupSumsOp:   " << groupSumsOp << "\n");
   return groupSumsOp.getResult(0);
 }
 
@@ -567,8 +569,8 @@ SmallVector<Value> QuantizedMatmulRewriter::generateQuantizationGenerics() {
             b.create<arith::FPToSIOp>(nestedLoc, quantizedElementType, scaled);
         b.create<linalg::YieldOp>(nestedLoc, quant);
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "quantizeOp:   " << quantizeOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "quantizeOp:   " << quantizeOp << "\n");
   Value newQuantizedInput = quantizeOp.getResult(0);
   SmallVector<Value> results{groupMax, scales, groupSums, newQuantizedInput};
   return results;
@@ -635,13 +637,13 @@ linalg::GenericOp QuantizedMatmulRewriter::generateQuantizedMatmulGeneric(
           sum = b.create<arith::AddIOp>(nestedLoc, extMul, args[2]);
         }
         b.create<linalg::YieldOp>(nestedLoc, sum);
-        llvm::dbgs() << "[" DEBUG_TYPE "]: "
-                     << "15\n";
+        LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                                << "15\n");
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "16\n";
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "integerMatmulOp:   " << integerMatmulOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "16\n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "integerMatmulOp:   " << integerMatmulOp << "\n");
   return integerMatmulOp;
 }
 
@@ -727,9 +729,9 @@ QuantizedMatmulRewriter::generateReassociatedDequantizationGeneric(
         Value sum = b.create<arith::AddFOp>(loc, groupRes, args[5]);
         b.create<linalg::YieldOp>(loc, sum);
       });
-  llvm::dbgs() << "[" DEBUG_TYPE "]: "
-               << "reassociatedDequantizationOp:   "
-               << reassociatedDequantizationOp << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]: "
+                          << "reassociatedDequantizationOp:   "
+                          << reassociatedDequantizationOp << "\n");
   return reassociatedDequantizationOp;
 }
 

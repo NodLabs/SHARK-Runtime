@@ -55,7 +55,8 @@ void buildGlobalOptimizationPassPipeline(
       .addPass(createDetachElementwiseFromNamedOpsPass)
       .addPass(mlir::createLinalgNamedOpConversionPass)
       .addPass(createConvert1X1FilterConv2DToMatmulPass)
-      .addPass(createLiftGenericToTransposeBatchMatmulPass);
+      .addPredicatedPass(!clEnableQuantizedMatmulReassociation,
+                         createLiftGenericToTransposeBatchMatmulPass);
   mainPassManager.addPass(createEraseUnusedLinalgOperands());
 
   // Expand tensor shapes into SSA values and optimize the whole program.
