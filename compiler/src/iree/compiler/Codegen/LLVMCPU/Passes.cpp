@@ -79,6 +79,13 @@ static llvm::cl::opt<bool> clInstrumentMemoryAccesses{
                    "instrumentation is enabled."),
     llvm::cl::init(false)};
 
+static llvm::cl::opt<bool> clEnableQuantizedMatmulReassociation(
+    "iree-llvmcpu-enable-quantized-matmul-reassociation",
+    llvm::cl::desc(
+        "Enables LLVMCPU codegen optimizations specific to reassociated "
+        "quantized matmuls (experimental)."),
+    llvm::cl::init(false));
+
 static void addTileAndDistributePasses(OpPassManager &pm) {
   pm.addPass(createTileAndDistributeToWorkgroupsPass());
   auto &nestedModulePM = pm.nest<ModuleOp>();
@@ -174,6 +181,19 @@ LogicalResult verifyDoubleTilingExpertPassPipelineConfig(
                << index << "-th tile size set";
       }
     }
+    // if (!clEnableQuantizedMatmulReassociation) {
+    //   SmallVector<int64_t> thirdLevelTileSizes;
+    //   std::tie(thirdLevelTileSizes, std::ignore) =
+    //       tilingConfig.getVectorReductionSizes();
+    //   for (auto [index, tileSize] : llvm::enumerate(thirdLevelTileSizes)) {
+    //     if (tileSize != 0 && pLoopsSet.contains(index)) {
+    //       return op->emitOpError("expected only reduction dims to be set in "
+    //                              "the third tiling "
+    //                              "level, got ")
+    //              << index << "-th tile size set";
+    //     }
+    //   }
+    // }
   }
 
   // Verify interchange
@@ -371,7 +391,9 @@ void addMultiTilingExpertPassPipeline(
         // Run SplitReductionPass before the final reduction Fuse pass, because
         // SplitReductionPass takes care of banked-tiling.
         nestedModulePM.addNestedPass<func::FuncOp>(
-            createLLVMCPUSplitReductionPass(clEnableReassociateFpReductions));
+            createLLVMCPUSplitReductionPass(
+                clEnableReassociateFpReductions,
+                clEnableQuantizedMatmulReassociation));
         nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTilePass(i));
         continue;
       }
@@ -408,12 +430,19 @@ void addMultiTilingExpertPassPipeline(
   // Run IREE specific passes before vector lowering expert.
   nestedModulePM.addNestedPass<func::FuncOp>(
       createRemoveSingleIterationLoopPass());
+  if (clEnableQuantizedMatmulReassociation) {
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createLLVMCPUFoldVectorContractUnitDimsPass());
+  }
 
   {
     LLVMCPUVectorLoweringPassOptions options;
     options.lowerVectorTransposeToAVX2 = lowerToAVX2;
     options.splitVectorTransfersTo = "linalg-copy";
-    buildLLVMCPUVectorLoweringPipeline(nestedModulePM, options);
+    options.enableQuantizedMatmulReassociation =
+        clEnableQuantizedMatmulReassociation;
+    nestedModulePM.addNestedPass<func::FuncOp>(
+        createLLVMCPUVectorLoweringPass(options));
   }
 
   if (enableAArch64SSVE)
@@ -667,6 +696,9 @@ static void addLowerToLLVMPasses(OpPassManager &passManager,
   passManager.addNestedPass<func::FuncOp>(arith::createArithExpandOpsPass());
   passManager.addNestedPass<func::FuncOp>(memref::createExpandOpsPass());
   passManager.addPass(memref::createFoldMemRefAliasOpsPass());
+  if (clEnableQuantizedMatmulReassociation) {
+    passManager.addPass(createLLVMCPUFoldMemRefAliasOpsPass());
+  }
   passManager.addPass(createEmulateNarrowTypePass());
   passManager.addPass(createCanonicalizerPass());
   passManager.addPass(createCSEPass());

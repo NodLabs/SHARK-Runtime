@@ -19,6 +19,10 @@ namespace mlir::iree_compiler {
 
 class TilingConfig;
 
+// Pass to breakdown subbyte extui
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLLVMCPUBreakDownSubbyteExtendPass();
+
 /// Performs the final conversion to LLVM dialect.
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertToLLVMPass(bool reassociateFpReordering = false);
@@ -55,8 +59,9 @@ createLLVMCPUMmt4dVectorLoweringPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createLLVMCPUPeelPass();
 
 /// Pass to perform SplitReduction transformations of `LinalgOp`s.
-std::unique_ptr<OperationPass<func::FuncOp>>
-createLLVMCPUSplitReductionPass(bool enableReassociateFpReductions = false);
+std::unique_ptr<OperationPass<func::FuncOp>> createLLVMCPUSplitReductionPass(
+    bool enableReassociateFpReductions = false,
+    bool enableQuantizedMatmulReassociation = false);
 
 /// Synchronizes LLVM linkage with MLIR symbol visibility.
 std::unique_ptr<OperationPass<ModuleOp>>
@@ -80,6 +85,7 @@ std::unique_ptr<OperationPass<func::FuncOp>> createLLVMCPUUnfuseFMAOpsPass();
 struct LLVMCPUVectorLoweringPassOptions {
   std::string splitVectorTransfersTo = "";
   bool lowerVectorTransposeToAVX2 = false;
+  bool enableQuantizedMatmulReassociation = false;
 };
 
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -108,6 +114,11 @@ createVectorContractCustomKernelsPass();
 std::unique_ptr<OperationPass<ModuleOp>>
 createVerifyLinalgTransformLegalityPass();
 
+std::unique_ptr<OperationPass<func::FuncOp>>
+createLLVMCPUFoldVectorContractUnitDimsPass();
+
+std::unique_ptr<Pass> createLLVMCPUFoldMemRefAliasOpsPass();
+
 //------------------------------------------------------------------------------
 // LLVMCPU Codegen specific patterns.
 //------------------------------------------------------------------------------
@@ -119,6 +130,11 @@ void populateUnfusedFMAOpsPassPatterns(MLIRContext *context,
 /// "kernels" written either in SIMD intrinsics or inline assembly.
 void populateVectorContractCustomKernelsPatterns(
     IREE::HAL::ExecutableTargetAttr target, RewritePatternSet &patterns);
+
+void populateLLVMCPUBreakDownSubbyteExtendPatterns(RewritePatternSet &patterns);
+
+void populateFoldVectorContractUnitDimsPass(RewritePatternSet &patterns,
+                                            MLIRContext *context);
 
 //----------------------------------------------------------------------------//
 // LLVMCPU backend Pass Pipelines.
