@@ -46,6 +46,8 @@ public:
   LLVMCPUVectorLoweringPass(const LLVMCPUVectorLoweringPassOptions &options) {
     this->splitVectorTransfersTo = options.splitVectorTransfersTo;
     this->lowerVectorTransposeToAVX2 = options.lowerVectorTransposeToAVX2;
+    this->enableQuantizedMatmulReassociation =
+        options.enableQuantizedMatmulReassociation;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -77,6 +79,27 @@ void LLVMCPUVectorLoweringPass::runOnOperation() {
           .setVectorTransformsOptions(vectorContractLowering)
           .setVectorMultiReductionLowering(vectorMultiReductionLowering)
           .setVectorTransferSplit(vectorTransferSplit);
+
+  {
+    if (enableQuantizedMatmulReassociation) {
+      // Special-case vector.contract codegen paths. This needs to happen
+      // just before the generic vector ops lowerings.
+      RewritePatternSet patterns(ctx);
+      auto target = IREE::HAL::ExecutableTargetAttr::lookup(funcOp);
+      populateVectorContractCustomKernelsPatterns(target, patterns);
+      if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
+        return signalPassFailure();
+      }
+
+      LLVM_DEBUG({
+        llvm::dbgs() << "\n--- After custom kernel lowering for "
+                        "vector.contract ops ---\n";
+        funcOp.print(llvm::dbgs(), OpPrintingFlags().useLocalScope());
+        llvm::dbgs() << "\n\n";
+      });
+    }
+  }
+
   // Lower high level vector operations like contract or multidim reduce ops
   // to lower level vector ops.
   {
@@ -157,6 +180,23 @@ void LLVMCPUVectorLoweringPass::runOnOperation() {
     funcOp.print(llvm::dbgs(), OpPrintingFlags().useLocalScope());
     llvm::dbgs() << "\n\n";
   });
+
+  // Break down subbyte `arith.extui` ops
+  {
+    if (enableQuantizedMatmulReassociation) {
+      RewritePatternSet patterns(&getContext());
+      populateLLVMCPUBreakDownSubbyteExtendPatterns(patterns);
+      if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
+        return signalPassFailure();
+      }
+
+      LLVM_DEBUG({
+        llvm::dbgs() << "\n--- After breaking down subbyte extend ops ---\n";
+        funcOp.print(llvm::dbgs(), OpPrintingFlags().useLocalScope());
+        llvm::dbgs() << "\n\n";
+      });
+    }
+  }
 
   // 'vector.shape_cast' are very expensive operations that are even generated
   // by some of the lowerings above (e.g., transpose lowering). There are
