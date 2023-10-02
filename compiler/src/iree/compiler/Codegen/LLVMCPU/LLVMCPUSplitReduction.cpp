@@ -38,8 +38,9 @@ namespace {
 /// TODO: support named ops, numInputs > 1, and modify lastDim check below
 /// accordingly. If fpReductionReordering is not enabled by default, it must
 /// be an integer or index type to proceed to allow associative reordering.
-LogicalResult splitReductionPrecondition(Operation *op,
-                                         bool fpReductionReordering) {
+LogicalResult
+splitReductionPrecondition(Operation *op, bool fpReductionReordering,
+                           bool enableQuantizedMatmulReassociation) {
   linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
 
   if (!linalgOp.hasTensorSemantics()) {
@@ -63,7 +64,11 @@ LogicalResult splitReductionPrecondition(Operation *op,
     LLVM_DEBUG(llvm::dbgs() << "is not a generic op\n");
     return failure();
   }
-  if (linalgOp.getNumDpsInputs() != 1) {
+  if (enableQuantizedMatmulReassociation && linalgOp.getNumDpsInputs() > 2) {
+    LLVM_DEBUG(llvm::dbgs() << "doesn't have at most 2 inputs\n");
+    return failure();
+  }
+  if (!enableQuantizedMatmulReassociation && linalgOp.getNumDpsInputs() != 1) {
     LLVM_DEBUG(llvm::dbgs() << "doesn't have exactly 1 input\n");
     return failure();
   }
@@ -102,8 +107,10 @@ LogicalResult splitReductionPrecondition(Operation *op,
 
 /// Converts an inner-reduction into outer reduction + inner-parallel dimension,
 /// followed by simple inner reduction.
-LogicalResult splitReductionImpl(Operation *op, int64_t size,
+LogicalResult splitReductionImpl(Operation *op, SmallVector<int64_t> tileSizes,
+                                 bool enableQuantizedMatmulReassociation,
                                  RewriterBase &rewriter) {
+  int64_t size = tileSizes.back();
   IRRewriter::InsertionGuard g(rewriter);
   rewriter.setInsertionPointAfter(op);
   linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
@@ -119,8 +126,19 @@ LogicalResult splitReductionImpl(Operation *op, int64_t size,
   auto numLoops = linalgOp.getNumLoops();
 
   // 1) Tile to extract a single vector-length array.
-  SmallVector<OpFoldResult> tileSizesSVFirst(numLoops,
-                                             rewriter.getIndexAttr(1));
+  SmallVector<OpFoldResult> tileSizesSVFirst;
+  if (enableQuantizedMatmulReassociation) {
+    for (auto &s : tileSizes) {
+      if (!s) {
+        tileSizesSVFirst.push_back(rewriter.getIndexAttr(1));
+      } else {
+        tileSizesSVFirst.push_back(rewriter.getIndexAttr(s));
+      }
+    }
+  } else {
+    tileSizesSVFirst =
+        SmallVector<OpFoldResult>(numLoops, rewriter.getIndexAttr(1));
+  }
   tileSizesSVFirst[numLoops - 1] = rewriter.getIndexAttr(0);
   auto options = scf::SCFTilingOptions().setTileSizes(tileSizesSVFirst);
   FailureOr<scf::SCFTilingResult> tileResFirst = scf::tileUsingSCFForOp(
@@ -147,7 +165,11 @@ LogicalResult splitReductionImpl(Operation *op, int64_t size,
                                         rewriter.getIndexAttr(0));
   // The reduction happens only in the penultimate dimension, which we now
   // tile.
-  tileSizesSV[numLoops - 1] = rewriter.getIndexAttr(1);
+  if (enableQuantizedMatmulReassociation) {
+    tileSizesSV[numLoops - 1] = rewriter.getIndexAttr(2);
+  } else {
+    tileSizesSV[numLoops - 1] = rewriter.getIndexAttr(1);
+  }
   options = scf::SCFTilingOptions().setTileSizes(tileSizesSV);
   FailureOr<scf::SCFTilingResult> tileRes = scf::tileUsingSCFForOp(
       rewriter, cast<TilingInterface>(splitRes->splitLinalgOp.getOperation()),
@@ -164,8 +186,11 @@ LogicalResult splitReductionImpl(Operation *op, int64_t size,
 class LLVMCPUSplitReductionPass
     : public LLVMCPUSplitReductionBase<LLVMCPUSplitReductionPass> {
 public:
-  LLVMCPUSplitReductionPass(bool fpReductionReordering) {
+  LLVMCPUSplitReductionPass(bool fpReductionReordering,
+                            bool enableQuantizedMatmulReassociation) {
     this->enableFpReductionReordering = fpReductionReordering;
+    this->enableQuantizedMatmulReassociation =
+        enableQuantizedMatmulReassociation;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -183,8 +208,9 @@ void LLVMCPUSplitReductionPass::runOnOperation() {
   funcOp.walk([&](linalg::GenericOp op) { candidates.push_back(op); });
   for (auto genericOp : candidates) {
     LLVM_DEBUG(llvm::dbgs() << "candidate: " << genericOp << "\n");
-    if (failed(splitReductionPrecondition(genericOp,
-                                          enableFpReductionReordering))) {
+    if (failed(
+            splitReductionPrecondition(genericOp, enableFpReductionReordering,
+                                       enableQuantizedMatmulReassociation))) {
       continue;
     }
 
@@ -208,8 +234,9 @@ void LLVMCPUSplitReductionPass::runOnOperation() {
                                  "skip SplitReduction");
       continue;
     }
-    int64_t size = reductionSizes.back();
-    if (failed(splitReductionImpl(genericOp, size, rewriter))) {
+    if (failed(splitReductionImpl(genericOp, reductionSizes,
+                                  enableQuantizedMatmulReassociation,
+                                  rewriter))) {
       return signalPassFailure();
     }
   }
@@ -218,9 +245,10 @@ void LLVMCPUSplitReductionPass::runOnOperation() {
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createLLVMCPUSplitReductionPass(const bool enableFpReductionReordering) {
+createLLVMCPUSplitReductionPass(const bool enableFpReductionReordering,
+                                const bool enableQuantizedMatmulReassociation) {
   return std::make_unique<LLVMCPUSplitReductionPass>(
-      enableFpReductionReordering);
+      enableFpReductionReordering, enableQuantizedMatmulReassociation);
 }
 
 } // namespace mlir::iree_compiler
