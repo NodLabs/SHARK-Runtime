@@ -114,9 +114,13 @@ def FormScalarDispatches :
 }
 
 def FuseDequantizationMatmul:
-    Pass<"iree-flow-fuse-dequantization-matmul", ""> {
+    InterfacePass<"iree-flow-fuse-dequantization-matmul", "mlir::FunctionOpInterface"> {
   let summary = "Fuse dequantization and matmul linalg.generic ops";
   let constructor = "mlir::iree_compiler::IREE::Flow::createFuseDequantizationMatmulPass()";
+  let options = [
+    Option<"enableQuantizedMatmulReassociation", "enable-quantized-matmul-reassociation", "bool",
+           /*default=*/"false", "Allow reassociation of quantized matmuls (experimental)">,
+  ];
 }
 
 def CollapseDimensions :
