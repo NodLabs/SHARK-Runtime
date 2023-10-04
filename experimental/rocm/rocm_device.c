@@ -170,8 +170,19 @@ iree_status_t iree_hal_rocm_device_create(iree_hal_driver_t* driver,
   IREE_ASSERT_ARGUMENT(params);
   IREE_TRACE_ZONE_BEGIN(z0);
   hipCtx_t context;
-  IREE_RETURN_AND_END_ZONE_IF_ERROR(
-      z0, ROCM_RESULT_TO_STATUS(syms, hipCtxCreate(&context, 0, device)));
+  printf("Context creating! with device - %d\n", device);
+   IREE_RETURN_AND_END_ZONE_IF_ERROR(
+       z0, ROCM_RESULT_TO_STATUS(syms, hipCtxCreate(&context, 0, device)));
+  printf("Context created!\n Checking for device created in this context\n");
+
+  hipDevice_t dev_frm_ctx = -1;
+  ROCM_RETURN_IF_ERROR(syms, hipCtxGetDevice(&dev_frm_ctx), "hipCtxGetDevice");
+  printf("got device from ctx - device# : %d\n", dev_frm_ctx);
+  // char dev_name[50];
+  // ROCM_RETURN_IF_ERROR(syms, hipDeviceGetName(dev_name, 50, *dev_frm_ctx),
+  //                      "hipDeviceGetName");
+  // printf("from CTX - Device Name : %s\n", dev_name);
+
   hipStream_t stream;
   iree_status_t status = ROCM_RESULT_TO_STATUS(
       syms, hipStreamCreateWithFlags(&stream, hipStreamNonBlocking));
