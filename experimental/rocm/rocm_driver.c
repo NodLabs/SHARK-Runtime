@@ -226,19 +226,72 @@ static iree_status_t iree_hal_rocm_driver_create_device_by_id(
   return status;
 }
 
+static iree_status_t iree_hal_rocm_driver_create_device_by_uuid(
+    iree_hal_driver_t* base_driver, iree_string_view_t driver_name,
+    const uint8_t* device_uuid, iree_host_size_t param_count,
+    const iree_string_pair_t* params, iree_allocator_t host_allocator,
+    iree_hal_device_t** out_device) {
+  iree_hal_rocm_driver_t* driver = iree_hal_rocm_driver_cast(base_driver);
+  IREE_TRACE_ZONE_BEGIN(z0);
+
+  // Query all rocm devices for instance.
+  int device_count = 0;
+  ROCM_RETURN_IF_ERROR(&driver->syms, hipGetDeviceCount(&device_count),
+                       "hipGetDeviceCount");
+  iree_status_t status;
+  HIPuuid device_uuid_fetched;
+  hipDevice_t device;
+  for (iree_host_size_t i = 0; i < device_count; ++i) {
+    device = 0;
+    memset(device_uuid_fetched.bytes, '\0', 16*sizeof(char));
+    status = ROCM_RESULT_TO_STATUS(&driver->syms, hipDeviceGet(&device, i),
+                                    "hipDeviceGet");
+    if (!iree_status_is_ok(status)) break;
+    ROCM_RETURN_IF_ERROR(&driver->syms, hipDeviceGetUuid(&device_uuid_fetched, device),
+                        "hipDeviceGetUuid");
+    if (device_uuid_fetched.bytes[0] != '\0' &&
+        memcmp(device_uuid, device_uuid_fetched.bytes, (size_t)(16)) == 0) {
+      break;
+    }
+  }
+
+  if (device_uuid_fetched.bytes[0] == '\0') {
+      return iree_make_status(
+          IREE_STATUS_NOT_FOUND,
+          "ROCM device with deviceUUID %s not found", device_uuid);
+  }
+
+  status = iree_hal_rocm_driver_create_device_by_id(
+      base_driver, (iree_hal_device_id_t)device, param_count, params,
+      host_allocator, out_device);
+
+   IREE_TRACE_ZONE_END(z0);
+   return status;
+ }
+
 static iree_status_t iree_hal_rocm_driver_create_device_by_path(
     iree_hal_driver_t* base_driver, iree_string_view_t driver_name,
     iree_string_view_t device_path, iree_host_size_t param_count,
     const iree_string_pair_t* params, iree_allocator_t host_allocator,
     iree_hal_device_t** out_device) {
-  if (!iree_string_view_is_empty(device_path)) {
-    return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
-                            "device paths not yet implemented");
+  if (iree_string_view_is_empty(device_path)) {
+    return iree_hal_rocm_driver_create_device_by_id(
+        base_driver, IREE_HAL_DEVICE_ID_DEFAULT, param_count, params,
+        host_allocator, out_device);
   }
-  return iree_hal_rocm_driver_create_device_by_id(
-      base_driver, IREE_HAL_DEVICE_ID_DEFAULT, param_count, params,
-      host_allocator, out_device);
-}
+
+  // assumption: path => device uuid
+  uint8_t device_uuid[16] = {0};
+  if (device_path.size>0) {
+    for(int i = 0; i < 16; i++)
+      device_uuid[i] = device_path.data[i];
+    iree_status_t status = iree_hal_rocm_driver_create_device_by_uuid(
+        base_driver, driver_name, device_uuid, param_count, params,
+        host_allocator, out_device);
+    return status;
+  }
+  return iree_make_status(IREE_STATUS_UNIMPLEMENTED, "unsupported device path");
+ }
 
 static const iree_hal_driver_vtable_t iree_hal_rocm_driver_vtable = {
     .destroy = iree_hal_rocm_driver_destroy,
