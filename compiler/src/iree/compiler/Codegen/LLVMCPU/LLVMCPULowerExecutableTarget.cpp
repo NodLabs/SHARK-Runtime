@@ -238,9 +238,8 @@ void LLVMCPULowerExecutableTargetPass::runOnOperation() {
 
     case IREE::Codegen::DispatchLoweringPassPipeline::AccelMatmulExpert: {
       TilingConfig tilingConfig = getTilingConfigForPipeline(moduleOp);
-      addAccelMatmulExpertPassPipeline(executableLoweringPipeline,
-                                       tilingConfig,
-                                       enableAccelMicrokernels);
+      addAccelMatmulExpertPassPipeline(pipeline,
+                                       tilingConfig);
       break;
     }
   }
@@ -248,6 +247,7 @@ void LLVMCPULowerExecutableTargetPass::runOnOperation() {
   if (failed(runPipeline(pipeline, variantOp))) {
     return signalPassFailure();
   }
+}
 }
 
 std::unique_ptr<OperationPass<IREE::HAL::ExecutableVariantOp>>

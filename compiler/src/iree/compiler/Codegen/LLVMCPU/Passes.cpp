@@ -568,29 +568,18 @@ void addMmt4dTilingExpertPassPipeline(OpPassManager &passManager,
 }
 
 void addAccelMatmulExpertPassPipeline(OpPassManager &passManager,
-                                      TilingConfig &tilingConfig,
-                                      bool enableAccelMicrokernels) {
+                                      TilingConfig &tilingConfig) {
   addTileAndDistributePasses(passManager);
 
   OpPassManager &nestedModulePM = passManager.nest<ModuleOp>();
 
-  if (enableAccelMicrokernels) {
-    nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
-  } else {
-    nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTileAndFusePass(
-        static_cast<int64_t>(tilingConfig.getVectorCommonParallelLevel())));
-    nestedModulePM.addNestedPass<func::FuncOp>(createLLVMCPUTilePass(
-        static_cast<int64_t>(tilingConfig.getVectorReductionLevel())));
-    nestedModulePM.addNestedPass<func::FuncOp>(
-        createGenericVectorizationPass());
-    nestedModulePM.addNestedPass<func::FuncOp>(
-        createHoistRedundantVectorTransfersPass());
-  }
+  
+  nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   nestedModulePM.addNestedPass<func::FuncOp>(createCSEPass());
 
-  addBufferizePasses(nestedModulePM);
+  addCPUBufferizePasses(nestedModulePM);
 }
 
 void addCPUDataTilingPipeline(OpPassManager &passManager,
