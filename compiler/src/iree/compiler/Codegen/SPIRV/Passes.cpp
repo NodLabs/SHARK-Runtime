@@ -546,6 +546,7 @@ void addSPIRVSubgroupReducePassPipeline(OpPassManager &pm) {
   {
     GenericVectorizationPassOptions options;
     options.enableVectorMasking = true;
+    options.useConfiguredVectorSizes = false;
     options.vectorizePadding = true;
     options.vectorizeGatherAccesses = true;
     options.enableCleanup = false;
