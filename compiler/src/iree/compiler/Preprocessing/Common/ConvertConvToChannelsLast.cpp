@@ -258,11 +258,11 @@ static TransposeIndices collectChannelTransposeIndices(
     AffineMap map, SmallVector<SmallVector<unsigned, 2>> transposeDimTargets) {
   SmallVector<TransposeIndices> channelIndices(transposeDimTargets.size());
   for (auto [index, result] : llvm::enumerate(map.getResults())) {
-    if (result.isa<AffineDimExpr>()) {
+    if (llvm::isa<AffineDimExpr>(result)) {
       for (auto [channelVec, dimCategory] :
            llvm::zip_equal(channelIndices, transposeDimTargets)) {
         if (llvm::is_contained(dimCategory,
-                               result.cast<AffineDimExpr>().getPosition())) {
+                               llvm::cast<AffineDimExpr>(result).getPosition())) {
           channelVec.push_back(index);
           break;
         }
