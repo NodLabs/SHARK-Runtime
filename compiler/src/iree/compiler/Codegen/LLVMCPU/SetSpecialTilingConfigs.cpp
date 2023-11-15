@@ -37,7 +37,7 @@ static void setTileSizes(linalg::GenericOp intMatmul,
   int out = 2;
   auto hasDim = [&](int mapIdx, int dimIdx) -> bool {
     return llvm::any_of(maps[mapIdx].getResults(), [&](AffineExpr res) {
-      auto expr = res.dyn_cast<AffineDimExpr>();
+      auto expr = llvm::dyn_cast<AffineDimExpr>(res);
       return expr && expr.getPosition() == dimIdx;
     });
   };
