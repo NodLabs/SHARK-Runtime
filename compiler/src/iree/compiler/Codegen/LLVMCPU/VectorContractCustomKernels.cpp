@@ -147,7 +147,7 @@ static bool isVectorTimesMatrixTransposed(vector::ContractionOp contractionOp,
     }
     for (int r = 0; r < expectedResults.size(); ++r) {
       int actualMapResult =
-          map.getResults()[r].cast<AffineDimExpr>().getPosition();
+          llvm::cast<AffineDimExpr>(map.getResults()[r]).getPosition();
       if (actualMapResult != expectedMapResults[m][r]) {
         return false;
       }
