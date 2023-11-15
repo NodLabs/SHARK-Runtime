@@ -85,6 +85,73 @@ static bool isMatrixTimesMatrixTransposed(vector::ContractionOp contractionOp) {
   return true;
 }
 
+static bool isVectorTimesMatrixTransposed(vector::ContractionOp contractionOp,
+                                          int64_t splitSize) {
+  // Check that the reduction is additive.
+  if (contractionOp.getKind() != vector::CombiningKind::ADD) {
+    return false;
+  }
+  // Check that there are 1 parallel and 1 reduction iterators.
+  unsigned numIters = splitSize ? 3 : 2;
+  auto iteratorTypes = contractionOp.getIteratorTypes().getValue();
+  if (iteratorTypes.size() != numIters) {
+    return false;
+  }
+  SmallVector<int, 3> parallelIterators;
+  SmallVector<int, 3> reductionIterators;
+  for (int i = 0; i < numIters; i++) {
+    if (vector::isParallelIterator(iteratorTypes[i])) {
+      parallelIterators.push_back(i);
+    } else if (vector::isReductionIterator(iteratorTypes[i])) {
+      reductionIterators.push_back(i);
+    } else {
+      return false;
+    }
+  }
+  if (parallelIterators.size() != numIters - 1 ||
+      reductionIterators.size() != 1) {
+    return false;
+  }
+  // Give the found iterators some idiomatic names.
+  const int NIter = parallelIterators[0];
+  const int KIter = reductionIterators[0];
+  const int SplitIter = splitSize ? parallelIterators[1] : 0;
+  // Check that there are 3 indexing maps.
+  auto indexingMaps = contractionOp.getIndexingMapsArray();
+  if (indexingMaps.size() != 3) {
+    return false;
+  }
+  // Check that the indexing maps have the expected form.
+  SmallVector<SmallVector<int>> expectedMapResults;
+  if (splitSize) {
+    SmallVector<SmallVector<int>> res = {
+        {KIter, SplitIter}, {NIter, KIter, SplitIter}, {NIter, SplitIter}};
+    expectedMapResults = res;
+    numIters = 3;
+  } else {
+    SmallVector<SmallVector<int>> res = {{KIter}, {NIter, KIter}, {NIter}};
+    expectedMapResults = res;
+    numIters = 2;
+  }
+  for (int m = 0; m < 3; ++m) {
+    auto map = indexingMaps[m];
+    auto expectedResults = expectedMapResults[m];
+    if (map.getNumDims() != numIters ||
+        map.getNumResults() != expectedResults.size()) {
+      return false;
+    }
+    for (int r = 0; r < expectedResults.size(); ++r) {
+      int actualMapResult =
+          llvm::cast<AffineDimExpr>(map.getResults()[r]).getPosition();
+      if (actualMapResult != expectedMapResults[m][r]) {
+        return false;
+      }
+    }
+  }
+  LDBG("passed isVectorTimesMatrixTransposed");
+  return true;
+}
+
 // Returns true if `contractionOp` is of the form
 //   matrix * transposed_matrix
 // where matrix is a vector<{mSize}x{kSize}xType>, and
