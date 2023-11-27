@@ -573,7 +573,7 @@ void addAccelMatmulExpertPassPipeline(OpPassManager &passManager,
 
   OpPassManager &nestedModulePM = passManager.nest<ModuleOp>();
 
-  
+  nestedModulePM.addNestedPass<func::FuncOp>(createDecomposeBatchMmt4DOpsPass());
   nestedModulePM.addPass(createLLVMCPULowerToAccelUKernelsPass());
 
   nestedModulePM.addNestedPass<func::FuncOp>(createCanonicalizerPass());
