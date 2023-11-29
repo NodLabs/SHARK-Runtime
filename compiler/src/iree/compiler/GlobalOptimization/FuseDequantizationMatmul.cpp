@@ -763,6 +763,14 @@ static LogicalResult reassociateDequantMatmul(RewriterBase &rewriter,
 
   rewriter.replaceOp(matmul, reassociatedDequantization.getResult(0));
 
+  // Fuse dequantization + matmul ops into a single dispatch region
+  SmallVector<Operation *> dequantMatmulOps{quantizedIntegerMatmul,
+                                            reassociatedDequantization};
+  FailureOr<IREE::Flow::DispatchRegionOp> maybeDequantMatmulDispatch =
+      wrapConsecutiveOpsInDispatchRegion(rewriter, dequantMatmulOps);
+  if (failed(maybeDequantMatmulDispatch)) {
+    return failure();
+  }
   return success();
 }
 
