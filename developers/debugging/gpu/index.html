@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://iree.dev/developers/general/testing-guide/">
+        <link rel="canonical" href="https://iree.dev/developers/debugging/gpu/">
       
       
-        <link rel="prev" href="../release-management/">
+        <link rel="prev" href="../compile-time-regressions/">
       
       
-        <link rel="next" href="../../building/bazel/">
+        <link rel="next" href="../integration-tests/">
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Testing guide - IREE</title>
+        <title>GPU debugging playbook - IREE</title>
       
     
     
@@ -81,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#testing-guide" class="md-skip">
+        <a href="#gpu-debugging-playbook" class="md-skip">
           Skip to content
         </a>
       
@@ -164,7 +164,7 @@
         <div data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Testing guide
+              GPU debugging playbook
             
           </span>
         </div>
@@ -438,6 +438,8 @@
         <div class="md-main__inner md-grid">
           
             
+              
+                
               
               <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
                 <div class="md-sidebar__scrollwrap">
@@ -1925,8 +1927,6 @@
                 
   
   
-    
-  
   
     
     
@@ -1945,13 +1945,15 @@
     
       
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
         
           <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
             
@@ -1964,7 +1966,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             General development topics
@@ -1977,7 +1979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
+      <a href="../../general/contributing/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 13H8.061l-2.574 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25v-8.5C0 1.784.784 1 1.75 1ZM1.5 2.75v8.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H1.75a.25.25 0 0 0-.25.25Zm5.28 1.72a.75.75 0 0 1 0 1.06L5.31 7l1.47 1.47a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-2-2a.75.75 0 0 1 0-1.06l2-2a.75.75 0 0 1 1.06 0Zm2.44 0a.75.75 0 0 1 1.06 0l2 2a.75.75 0 0 1 0 1.06l-2 2a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L10.69 7 9.22 5.53a.75.75 0 0 1 0-1.06Z"/></svg>
@@ -1999,7 +2001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../developer-overview/" class="md-nav__link">
+      <a href="../../general/developer-overview/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
@@ -2021,7 +2023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../developer-tips/" class="md-nav__link">
+      <a href="../../general/developer-tips/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6m2 15v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1h4m6-10h3v2h-3v-2M1 11h3v2H1v-2M13 1v3h-2V1h2M4.92 3.5l2.13 2.14-1.42 1.41L3.5 4.93 4.92 3.5m12.03 2.13 2.12-2.13 1.43 1.43-2.13 2.12-1.42-1.42Z"/></svg>
@@ -2043,7 +2045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../release-management/" class="md-nav__link">
+      <a href="../../general/release-management/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="m8.878.392 5.25 3.045c.54.314.872.89.872 1.514v6.098a1.75 1.75 0 0 1-.872 1.514l-5.25 3.045a1.75 1.75 0 0 1-1.756 0l-5.25-3.045A1.75 1.75 0 0 1 1 11.049V4.951c0-.624.332-1.201.872-1.514L7.122.392a1.75 1.75 0 0 1 1.756 0ZM7.875 1.69l-4.63 2.685L8 7.133l4.755-2.758-4.63-2.685a.248.248 0 0 0-.25 0ZM2.5 5.677v5.372c0 .09.047.171.125.216l4.625 2.683V8.432Zm6.25 8.271 4.625-2.683a.25.25 0 0 0 .125-.216V5.677L8.75 8.432Z"/></svg>
@@ -2063,31 +2065,9 @@
                 
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z"/></svg>
-  
-  <span class="md-ellipsis">
-    Testing guide
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../general/testing-guide/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z"/></svg>
@@ -2098,149 +2078,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#compiler-tests" class="md-nav__link">
-    Compiler tests
-  </a>
-  
-    <nav class="md-nav" aria-label="Compiler tests">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#running-a-test" class="md-nav__link">
-    Running a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#writing-a-test" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system" class="md-nav__link">
-    Configuring the build system
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#runtime-tests" class="md-nav__link">
-    Runtime tests
-  </a>
-  
-    <nav class="md-nav" aria-label="Runtime tests">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#running-a-test_1" class="md-nav__link">
-    Running a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setting-test-environments" class="md-nav__link">
-    Setting test environments
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#writing-a-test_1" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system_1" class="md-nav__link">
-    Configuring the build system
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#iree-core-end-to-end-e2e-tests" class="md-nav__link">
-    IREE core end-to-end (e2e) tests
-  </a>
-  
-    <nav class="md-nav" aria-label="IREE core end-to-end (e2e) tests">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#building-e2e-tests" class="md-nav__link">
-    Building e2e tests
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#running-a-test_2" class="md-nav__link">
-    Running a Test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setting-test-environments_1" class="md-nav__link">
-    Setting test environments
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#writing-a-test_2" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system_2" class="md-nav__link">
-    Configuring the build system
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2402,6 +2239,8 @@
                 
   
   
+    
+  
   
     
     
@@ -2422,15 +2261,13 @@
     
       
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
         
           <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
             
@@ -2443,7 +2280,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_4">
             <span class="md-nav__icon md-icon"></span>
             Debugging
@@ -2456,7 +2293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../debugging/android-with-lldb/" class="md-nav__link">
+      <a href="../android-with-lldb/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.523 15.341a1 1 0 0 1 0-1.999 1 1 0 0 1 0 2m-11.046 0a1 1 0 0 1 0-2 1 1 0 0 1 0 2m11.405-6.02 1.997-3.46a.416.416 0 0 0-.152-.567.416.416 0 0 0-.568.152L17.137 8.95c-1.547-.706-3.284-1.1-5.137-1.1s-3.59.394-5.137 1.1L4.841 5.447a.416.416 0 0 0-.568-.152.416.416 0 0 0-.152.567l1.997 3.46C2.688 11.186.343 14.658 0 18.76h24c-.344-4.102-2.69-7.574-6.119-9.44"/></svg>
@@ -2478,7 +2315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../debugging/compile-time-regressions/" class="md-nav__link">
+      <a href="../compile-time-regressions/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/></svg>
@@ -2498,9 +2335,31 @@
                 
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="../../debugging/gpu/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/></svg>
+  
+  <span class="md-ellipsis">
+    GPU debugging playbook
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/></svg>
@@ -2511,6 +2370,74 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-methodology" class="md-nav__link">
+    General methodology
+  </a>
+  
+    <nav class="md-nav" aria-label="General methodology">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-shortcuts" class="md-nav__link">
+    .. with shortcuts
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-tools" class="md-nav__link">
+    .. using tools
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#isolating-the-problematic-component" class="md-nav__link">
+    Isolating the problematic component
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pinpointing-compiler-issues" class="md-nav__link">
+    Pinpointing compiler issues
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pinpointing-runtime-issues" class="md-nav__link">
+    Pinpointing runtime issues
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2522,7 +2449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../debugging/integration-tests/" class="md-nav__link">
+      <a href="../integration-tests/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/></svg>
@@ -2544,7 +2471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../debugging/releases/" class="md-nav__link">
+      <a href="../releases/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="m8.878.392 5.25 3.045c.54.314.872.89.872 1.514v6.098a1.75 1.75 0 0 1-.872 1.514l-5.25 3.045a1.75 1.75 0 0 1-1.756 0l-5.25-3.045A1.75 1.75 0 0 1 1 11.049V4.951c0-.624.332-1.201.872-1.514L7.122.392a1.75 1.75 0 0 1 1.756 0ZM7.875 1.69l-4.63 2.685L8 7.133l4.755-2.758-4.63-2.685a.248.248 0 0 0-.25 0ZM2.5 5.677v5.372c0 .09.047.171.125.216l4.625 2.683V8.432Zm6.25 8.271 4.625-2.683a.25.25 0 0 0 .125-.216V5.677L8.75 8.432Z"/></svg>
@@ -2566,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../debugging/sanitizers/" class="md-nav__link">
+      <a href="../sanitizers/" class="md-nav__link">
         
   
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19.36 2.72 1.42 1.42-5.72 5.71c1.07 1.54 1.22 3.39.32 4.59L9.06 8.12c1.2-.9 3.05-.75 4.59.32l5.71-5.72M5.93 17.57c-2.01-2.01-3.24-4.41-3.58-6.65l4.88-2.09 7.44 7.44-2.09 4.88c-2.24-.34-4.64-1.57-6.65-3.58Z"/></svg>
@@ -3362,6 +3289,8 @@
             
             
               
+                
+              
               <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
@@ -3381,30 +3310,23 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#compiler-tests" class="md-nav__link">
-    Compiler tests
+  <a href="#general-methodology" class="md-nav__link">
+    General methodology
   </a>
   
-    <nav class="md-nav" aria-label="Compiler tests">
+    <nav class="md-nav" aria-label="General methodology">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#running-a-test" class="md-nav__link">
-    Running a test
+  <a href="#with-shortcuts" class="md-nav__link">
+    .. with shortcuts
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#writing-a-test" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system" class="md-nav__link">
-    Configuring the build system
+  <a href="#using-tools" class="md-nav__link">
+    .. using tools
   </a>
   
 </li>
@@ -3415,91 +3337,23 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#runtime-tests" class="md-nav__link">
-    Runtime tests
+  <a href="#isolating-the-problematic-component" class="md-nav__link">
+    Isolating the problematic component
   </a>
-  
-    <nav class="md-nav" aria-label="Runtime tests">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#running-a-test_1" class="md-nav__link">
-    Running a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setting-test-environments" class="md-nav__link">
-    Setting test environments
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#writing-a-test_1" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system_1" class="md-nav__link">
-    Configuring the build system
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#iree-core-end-to-end-e2e-tests" class="md-nav__link">
-    IREE core end-to-end (e2e) tests
-  </a>
-  
-    <nav class="md-nav" aria-label="IREE core end-to-end (e2e) tests">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#building-e2e-tests" class="md-nav__link">
-    Building e2e tests
+  <a href="#pinpointing-compiler-issues" class="md-nav__link">
+    Pinpointing compiler issues
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#running-a-test_2" class="md-nav__link">
-    Running a Test
+      
+        <li class="md-nav__item">
+  <a href="#pinpointing-runtime-issues" class="md-nav__link">
+    Pinpointing runtime issues
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setting-test-environments_1" class="md-nav__link">
-    Setting test environments
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#writing-a-test_2" class="md-nav__link">
-    Writing a test
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuring-the-build-system_2" class="md-nav__link">
-    Configuring the build system
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3516,9 +3370,46 @@
               <article class="md-content__inner md-typeset">
                 
                   
+  
+  
+
+<nav class="md-tags" hidden>
+  
+    
+    
+    
+      <a href="../../../community/tags/#gpu" class="md-tag">GPU</a>
+    
+  
+    
+    
+    
+      <a href="../../../community/tags/#cuda" class="md-tag">CUDA</a>
+    
+  
+    
+    
+    
+      <a href="../../../community/tags/#metal" class="md-tag">Metal</a>
+    
+  
+    
+    
+    
+      <a href="../../../community/tags/#rocm" class="md-tag">ROCm</a>
+    
+  
+    
+    
+    
+      <a href="../../../community/tags/#vulkan" class="md-tag">Vulkan</a>
+    
+  
+</nav>
+
 
   
-    <a href="https://github.com/openxla/iree/blob/main/docs/website/docs/developers/general/testing-guide.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/openxla/iree/blob/main/docs/website/docs/developers/debugging/gpu.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.15 8.15 0 0 1-1.23-2Z"/></svg>
     </a>
@@ -3526,356 +3417,246 @@
   
 
 
-<h1 id="testing-guide">Testing guide<a class="headerlink" href="#testing-guide" title="Permanent link">link</a></h1>
-<p>Like the IREE project in general, IREE tests are divided into a few different
-components and use different tooling depending on the needs of that component.</p>
+<h1 id="gpu-debugging-playbook">GPU debugging playbook<a class="headerlink" href="#gpu-debugging-playbook" title="Permanent link">link</a></h1>
+<p>This page aims to provide general approaches and practical tips for debugging
+GPU compiler/runtime correctness/performance issues in IREE.</p>
+<p>GPUs fundamentally have similar architectures and software stacks.
+We target GPUs from various vendors using different GPU APIs, but they share
+quite a lot common infrastructure in IREE.
+So the approaches and tips here should be widely applicable.</p>
+<p>For the ones that are specific to a particular kind of problem/component/GPU,
+they are prefixed with proper icons to be clear.
+Here are what those icons represents--</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Test type</th>
-<th style="text-align: left;">Test</th>
-<th>Build system</th>
-<th>Supported platforms</th>
+<th style="text-align: center;">Icon</th>
+<th style="text-align: center;">Category</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;">Compiler tests</td>
-<td style="text-align: left;">iree_lit_test</td>
-<td>Bazel/CMake</td>
-<td>Host</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m9 20.42-6.21-6.21 2.83-2.83L9 14.77l9.88-9.89 2.83 2.83L9 20.42Z"/></svg></span></td>
+<td style="text-align: center;">Correctness</td>
 </tr>
 <tr>
-<td style="text-align: left;">Runtime tests</td>
-<td style="text-align: left;">iree_cc_test</td>
-<td>Bazel/CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6Z"/></svg></span></td>
+<td style="text-align: center;">Performance</td>
 </tr>
 <tr>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">iree_native_test</td>
-<td>Bazel/CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m18.324 9.137 1.559 1.56h2.556v2.557L24 14.814V9.137zM2 9.52l-2 4.96h1.309l.37-.982H3.9l.408.982h1.338L3.432 9.52zm4.209 0v4.955h1.238v-3.092l1.338 1.562h.188l1.338-1.556v3.091h1.238V9.52H10.47l-1.592 1.845L7.287 9.52zm6.283 0v4.96h2.057c1.979 0 2.88-1.046 2.88-2.472 0-1.36-.937-2.488-2.747-2.488zm1.237.91h.792c1.17 0 1.63.711 1.63 1.57 0 .728-.372 1.572-1.616 1.572h-.806zm-10.985.273.791 1.932H2.008zm17.137.307-1.604 1.603v2.25h2.246l1.604-1.607h-2.246z"/></svg></span></td>
+<td style="text-align: center;">AMD HIP/ROCm</td>
 </tr>
 <tr>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">iree_hal_cts_test_suite</td>
-<td>CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></span></td>
+<td style="text-align: center;">Apple Metal</td>
 </tr>
 <tr>
-<td style="text-align: left;">Core E2E tests</td>
-<td style="text-align: left;">iree_check_test</td>
-<td>Bazel/CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0v11.408h11.408V0zm12.594 0v11.408H24V0zM0 12.594V24h11.408V12.594zm12.594 0V24H24V12.594z"/></svg></span></td>
+<td style="text-align: center;">Microsoft DirectX</td>
 </tr>
 <tr>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">iree_trace_runner_test</td>
-<td>Bazel/CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851a3.67 3.67 0 0 1-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964a6.46 6.46 0 0 1-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z"/></svg></span></td>
+<td style="text-align: center;">NVIDIA CUDA</td>
 </tr>
 <tr>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">iree_generated_trace_runner_test</td>
-<td>Bazel/CMake</td>
-<td>Host/Device</td>
-</tr>
-<tr>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">iree_static_linker_test</td>
-<td>CMake</td>
-<td>Host/Device</td>
+<td style="text-align: center;"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span></td>
+<td style="text-align: center;">Vulkan</td>
 </tr>
 </tbody>
 </table>
-<p>There are also more <code>*_test_suite</code> targets that groups test targets with the
-same configuration together.</p>
-<h2 id="compiler-tests">Compiler tests<a class="headerlink" href="#compiler-tests" title="Permanent link">link</a></h2>
-<p>Tests for the IREE compilation pipeline are written as lit tests in the same
-style as MLIR.</p>
-<p>By convention, IREE includes tests for</p>
+<h2 id="general-methodology">General methodology<a class="headerlink" href="#general-methodology" title="Permanent link">link</a></h2>
+<p>The difficulties associated with debugging typically arise from <strong>isolating the
+problematic component and pinpointing the culprit</strong>.
+Once done, the solution typically derives naturally.</p>
+<p>There are many components in the IREE stack; hierarchically we can categorize
+them into either the compiler or runtime bucket:</p>
 <ul>
-<li>printing and parsing of ops in <code>.../IR/test/{OP_CATEGORY}_ops.mlir</code> files</li>
-<li>folding and canonicalization in <code>.../IR/test/{OP_CATEGORY}_folding.mlir</code> files</li>
-<li>compiler passes and pipelines in other <code>.../test/*.mlir</code> files</li>
+<li>For compilers, there are multiple layers from the top to the bottom--frontend
+  input importers, IREE flow/stream compilation, IREE host/device compilation,
+  GPU backend in LLVM proper or GPU driver compiler for SPIR-V.</li>
+<li>For runtime, we have fewer layers--IREE HAL drivers, and GPU driver.</li>
 </ul>
-<h3 id="running-a-test">Running a test<a class="headerlink" href="#running-a-test" title="Permanent link">link</a></h3>
-<p>For the test
-<a href="https://github.com/openxla/iree/blob/main/compiler/src/iree/compiler/Dialect/VM/Conversion/MathToVM/test/arithmetic_ops.mlir"><code>iree/compiler/Dialect/VM/Conversion/MathToVM/test/arithmetic_ops.mlir</code></a></p>
-<p>With CMake, run this from the build directory:</p>
-<div class="highlight"><pre><span></span><code>ctest<span class="w"> </span>-R<span class="w"> </span>iree/compiler/Dialect/VM/Conversion/MathToVM/test/arithmetic_ops.mlir.test
-</code></pre></div>
-<p>With Bazel, run this from the repo root:</p>
-<div class="highlight"><pre><span></span><code>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//compiler/src/iree/compiler/Dialect/VM/Conversion/MathToVM/test:arithmetic_ops.mlir.test
-</code></pre></div>
-<h3 id="writing-a-test">Writing a test<a class="headerlink" href="#writing-a-test" title="Permanent link">link</a></h3>
-<p>For advice on writing MLIR compiler tests, see the
-<a href="https://mlir.llvm.org/getting_started/TestingGuide/">MLIR testing guide</a>. Tests
-should be <code>.mlir</code> files in <code>test</code> directory adjacent to the functionality they
-are testing. Instead of <code>mlir-opt</code>, use <code>iree-opt</code>, which registers IREE
-dialects and passes and doesn't register some unnecessary core ones.</p>
-<p>As with most parts of the IREE compiler, these should not have a dependency on
-the runtime.</p>
-<h3 id="configuring-the-build-system">Configuring the build system<a class="headerlink" href="#configuring-the-build-system" title="Permanent link">link</a></h3>
-<p>In the Bazel BUILD file, create a <code>iree_lit_test_suite</code> rule. We usually create
-a single suite that globs all <code>.mlir</code> files in the directory and is called
-"lit".</p>
-<div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;//iree/build_tools/bazel:iree_lit_test.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;iree_lit_test_suite&quot;</span><span class="p">)</span>
-
-<span class="n">iree_lit_test_suite</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;lit&quot;</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s2">&quot;*.mlir&quot;</span><span class="p">]),</span>
-    <span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;@llvm-project//llvm:FileCheck&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;//tools:iree-opt&quot;</span><span class="p">,</span>
-    <span class="p">],</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>There is a corresponding CMake function, calls to which will be generated by our
-<a href="https://github.com/openxla/iree/tree/main/build_tools/bazel_to_cmake/bazel_to_cmake.py">Bazel to CMake converter</a>.</p>
-<div class="highlight"><pre><span></span><code><span class="nb">iree_lit_test_suite</span><span class="p">(</span>
-<span class="w">  </span><span class="s">NAME</span>
-<span class="w">    </span><span class="s">lit</span>
-<span class="w">  </span><span class="s">SRCS</span>
-<span class="w">    </span><span class="s2">&quot;arithmetic_ops.mlir&quot;</span>
-<span class="w">  </span><span class="s">DATA</span>
-<span class="w">    </span><span class="s">FileCheck</span>
-<span class="w">    </span><span class="s">iree-opt</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>You can also create a test for a single file with <code>iree_lit_test</code>.</p>
-<h2 id="runtime-tests">Runtime tests<a class="headerlink" href="#runtime-tests" title="Permanent link">link</a></h2>
-<p>Tests for the runtime C++ code use the
-<a href="https://github.com/google/googletest">GoogleTest</a> testing framework. They
-should generally follow the style and best practices of that framework.</p>
-<h3 id="running-a-test_1">Running a test<a class="headerlink" href="#running-a-test_1" title="Permanent link">link</a></h3>
-<p>For the test
-<a href="https://github.com/openxla/iree/blob/main/runtime/src/iree/base/bitfield_test.cc"><code>/runtime/src/iree/base/bitfield_test.cc</code></a>:</p>
-<p>With CMake, run this from the build directory:</p>
-<div class="highlight"><pre><span></span><code>ctest<span class="w"> </span>-R<span class="w"> </span>iree/base/bitfield_test
-</code></pre></div>
-<p>With Bazel, run this from the repo root:</p>
-<div class="highlight"><pre><span></span><code>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//runtime/src/iree/base:arena_test
-</code></pre></div>
-<h3 id="setting-test-environments">Setting test environments<a class="headerlink" href="#setting-test-environments" title="Permanent link">link</a></h3>
-<p>Parallel testing for <code>ctest</code> can be enabled via the <code>CTEST_PARALLEL_LEVEL</code>
-environment variable. For example:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">CTEST_PARALLEL_LEVEL</span><span class="o">=</span><span class="k">$(</span>nproc<span class="k">)</span>
-</code></pre></div>
-<p>To use the Vulkan backend as test driver, you may need to select between a
-Vulkan implementation from SwiftShader and multiple Vulkan-capable hardware
-devices. This can be done via environment variables. See the
-<a href="../../vulkan-environment-setup/#useful-environment-variables">generic Vulkan setup</a>
-page for details regarding these variables.</p>
-<p>For Bazel, you can persist the configuration in <code>user.bazelrc</code> to save typing.
-For example:</p>
-<div class="highlight"><pre><span></span><code>test:vkswiftshader<span class="w"> </span>--test_env<span class="o">=</span><span class="s2">&quot;LD_LIBRARY_PATH=...&quot;</span>
-test:vkswiftshader<span class="w"> </span>--test_env<span class="o">=</span><span class="s2">&quot;VK_LAYER_PATH=...&quot;</span>
-test:vknative<span class="w"> </span>--test_env<span class="o">=</span><span class="s2">&quot;LD_LIBRARY_PATH=...&quot;</span>
-test:vknative<span class="w"> </span>--test_env<span class="o">=</span><span class="s2">&quot;VK_LAYER_PATH=...&quot;</span>
-</code></pre></div>
-<p>Then you can use <code>bazel test --config=vkswiftshader</code> to select SwiftShader as
-the Vulkan implementation. Similarly for other implementations.</p>
-<h3 id="writing-a-test_1">Writing a test<a class="headerlink" href="#writing-a-test_1" title="Permanent link">link</a></h3>
-<p>For advice on writing tests in the GoogleTest framework, see the
-<a href="https://github.com/google/googletest/blob/main/docs/primer.md">GoogleTest primer</a>.
-Test files for source file <code>foo.cc</code> with build target <code>foo</code> should live in the
-same directory with source file <code>foo_test.cc</code> and build target <code>foo_test</code>. You
-should <code>#include</code> <code>iree/testing/gtest.h</code> instead of any of the gtest or gmock
-headers.</p>
-<p>As with all parts of the IREE runtime, these should not have a dependency on the
-compiler.</p>
-<h3 id="configuring-the-build-system_1">Configuring the build system<a class="headerlink" href="#configuring-the-build-system_1" title="Permanent link">link</a></h3>
-<p>In the Bazel BUILD file, create a <code>cc_test</code> target with your test file as the
-source and any necessary dependencies. Usually, you can link in a standard gtest
-main function. Use <code>iree/testing:gtest_main</code> instead of the <code>gtest_main</code> that
-comes with gtest.</p>
-<div class="highlight"><pre><span></span><code><span class="n">cc_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;arena_test&quot;</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;arena_test.cc&quot;</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;:arena&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;//iree/testing:gtest_main&quot;</span><span class="p">,</span>
-    <span class="p">],</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>We have created a corresponding CMake function <code>iree_cc_test</code> that mirrors the
-Bazel rule's behavior. Our
-<a href="https://github.com/openxla/iree/tree/main/build_tools/bazel_to_cmake/bazel_to_cmake.py">Bazel to CMake converter</a>
-should generally derive the <code>CMakeLists.txt</code> file from the BUILD file:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">iree_cc_test</span><span class="p">(</span>
-<span class="w">  </span><span class="s">NAME</span>
-<span class="w">    </span><span class="s">arena_test</span>
-<span class="w">  </span><span class="s">SRCS</span>
-<span class="w">    </span><span class="s2">&quot;arena_test.cc&quot;</span>
-<span class="w">  </span><span class="s">DEPS</span>
-<span class="w">    </span><span class="s">::arena</span>
-<span class="w">    </span><span class="s">iree::testing::gtest_main</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>There are other more specific test targets, such as <code>iree_hal_cts_test_suite</code>,
-which are designed to test specific runtime support with template configuration
-and is not supported by Bazel rules.</p>
-<h2 id="iree-core-end-to-end-e2e-tests">IREE core end-to-end (e2e) tests<a class="headerlink" href="#iree-core-end-to-end-e2e-tests" title="Permanent link">link</a></h2>
-<p>Here "end-to-end" means from the input accepted by the IREE core compiler
-(dialects like TOSA, StableHLO, Linalg) to execution using the IREE runtime
-components. It does not include tests of the integrations with ML frameworks
-(e.g. TensorFlow, PyTorch) or bindings to other languages (e.g. Python).</p>
-<p>We avoid using the more traditional <code>lit</code> tests used elsewhere in the compiler
-for runtime execution tests. Lit tests require running the compiler tools on
-the test platform through shell or python scripts that act on files from a local
-file system. On platforms like Android, the web, and embedded systems, each of
-these features is either not available or is severely limited.</p>
-<p>Instead, to test these flows we use a custom framework called <code>check</code>. The check
-framework compiles test programs on the host machine into standalone test binary
-files that can be pushed to test devices (such as Android phones) where they
-run with gtest style assertions (e.g. <code>check.expect_almost_eq(lhs, rhs)</code>).</p>
-<h3 id="building-e2e-tests">Building e2e tests<a class="headerlink" href="#building-e2e-tests" title="Permanent link">link</a></h3>
-<p>The files needed by these tests are not built by default with CMake. You'll
-need to build the special <code>iree-test-deps</code> target to generate test files prior
-to running CTest (from the build directory):</p>
-<div class="highlight"><pre><span></span><code>cmake<span class="w"> </span>--build<span class="w"> </span>.<span class="w"> </span>--target<span class="w"> </span>iree-test-deps
-</code></pre></div>
-<p>To run e2e model tests in
-<a href="https://github.com/openxla/iree/tree/main/tests/e2e/stablehlo_models/generated_e2e_model_tests.cmake">generated_e2e_model_tests.cmake</a>,
-because of their dependencies, <code>-DIREE_BUILD_E2E_TEST_ARTIFACTS=ON</code> needs to be
-set when configuring CMake. Also see
-<a href="../../performance/benchmark-suites/#prerequisites">IREE Benchmark Suite Prerequisites</a>
-for required packages.</p>
-<h3 id="running-a-test_2">Running a Test<a class="headerlink" href="#running-a-test_2" title="Permanent link">link</a></h3>
-<p>For the test
-<a href="https://github.com/openxla/iree/tree/main/tests/e2e/xla_ops/floor.mlir"><code>tests/e2e/xla_ops/floor.mlir</code></a>
-compiled for the VMVX target backend and running on the VMVX driver (here they
-match exactly, but in principle there's a many-to-many mapping from backends to
-drivers).</p>
-<p>With CMake, run this from the build directory:</p>
-<div class="highlight"><pre><span></span><code>ctest<span class="w"> </span>-R<span class="w"> </span>tests/e2e/xla_ops/check_vmvx_local-task_floor.mlir
-</code></pre></div>
-<p>With Bazel, run this from the repo root:</p>
-<div class="highlight"><pre><span></span><code>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>tests/e2e/xla_ops:check_vmvx_local-task_floor.mlir
-</code></pre></div>
-<h3 id="setting-test-environments_1">Setting test environments<a class="headerlink" href="#setting-test-environments_1" title="Permanent link">link</a></h3>
-<p>Similarly, you can use environment variables to select Vulkan implementations
-for running tests as explained in the <a href="#runtime-tests">Runtime tests</a> section.</p>
-<h3 id="writing-a-test_2">Writing a test<a class="headerlink" href="#writing-a-test_2" title="Permanent link">link</a></h3>
-<p>These tests live in <code>tests/e2e</code>. A single test consists of a <code>.mlir</code> source
-file specifying an IREE module where each exported function takes no inputs and
-returns no results and corresponds to a single test case.</p>
-<p>As an example, here are some tests for the MHLO floor operation:</p>
-<div class="highlight"><pre><span></span><code>func.func @tensor() {
-  %input = util.unfoldable_constant dense&lt;[0.0, 1.1, 2.5, 4.9]&gt; : tensor&lt;4xf32&gt;
-  %result = &quot;mhlo.floor&quot;(%input) : (tensor&lt;4xf32&gt;) -&gt; tensor&lt;4xf32&gt;
-  check.expect_almost_eq_const(%result, dense&lt;[0.0, 1.0, 2.0, 4.0]&gt; : tensor&lt;4xf32&gt;): tensor&lt;4xf32&gt;
-  return
-}
-
-func.func @scalar() {
-  %input = util.unfoldable_constant dense&lt;101.3&gt; : tensor&lt;f32&gt;
-  %result = &quot;mhlo.floor&quot;(%input) : (tensor&lt;f32&gt;) -&gt; tensor&lt;f32&gt;
-  check.expect_almost_eq_const(%result, dense&lt;101.0&gt; : tensor&lt;f32&gt;): tensor&lt;f32&gt;
-  return
-}
-
-func.func @negative() {
-  %input = util.unfoldable_constant dense&lt;-1.1&gt; : tensor&lt;f32&gt;
-  %result = &quot;mhlo.floor&quot;(%input) : (tensor&lt;f32&gt;) -&gt; tensor&lt;f32&gt;
-  check.expect_almost_eq_const(%result, dense&lt;-2.0&gt; : tensor&lt;f32&gt;): tensor&lt;f32&gt;
-  return
-}
-</code></pre></div>
-<p>Test cases are created in gtest for each public function exported by the module.</p>
-<p>Note the use of <code>util.unfoldable_constant</code> to specify test constants. If we were
-to use a regular constant the compiler would fold away everything at compile
-time and our test would not actually test the runtime. <code>unfoldable_constant</code>
-adds a barrier that prevents folding. To prevent folding/constant propagate on
-an arbitrary SSA-value you can use <code>util.optimization_barrier</code>.</p>
-<p>Next we use this input constant to exercise the runtime feature under test (in
-this case, just a single floor operation). Finally, we use a check dialect
-operation to make an assertion about the output. There are a few different
-<a href="../../reference/mlir-dialects/Check.md">assertion operations</a>.
-Here we use the <code>expect_almost_eq_const</code> op: <em>almost</em> because we are comparing
-floats and want to allow for floating-point imprecision, and <em>const</em> because we
-want to compare it to a constant value. This last part is just syntactic sugar
-around</p>
-<div class="highlight"><pre><span></span><code>%expected = arith.constant dense&lt;101.0&gt; : tensor&lt;f32&gt;
-check.expect_almost_eq(%result, %expected) : tensor&lt;f32&gt;
-</code></pre></div>
-<p>The output of running this test looks like:</p>
-<div class="highlight"><pre><span></span><code>[==========] Running 4 tests from 1 test suite.
-[----------] Global test environment set-up.
-[----------] 4 tests from module
-[ RUN      ] module.tensor
-[       OK ] module.tensor (76 ms)
-[ RUN      ] module.scalar
-[       OK ] module.scalar (79 ms)
-[ RUN      ] module.double
-[       OK ] module.double (55 ms)
-[ RUN      ] module.negative
-[       OK ] module.negative (54 ms)
-[----------] 4 tests from module (264 ms total)
-
-[----------] Global test environment tear-down
-[==========] 4 tests from 1 test suite ran. (264 ms total)
-[  PASSED  ] 4 tests.
-</code></pre></div>
-<p>The "module" name for the test suite comes from the default name for an implicit
-MLIR module. To give the test suite a more descriptive name, use an explicit
-named top-level module in this file.</p>
-<h3 id="configuring-the-build-system_2">Configuring the build system<a class="headerlink" href="#configuring-the-build-system_2" title="Permanent link">link</a></h3>
-<p>A single <code>.mlir</code> source file can be turned into a test target with the
-<code>iree_check_test</code> Bazel macro (and corresponding CMake function).</p>
-<div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;//build_tools/bazel:iree_check_test.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;iree_check_test&quot;</span><span class="p">)</span>
-
-<span class="n">iree_check_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;check_vmvx_local-task_floor.mlir&quot;</span><span class="p">,</span>
-    <span class="n">src</span> <span class="o">=</span> <span class="s2">&quot;floor.mlir&quot;</span><span class="p">,</span>
-    <span class="n">driver</span> <span class="o">=</span> <span class="s2">&quot;local-task&quot;</span><span class="p">,</span>
-    <span class="n">target_backend</span> <span class="o">=</span> <span class="s2">&quot;vmvx&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>The target naming convention is "check_backend_driver_src". The generated test
-will automatically be tagged with a "driver=vmvx" tag, which can help filter
-tests by backend (especially when many tests are generated, as below).</p>
-<p>Usually we want to create a suite of tests across many backends and drivers.
-This can be accomplished with additional macros. For a single backend/driver
-pair:</p>
-<div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;//build_tools/bazel:iree_check_test.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;iree_check_single_backend_test_suite&quot;</span><span class="p">)</span>
-
-<span class="n">iree_check_single_backend_test_suite</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;check_vmvx_local-task&quot;</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s2">&quot;*.mlir&quot;</span><span class="p">]),</span>
-    <span class="n">driver</span> <span class="o">=</span> <span class="s2">&quot;local-task&quot;</span><span class="p">,</span>
-    <span class="n">target_backend</span> <span class="o">=</span> <span class="s2">&quot;vmvx&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>This will generate a separate test target for each file in <code>srcs</code> with a name
-following the convention above as well as a Bazel
-<a href="https://bazel.build/reference/be/general#test_suite">test_suite</a>
-called "check_vmvx_local-task" that will run all the generated tests.</p>
-<p>You can also generate suites across multiple pairs:</p>
-<div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;//build_tools/bazel:iree_check_test.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;iree_check_test_suite&quot;</span><span class="p">)</span>
-
-<span class="n">iree_check_test_suite</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;check&quot;</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;success.mlir&quot;</span><span class="p">],</span>
-    <span class="c1"># Leave this argument off to run on all supported backend/driver pairs.</span>
-    <span class="n">target_backends_and_drivers</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span><span class="s2">&quot;vmvx&quot;</span><span class="p">,</span> <span class="s2">&quot;local-task&quot;</span><span class="p">),</span>
-        <span class="p">(</span><span class="s2">&quot;vulkan-spirv&quot;</span><span class="p">,</span> <span class="s2">&quot;vulkan&quot;</span><span class="p">),</span>
-    <span class="p">],</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>This will create a test per source file and backend/driver pair, a test suite
-per backend/driver pair, and a test suite, "check", that will run all the tests.</p>
-<p>The CMake functions follow a similar pattern. The calls to them are generated in
-our <code>CMakeLists.txt</code> file by
-<a href="https://github.com/openxla/iree/tree/main/build_tools/bazel_to_cmake/bazel_to_cmake.py">bazel_to_cmake</a>.</p>
-<p>There are other test targets that generate tests based on template configuraton
-and platform detection, such as <code>iree_static_linker_test</code>. Those targets are
-not supported by Bazel rules at this point.</p>
+<p>Any of the above components/layers can have bugs.
+It's important to reduce the potential surface area to make the problem more
+tractable.</p>
+<p>Once we have a more isolated case, the general methodology to pinpoint the
+exact culprit is to</p>
+<ol>
+<li><strong>collect and inspect the symptoms,</strong></li>
+<li><strong>form hypothesis and run experiments to prove/refute the hypothesis, and</strong></li>
+<li><strong>iterate</strong>.</li>
+</ol>
+<h3 id="with-shortcuts">.. with shortcuts<a class="headerlink" href="#with-shortcuts" title="Permanent link">link</a></h3>
+<p>The above procedure is for facing a large problem with no clue, for example,
+when bringing up a new model end-to-end via IREE.</p>
+<p>Though most of the time, we can leverage existing facilities to avoid going down
+the full top-down hiearchical debugging procedure.
+For example, for regression happening on an existing model, CI or <code>git bitsect</code>
+might tell us directly the culprit commit.</p>
+<h3 id="using-tools">.. using tools<a class="headerlink" href="#using-tools" title="Permanent link">link</a></h3>
+<p>For issues with strong signals like crashing, it's also easier to pinpoint the
+exact culprit with dedicated tools--we can leverage various
+<a href="../sanitizers/">sanitizers</a> or debuggers.</p>
+<h2 id="isolating-the-problematic-component">Isolating the problematic component<a class="headerlink" href="#isolating-the-problematic-component" title="Permanent link">link</a></h2>
+<p>If we are facing a large problem without a clear clue, we need to isolate the
+problematic compiler or runtime layer first, typically by comparing with a
+working solution:</p>
+<div class="admonition tip">
+<p class="admonition-title">[correctness/performance]</p>
+<p>Sanitize the environment first.
+Asking these questions and making sure the environment is proper can save
+you hours of debugging sometimes:</p>
+<ul>
+<li>Did you recently updated the GPU SDK or driver?</li>
+<li>Are others able to reproduce the issue?</li>
+<li>If not what SDK / driver versions they are using?</li>
+<li>Is your machine drawing enough power when benchmarking?</li>
+<li>Is your machine connected with a mointor (e.g., for Vulkan)?</li>
+<li>How long since you last rebooted your machine? 👻</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness/performance]</p>
+<p>We have multiple GPU targets/drivers in IREE--LLVMGPU/CUDA, LLVMGPU/HIP,
+SPIR-V/Vulkan, SPIR-V/Metal.</p>
+<p>For the <em>same</em> GPU, we typically have two paths to target, e.g., CUDA/HIP
+or Vulkan for NVIDIA/AMD GPUs, Metal or Vulkan for Apple GPUs.</p>
+<p>If one path is correct/performant, we can diff against it to try isolate
+the problem--the common/shared compiler/runtime code is likely okay; what
+differs between paths is likely problematic.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness/performance] [vulkan]</p>
+<p>Vulkan supports different GPUs.
+Similarly, if one GPU gives correct/performant result, we diff against it
+to find clues.</p>
+<p>Even more code in compiler/runtime are shared here; what's problematic is
+likely different capabilities triggering different CodeGen pipelines so
+revealing bugs in a particular CodeGen pipeline.
+Or there are driver issues from a particular vendor.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>If the CPU is working properly, we can use the same dispatch region formation
+and diff against the CPU dispatches one by one to isolate the problem. See
+<a href="https://github.com/openxla/iree/issues/14739">this issue</a> as an example.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p><code>--iree-flow-trace-dispatch-tensors</code> and/or <code>--iree-flow-break-dispatch=</code> to
+<code>iree-compile</code> is quite helpful to inspect the output after all/each
+dispatch(es).</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p><code>iree-reduce</code> is a great tool to reduce and isolate issues programmatically.
+See more details <a href="https://github.com/openxla/iree/blob/main/samples/reducer/README.md">here</a>.</p>
+</div>
+<h2 id="pinpointing-compiler-issues">Pinpointing compiler issues<a class="headerlink" href="#pinpointing-compiler-issues" title="Permanent link">link</a></h2>
+<p>Once we identified that the problem is due to some compiler issue, we can
+investigate by comparing with different paths and inputs:</p>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>For the same dispatch, we may have different CodeGen pipelines, e.g.,
+for matmul we can have simple SIMT pipeline or using tensor/matrix cores.
+We can try to switch between different pipelines to isolate the problem.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>Assuming we have a small repro, we can also try to see if there are
+"patterns" in the wrong result (e.g.,
+<a href="https://github.com/openxla/iree/issues/14739#issuecomment-1685149869">this issue</a>).
+Or mutate the input to see if the failure has some "consistency".</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness/performance]</p>
+<p><code>--mlir-print-ir-*</code> and <code>--debug*</code> to <code>iree-opt</code> is our best friend.
+Sometimes it just takes eyeballing the IRs between stages to find clues.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[performance]</p>
+<p>For identifying performance issues, we typically need to use:</p>
+<ul>
+<li><a href="../../performance/profiling-with-tracy/">Tracy profiling</a> to get a
+  course-grained command-buffer timing to understand what's the most
+  time-consuming kernels.
+  Typical big performance issues include but not limit to going down a
+  incorrect CodeGen pipeline, missing tiling/vectorization, having an
+  improper tiling/vectorization configuration, and so on.
+  If the course-grained information is not enough, then we need to</li>
+<li><a href="../../performance/profiling-gpu-vulkan/">vendor-specific tools</a> to
+  understand kernel internal counters to identify the bottleneck.</li>
+</ul>
+</div>
+<h2 id="pinpointing-runtime-issues">Pinpointing runtime issues<a class="headerlink" href="#pinpointing-runtime-issues" title="Permanent link">link</a></h2>
+<p>On the other side, if we suspect that it's a runtime issue, here are some
+useful approachs and tips:</p>
+<div class="admonition tip">
+<p class="admonition-title">[correctness/performance]</p>
+<p><a href="../../performance/profiling-with-tracy/">Tracy profiling</a> is a great way to
+view how the application runs dynamically.
+It can help to show problematic GPU API call sequences and performance
+bottlenecks.</p>
+<ul>
+<li>It requires adding <code>-DIREE_ENABLE_RUNTIME_TRACING=ON</code> during CMake
+  configuration, or use the <code>IREE_PY_RUNTIME=tracy</code> environment variable
+  when invoking IREE runtime installed via Python packages.</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>GPU validation can sometimes give us hints:</p>
+<ul>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></span>] Enable validation via <code>export METAL_DEVICE_WRAPPER_TYPE=1</code>.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span>] Use <code>--vulkan_validation_layers=true</code> to <code>iree-run-module</code>, or</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span>] Force enable via environment variables to the Vulkan loader:
+  <code>export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_standard_validation</code>
+  (may additionally need
+  <code>export VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/explicit_layer.d</code> and
+  <code>export LD_LIBRARY_PATH=$VULKAN_SDK/lib</code> if Vulkan SDK is not installed
+  to a system path).</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>Turning on verbose output can give us more information:</p>
+<ul>
+<li>When compiling IREE runtime, add
+  <code>-DCMAKE_C_FLAGS=-DIREE_VM_EXECUTION_TRACING_FORCE_ENABLE=1</code> in CMake
+  configuration to enable VM op tracing.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span>] Use <code>--vulkan_debug_verbosity=4</code> to <code>iree-run-module</code>.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span>] Print all Vulkan APIs calls with detailed arguments:
+  <code>export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump</code>
+  (may additionally need
+  <code>export VK_LAYER_PATH=$VULKAN_SDK/etc/vulkan/explicit_layer.d</code> and
+  <code>export LD_LIBRARY_PATH=$VULKAN_SDK/lib</code> if Vulkan SDK is not installed
+  to a system path).</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">[correctness]</p>
+<p>Try different "debugging modes" provided by HAL drivers:</p>
+<ul>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851a3.67 3.67 0 0 1-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964a6.46 6.46 0 0 1-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z"/></svg></span>] Switch <code>--cuda_use_streams=</code> between <code>true</code> and <code>false</code> to
+  <code>iree-run-module</code> to see whether the issue comes from the stream/graph
+  command buffer implementation.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851a3.67 3.67 0 0 1-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964a6.46 6.46 0 0 1-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z"/></svg></span>] Switch <code>--cuda_async_allocations=false</code> to <code>iree-run-module</code> to
+  see if the issue comes from async allocation.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></span>] Use <code>--metal_serial_command_dispatch=true</code>,
+  <code>--metal_command_buffer_retain_resources=true</code>, or
+  <code>--metal_resource_hazard_tracking=true</code> to <code>iree-run-module</code> to see
+  if any of the above "fixes" the issue.
+  It can help to isolate the pontential problem.</li>
+<li>[<span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.342 15.336h-.936v-2.991c.299.167.694.474.936.769zm-7.898 0H5.277L3.755 10.63h1.061l1.048 3.309h.013l1.061-3.309h1.068zm4.7 0h-.89v-.474h-.02a1.051 1.051 0 0 1-.461.429 1.36 1.36 0 0 1-.58.132 1.63 1.63 0 0 1-.616-.099.89.89 0 0 1-.38-.28 1.11 1.11 0 0 1-.194-.442 2.768 2.768 0 0 1-.056-.577v-2.096h.936v1.925c0 .281.044.491.132.629.088.139.244.208.468.208.255 0 .439-.076.554-.227.114-.152.17-.401.17-.748V11.93h.937zm3.353-2.05-.002-.132 1.18-1.226h1.108l-1.285 1.252 1.43 2.155h-1.134zm2.602-.31c.013-.22.068-.402.165-.547a1.13 1.13 0 0 1 .369-.349 1.6 1.6 0 0 1 .504-.188 2.9 2.9 0 0 1 .564-.056c.17 0 .345.012.52.036.177.024.337.072.482.142.145.07.264.168.356.293.092.125.138.291.138.498v1.773c0 .154.009.301.026.442a.799.799 0 0 0 .092.316h-.95a1.32 1.32 0 0 1-.065-.329 1.208 1.208 0 0 1-.528.323 2.135 2.135 0 0 1-.62.092c-.163 0-.314-.02-.455-.059a1.018 1.018 0 0 1-.37-.185.856.856 0 0 1-.246-.316 1.073 1.073 0 0 1-.09-.455c0-.193.035-.353.103-.478a.856.856 0 0 1 .264-.3c.108-.075.23-.131.369-.168.138-.037.278-.067.418-.089a7.99 7.99 0 0 1 .415-.053c.136-.013.257-.033.362-.059a.637.637 0 0 0 .25-.116c.063-.051.09-.124.087-.221a.5.5 0 0 0-.05-.241.365.365 0 0 0-.132-.138.521.521 0 0 0-.191-.066 1.56 1.56 0 0 0-.234-.017c-.185 0-.33.039-.435.119-.105.079-.167.211-.185.396zm2.162.693a.415.415 0 0 1-.148.082c-.06.02-.123.036-.191.05a3.21 3.21 0 0 1-.214.033c-.075.009-.15.02-.224.033-.07.013-.14.031-.208.053a.618.618 0 0 0-.178.089.42.42 0 0 0-.122.142.455.455 0 0 0-.046.218c0 .084.015.154.046.211a.362.362 0 0 0 .125.135.523.523 0 0 0 .185.069c.07.013.143.02.218.02.185 0 .328-.031.429-.092a.616.616 0 0 0 .224-.221.712.712 0 0 0 .089-.26c.01-.088.016-.158.017-.211zm1.542-1.741h.89v.474h.02c.119-.198.272-.342.46-.432.19-.09.383-.135.58-.135.252 0 .457.034.618.102.16.068.286.163.379.283.092.121.157.268.194.441.037.176.056.368.056.579v2.096h-.936v-1.925c0-.281-.044-.491-.132-.629-.088-.138-.244-.208-.468-.208-.255 0-.439.076-.554.227-.114.151-.171.401-.171.748v1.786h-.936zm-9.038-.587v3.996h.936v-3.48a11.577 11.577 0 0 0-.936-.516zm-9.549.17c.542-1.59 3.786-2.172 7.247-1.302 2.075.522 3.77 1.534 4.879 2.535-.503-1.327-2.94-3.22-6.295-3.868-3.795-.734-7.537-.09-8 1.595-.334 1.216 1.134 2.64 3.406 3.615-1.02-.827-1.518-1.755-1.237-2.575zm12.127.655V10.63h-.936v.466c.399.357.716.72.936 1.07z"/></svg></span>] Use <code>--vulkan_robust_buffer_access=true</code> to <code>iree-run-module</code>
+  especially when seeing undeterministic/corrupted contents in buffers and
+  suspecting there are buffer allocation/indexing issues.</li>
+</ul>
+</div>
 
 
+
+  
 
 
 
