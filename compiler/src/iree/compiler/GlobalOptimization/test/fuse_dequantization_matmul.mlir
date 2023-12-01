@@ -34,6 +34,7 @@ module {
     return %4 : tensor<11008xf32>
   }
 }
+<<<<<<< HEAD
 //   CHECK-DAG: #[[MAP0:[a-zA-Z0-9]+]] = affine_map<(d0, d1) -> (d0, d1)>
 //   CHECK-DAG: #[[MAP1:[a-zA-Z0-9]+]] = affine_map<(d0, d1) -> (d0)>
 //   CHECK-DAG: #[[MAP2:[a-zA-Z0-9]+]] = affine_map<(d0) -> (d0)>
@@ -250,3 +251,96 @@ module {
 //       CHECK:   %[[READDF:.+]] = arith.addf %[[RESUBF]], %[[REOUT0]] : f16
 //       CHECK:   linalg.yield %[[READDF]] : f16
 //       CHECK:   return %[[GENREASSOCIATE]]
+=======
+//   REASSOCIATE-CHECK-DAG: #[[MAP0:[a-zA-Z0-9]+]] = affine_map<(d0, d1) -> (d0, d1)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP1:[a-zA-Z0-9]+]] = affine_map<(d0, d1) -> (d0)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP2:[a-zA-Z0-9]+]] = affine_map<(d0) -> (d0)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP3:[a-zA-Z0-9]+]] = affine_map<(d0, d1, d2) -> (d1, d2)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP4:[a-zA-Z0-9]+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP5:[a-zA-Z0-9]+]] = affine_map<(d0, d1, d2) -> (d0, d1)>
+//   REASSOCIATE-CHECK-DAG: #[[MAP6:[a-zA-Z0-9]+]] = affine_map<(d0, d1) -> (d1)>
+//       REASSOCIATE-CHECK: func.func @grouped_quantized_matmul_reassociate(
+//  REASSOCIATE-CHECK-SAME:   %[[QUANT:[a-zA-Z0-9_]+]]: tensor<11008x32x128xi4>
+//  REASSOCIATE-CHECK-SAME:   %[[UNQUANT:[a-zA-Z0-9_]+]]: tensor<32x128xf32>
+//  REASSOCIATE-CHECK-SAME:   %[[SCALES:[a-zA-Z0-9_]+]]: tensor<11008x32xf32>
+//  REASSOCIATE-CHECK-SAME:   %[[ZPS:[a-zA-Z0-9_]+]]: tensor<11008x32xf32>
+//       REASSOCIATE-CHECK:   %[[C0I32:.+]] = arith.constant 0 : i32
+//       REASSOCIATE-CHECK:   %[[RANGE:.+]] = arith.constant 3.276700e+04 : f32
+//       REASSOCIATE-CHECK:   %[[C0F32:.+]] = arith.constant 0.000000e+00 : f32
+//       REASSOCIATE-CHECK:   %[[INITOUT:.+]] = tensor.empty() : tensor<11008xf32>
+//       REASSOCIATE-CHECK:   %[[FILLOUT:.+]] = linalg.fill ins(%[[C0F32]]
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITOUT]] :
+//       REASSOCIATE-CHECK:   %[[INITMAX:.+]] = tensor.empty() : tensor<32xf32>
+//       REASSOCIATE-CHECK:   %[[FILLMAX:.+]] = linalg.fill ins(%[[C0F32]]
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITMAX]] :
+//       REASSOCIATE-CHECK:   %[[GENMAX:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP0]], #[[MAP1]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel", "reduction"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[UNQUANT]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[FILLMAX]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[MAXIN0:.+]]: f32, %[[MAXOUT0:.+]]: f32):
+//       REASSOCIATE-CHECK:   %[[MAXABSF:.+]] = math.absf %[[MAXIN0]] : f32
+//       REASSOCIATE-CHECK:   %[[MAXMAXIMUMF:.+]] = arith.maximumf %[[MAXABSF]], %[[MAXOUT0]] : f32
+//       REASSOCIATE-CHECK:   linalg.yield %[[MAXMAXIMUMF]] : f32
+//       REASSOCIATE-CHECK:   %[[INITSCALES:.+]] = tensor.empty() : tensor<32xf32>
+//       REASSOCIATE-CHECK:   %[[GENSCALES:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP2]], #[[MAP2]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[GENMAX]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITSCALES]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[SCALESIN0:.+]]: f32, %[[SCALESOUT0:.+]]: f32):
+//       REASSOCIATE-CHECK:   %[[SCALESDIVF:.+]] = arith.divf %[[SCALESIN0]], %[[RANGE]] : f32
+//       REASSOCIATE-CHECK:   linalg.yield %[[SCALESDIVF]] : f32
+//       REASSOCIATE-CHECK:   %[[INITSUM:.+]] = tensor.empty() : tensor<32xf32>
+//       REASSOCIATE-CHECK:   %[[FILLSUM:.+]] = linalg.fill ins(%[[C0F32]]
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITSUM]] :
+//       REASSOCIATE-CHECK:   %[[GENSUM:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP0]], #[[MAP1]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel", "reduction"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[UNQUANT]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[FILLSUM]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[SUMIN0:.+]]: f32, %[[SUMOUT0:.+]]: f32):
+//       REASSOCIATE-CHECK:   %[[SUMADDF:.+]] = arith.addf %[[SUMIN0]], %[[SUMOUT0]] : f32
+//       REASSOCIATE-CHECK:   linalg.yield %[[SUMADDF]] : f32
+//       REASSOCIATE-CHECK:   %[[INITQUANT:.+]] = tensor.empty() : tensor<32x128xi16>
+//       REASSOCIATE-CHECK:   %[[GENQUANT:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP0]], #[[MAP1]], #[[MAP0]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel", "parallel"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[UNQUANT]], %[[GENSCALES]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITQUANT]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[QUANTIN0:.+]]: f32, %[[QUANTIN1:.+]]: f32, %[[QUANTOUT0:.+]]: i16):
+//       REASSOCIATE-CHECK:   %[[QUANTDIVF:.+]] = arith.divf %[[QUANTIN0]], %[[QUANTIN1]] : f32
+//       REASSOCIATE-CHECK:   %[[QUANTFPTOSI:.+]] = arith.fptosi %[[QUANTDIVF]] : f32 to i16
+//       REASSOCIATE-CHECK:   linalg.yield %[[QUANTFPTOSI]] : i16
+//       REASSOCIATE-CHECK:   %[[INITMATMUL:.+]] = tensor.empty() : tensor<11008x32xi32>
+//       REASSOCIATE-CHECK:   %[[FILLMATMUL:.+]] = linalg.fill ins(%[[C0I32]]
+//  REASSOCIATE-CHECK-SAME:       outs(%[[INITMATMUL]] :
+//       REASSOCIATE-CHECK:   %[[DISP:.+]] = flow.dispatch.region
+//       REASSOCIATE-CHECK:   %[[GENMATMUL:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP3]], #[[MAP4]], #[[MAP5]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel", "parallel", "reduction"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[GENQUANT]], %[[QUANT]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[FILLMATMUL]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[MATMULIN0:.+]]: i16, %[[MATMULIN1:.+]]: i4, %[[MATMULOUT0:.+]]: i32):
+//   REASSOCIATE-CHECK-DAG:   %[[MATMULEXTSI:.+]] = arith.extsi %[[MATMULIN0]] : i16 to i32
+//   REASSOCIATE-CHECK-DAG:   %[[MATMULEXTUI:.+]] = arith.extui %[[MATMULIN1]] : i4 to i32
+//       REASSOCIATE-CHECK:   %[[MATMULMULI:.+]] = arith.muli %[[MATMULEXTSI]], %[[MATMULEXTUI]] : i32
+//       REASSOCIATE-CHECK:   %[[MATMULADDI:.+]] = arith.addi %[[MATMULMULI]], %[[MATMULOUT0]] : i32
+//       REASSOCIATE-CHECK:   linalg.yield %[[MATMULADDI]] : i32
+//       REASSOCIATE-CHECK:   %[[GENREASSOCIATE:.+]] = linalg.generic
+//  REASSOCIATE-CHECK-SAME:       indexing_maps = [#[[MAP0]], #[[MAP6]], #[[MAP6]], #[[MAP0]], #[[MAP0]], #[[MAP1]]]
+//  REASSOCIATE-CHECK-SAME:       iterator_types = ["parallel", "reduction"]
+//  REASSOCIATE-CHECK-SAME:       ins(%[[GENMATMUL]], %[[GENSCALES]], %[[GENSUM]], %[[SCALES]], %[[ZPS]] :
+//  REASSOCIATE-CHECK-SAME:       outs(%[[FILLOUT]] :
+//       REASSOCIATE-CHECK:   ^bb0(%[[REIN0:.+]]: i32, %[[REIN1:.+]]: f32, %[[REIN2:.+]]: f32, %[[REIN3:.+]]: f32, %[[REIN4:.+]]: f32, %[[REOUT0:.+]]: f32):
+//   REASSOCIATE-CHECK-DAG:   %[[RESITOFP:.+]] = arith.sitofp %[[REIN0]] : i32 to f32
+//   REASSOCIATE-CHECK-DAG:   %[[REMULF0:.+]] = arith.mulf %[[RESITOFP]], %[[REIN1]] : f32
+//   REASSOCIATE-CHECK-DAG:   %[[REMULF1:.+]] = arith.mulf %[[REMULF0]], %[[REIN3]] : f32
+//   REASSOCIATE-CHECK-DAG:   %[[REMULF2:.+]] = arith.mulf %[[REIN4]], %[[REIN3]] : f32
+//   REASSOCIATE-CHECK-DAG:   %[[REMULF3:.+]] = arith.mulf %[[REMULF2]], %[[REIN2]] : f32
+//       REASSOCIATE-CHECK:   %[[RESUBF:.+]] = arith.subf %[[REMULF1]], %[[REMULF3]] : f32
+//       REASSOCIATE-CHECK:   %[[READDF:.+]] = arith.addf %[[RESUBF]], %[[REOUT0]] : f32
+//       REASSOCIATE-CHECK:   linalg.yield %[[READDF]] : f32
+//       REASSOCIATE-CHECK:   flow.return %[[GENREASSOCIATE]] 
+//       REASSOCIATE-CHECK:   return %[[DISP]]
+>>>>>>> d2403315f8 (check fusion in quantized matmul reassociation lit test)
