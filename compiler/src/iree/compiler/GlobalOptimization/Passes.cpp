@@ -105,7 +105,9 @@ void buildGlobalOptimizationPassPipeline(
 
   // Enable data tiling after they are in a canonical form.
   if (transformOptions.options.dataTiling) {
-    mainPassManager.addPass(createLiftGenericToTransposeBatchMatmulPass());
+    if (!clEnableQuantizedMatmulReassociation) {
+      mainPassManager.addPass(createLiftGenericToTransposeBatchMatmulPass());
+    }
     // Expand all vectors in vecmat/matvec ops into matrices for tiling.
     if (clEnableExpandVectors) {
       mainPassManager.addPass(createExpandVectorsPass());
