@@ -936,10 +936,10 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
     if (*parallelSize && !parallelDims.empty() && groupSize == subgroupSize) {
       int reductionsPerWorkgroup = 1;
       int maxParallelFactor = 4; // Keeping this conservative for now.
-      int64_t lastParallelDim = parallelDims.back();
-      if (!ShapedType::isDynamic(lastParallelDim) &&
-          (lastParallelDim % maxParallelFactor == 0) &&
-          lastParallelDim > maxParallelFactor) {
+      int64_t lastParallelBound = bounds[parallelDims.back()];
+      if (!ShapedType::isDynamic(lastParallelBound) &&
+          (lastParallelBound % maxParallelFactor == 0) &&
+          lastParallelBound > maxParallelFactor) {
         for (int candidate = reductionsPerWorkgroup;
              candidate <= maxParallelFactor; candidate *= 2) {
           reductionsPerWorkgroup = candidate;
