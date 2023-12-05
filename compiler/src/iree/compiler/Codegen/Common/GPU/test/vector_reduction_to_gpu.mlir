@@ -312,13 +312,13 @@ hal.executable private @multirow  {
 
 // CHECK-LABEL: func.func @multirow() {
 //       CHECK:   scf.for {{.*}} -> (vector<4x8xf16>) {
-//       CHECK:     vector.transfer_read {{.*}} {in_bounds = [true, true]} : memref<32000x4096xf16, #hal.descriptor_type<storage_buffer>>, vector<4x8xf16>
-//       CHECK:     vector.transfer_read {{.*}} {in_bounds = [true, true]} : memref<1x4096xf16, #hal.descriptor_type<storage_buffer>>, vector<4x8xf16>
+//       CHECK:     vector.transfer_read {{.*}} : memref<32000x4096xf16, #hal.descriptor_type<storage_buffer>>, vector<4x8xf16>
+//       CHECK:     vector.transfer_read {{.*}} : memref<1x4096xf16, #hal.descriptor_type<storage_buffer>>, vector<4x8xf16>
 //       CHECK:     arith.mulf %{{.*}}, %{{.*}} : vector<4x8xf16>
 //       CHECK:     arith.addf %{{.*}}, %{{.*}} : vector<4x8xf16>
 //       CHECK:   }
 //       CHECK:   gpu.shuffle xor
 //       CHECK:   scf.if {{.*}} {
-//  CHECK-NEXT:     vector.transfer_write {{.*}} : vector<4xf16>, memref<1x32000xf16, #hal.descriptor_type<storage_buffer>>
-//  CHECK-NEXT:   }
+//       CHECK:     vector.transfer_write {{.*}} : vector<4xf16>, memref<1x32000xf16, #hal.descriptor_type<storage_buffer>>
+//       CHECK:   }
 //  CHECK-NEXT:   return

@@ -22,6 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/Matchers.h"
@@ -931,8 +932,10 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   // process a few reductions along the last parallel dimension.
   // TODO: We should also check that this will result in data reuse for at least
   //       one argument.
-  // TODO: This is experimental and rocm-only for now.
-  if (isRocmTarget(entryPoint)) {
+  // TODO: This is experimental for matvec (matmul_transpose_b) on rocm-only for
+  // now.
+  if (numDynamicReductionDims == 0 && numParallelDims == 2 &&
+      isRocmTarget(entryPoint)) {
     if (*parallelSize && !parallelDims.empty() && groupSize == subgroupSize) {
       int reductionsPerWorkgroup = 1;
       int maxParallelFactor = 4; // Keeping this conservative for now.
