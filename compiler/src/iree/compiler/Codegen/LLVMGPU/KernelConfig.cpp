@@ -937,18 +937,13 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   if (numDynamicReductionDims == 0 && numParallelDims == 2 &&
       isRocmTarget(entryPoint)) {
     if (*parallelSize && !parallelDims.empty() && groupSize == subgroupSize) {
-      int reductionsPerWorkgroup = 1;
       int maxParallelFactor = 4; // Keeping this conservative for now.
       int64_t lastParallelBound = bounds[parallelDims.back()];
       if (!ShapedType::isDynamic(lastParallelBound) &&
           (lastParallelBound % maxParallelFactor == 0) &&
           lastParallelBound > maxParallelFactor) {
-        for (int candidate = reductionsPerWorkgroup;
-             candidate <= maxParallelFactor; candidate *= 2) {
-          reductionsPerWorkgroup = candidate;
-        }
+        workgroupTileSizes.back() = maxParallelFactor;
       }
-      workgroupTileSizes.back() = reductionsPerWorkgroup;
     }
   }
 
