@@ -258,9 +258,10 @@ hal.executable private @shared_memory_copy  {
 //       CHECK:   vector.transfer_write {{.*}} : vector<1xf32>, memref<128x32xf32>
 //       CHECK:   return
 
+
 // -----
 
-// Check that we multi-row matvec gets distributed across subgroup threads.
+// Check that we multi-row matvec gets distributed across subgoroup threads.
 
 #executable_target_rocm_hsaco_fb = #hal.executable.target<"rocm", "rocm-hsaco-fb", {target_arch = "gfx940"}>
 #pipeline_layout = #hal.pipeline.layout<push_constants = 0, sets = [
@@ -316,7 +317,7 @@ hal.executable private @multirow  {
 //       CHECK:     arith.mulf %{{.*}}, %{{.*}} : vector<4x8xf16>
 //       CHECK:     arith.addf %{{.*}}, %{{.*}} : vector<4x8xf16>
 //       CHECK:   }
-// CHECK-COUNT-12: gpu.shuffle xor
+//       CHECK:   gpu.shuffle xor
 //       CHECK:   scf.if {{.*}} {
 //       CHECK:     vector.transfer_write {{.*}} : vector<4xf16>, memref<1x32000xf16, #hal.descriptor_type<storage_buffer>>
 //       CHECK:   }

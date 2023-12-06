@@ -22,7 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/Matchers.h"
@@ -961,24 +961,21 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   // process a few reductions (rows) along the last parallel dimension.
   //
   // TODO: This is enabled for matvec on ROCm for now. We should
-  // validate this strategy and extend to more linalg generics and to CUDA.
-  if (isRocmTarget(entryPoint) &&
-      llvm::none_of(bounds, ShapedType::isDynamic) && isMatvecLike(op)) {
-    int64_t lastParallelBound = bounds[parallelDims.back()];
-    int64_t numParallelReductions = 1;
-    const int64_t maxParallelFactor = groupSize / 4;
-    for (int64_t parallelFactor = 2;
-         (parallelFactor < maxParallelFactor) &&
-         (lastParallelBound % parallelFactor == 0) &&
-         (lastParallelBound > parallelFactor);
-         parallelFactor *= 2) {
-      numParallelReductions = parallelFactor;
+  // now.
+  if (numDynamicReductionDims == 0 && numParallelDims == 2 &&
+      isRocmTarget(entryPoint)) {
+    if (*parallelSize && !parallelDims.empty() && groupSize == subgroupSize) {
+      int maxParallelFactor = 4; // Keeping this conservative for now.
+      int64_t lastParallelBound = bounds[parallelDims.back()];
+      if (!ShapedType::isDynamic(lastParallelBound) &&
+          (lastParallelBound % maxParallelFactor == 0) &&
+          lastParallelBound > maxParallelFactor) {
+        workgroupTileSizes.back() = maxParallelFactor;
+      }
     }
-    workgroupTileSizes.back() = numParallelReductions;
   }
 
   std::array<int64_t, 3> workgroupSize = {groupSize, 1, 1};
-  SmallVector<int64_t> reductionTileSizes(op.getNumLoops(), 0);
   int64_t remainingGroupSize = groupSize;
   for (int i = reductionDims.size() - 1; i >= 0; --i) {
     int64_t dim = reductionDims[i];
