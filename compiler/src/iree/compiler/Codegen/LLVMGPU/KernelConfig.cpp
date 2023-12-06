@@ -22,7 +22,9 @@
 #include "llvm/Support/Debug.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/Types.h"
 #include "mlir/IR/Value.h"
@@ -923,6 +925,25 @@ static LogicalResult setWarpReductionConfig(func::FuncOp entryPoint,
   // The final warp reduce requires subgroup count <= subgroup size to work.
   if ((groupSize / subgroupSize) > subgroupSize)
     return failure();
+
+  // With just one subgroup per workgroup, make each subgroup do more work and
+  // process a few reductions along the last parallel dimension.
+  // TODO: We should also check that this will result in data reuse for at least
+  //       one argument.
+  // TODO: This is experimental for matvec (matmul_transpose_b) on rocm-only for
+  // now.
+  if (numDynamicReductionDims == 0 && numParallelDims == 2 &&
+      isRocmTarget(entryPoint)) {
+    if (*parallelSize && !parallelDims.empty() && groupSize == subgroupSize) {
+      int maxParallelFactor = 4; // Keeping this conservative for now.
+      int64_t lastParallelBound = bounds[parallelDims.back()];
+      if (!ShapedType::isDynamic(lastParallelBound) &&
+          (lastParallelBound % maxParallelFactor == 0) &&
+          lastParallelBound > maxParallelFactor) {
+        workgroupTileSizes.back() = maxParallelFactor;
+      }
+    }
+  }
 
   std::array<int64_t, 3> workgroupSize = {groupSize, 1, 1};
   SmallVector<int64_t> reductionTileSizes(op.getNumLoops(), 0);

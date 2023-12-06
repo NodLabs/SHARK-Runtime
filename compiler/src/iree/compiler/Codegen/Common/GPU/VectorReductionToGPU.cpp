@@ -195,7 +195,7 @@ public:
       bool expandSubgroupReduction,
       std::function<int(func::FuncOp)> getWarpSize)
       : expandSubgroupReduction(expandSubgroupReduction),
-        getWarpSize(getWarpSize) {}
+        getWarpSize(std::move(getWarpSize)) {}
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<scf::SCFDialect, memref::MemRefDialect, gpu::GPUDialect,
