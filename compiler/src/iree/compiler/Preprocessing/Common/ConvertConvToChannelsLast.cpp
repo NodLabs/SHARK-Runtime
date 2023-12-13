@@ -23,9 +23,7 @@
 
 #define DEBUG_TYPE "iree-preprocessing-convert-conv-to-channels-last"
 
-namespace mlir {
-namespace iree_compiler {
-namespace IREE {
+namespace mlir::iree_compiler::Preprocessing {
 
 static const StringLiteral fullTileTransposeMarker = "__fully_transpose_tile__";
 
@@ -885,6 +883,4 @@ std::unique_ptr<Pass> createConvertConvToChannelsLastPass() {
   return std::make_unique<ConvertConvToChannelsLastPass>();
 }
 
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+}  // namespace mlir::iree_compiler::Preprocessing
