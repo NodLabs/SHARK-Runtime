@@ -18,9 +18,7 @@
 
 #define DEBUG_TYPE "iree-flow-convert-conv-nchw-to-nhwc"
 
-namespace mlir {
-namespace iree_compiler {
-namespace IREE {
+namespace mlir::iree_compiler::Preprocessing {
 
 using TransposeIndices = SmallVector<int64_t, 4>;
 
@@ -559,6 +557,4 @@ createConvertConvNchwToNhwcPass() {
   return std::make_unique<ConvertConvNchwToNhwcPass>();
 }
 
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+}  // namespace mlir::iree_compiler::Preprocessing
