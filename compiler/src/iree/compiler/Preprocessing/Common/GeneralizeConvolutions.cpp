@@ -20,9 +20,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-namespace mlir {
-namespace iree_compiler {
-namespace IREE {
+namespace mlir::iree_compiler::Preprocessing {
 
 namespace {
 
@@ -63,6 +61,4 @@ std::unique_ptr<Pass> createGeneralizeConvolutionsPass() {
   return std::make_unique<GeneralizeConvolutionsPass>();
 }
 
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+}  // namespace mlir::iree_compiler::Preprocessing
