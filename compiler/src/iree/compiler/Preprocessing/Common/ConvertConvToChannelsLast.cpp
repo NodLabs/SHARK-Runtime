@@ -681,17 +681,14 @@ public:
     // Propagate packs introduced by the conversion patterns through adjacent
     // pads. Note that packs introduced by the above patterns will never include
     // padding.
-    {
-      RewritePatternSet patterns(context);
-      GreedyRewriteConfig config;
-      config.maxIterations = GreedyRewriteConfig::kNoLimit;
-      linalg::populateDataLayoutPropagationPatterns(
-          patterns, [](Operation *op) { return true; });
-      if (failed(
-              applyPatternsAndFoldGreedily(op, std::move(patterns), config))) {
-        return signalPassFailure();
-      }
-    }
+    // {
+      // RewritePatternSet patterns(context);
+      // linalg::populateDataLayoutPropagationPatterns(
+      //     patterns, [](Operation *op) { return true; });
+      // if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+      //   return signalPassFailure();
+      // }
+    // }
 
     LDBG("after propagating packs/unpacks\n" << *op);
 
