@@ -157,7 +157,8 @@ SmallVector<int64_t> LayoutIterator::State::computeSIMTIndex() const {
       }
       if (isVectorDimension(name)) {
         int64_t step{1};
-        if (name == LayoutDimension::VECTORY) {
+        if (name == LayoutDimension::VECTORY &&
+            ranges.contains(LayoutDimension::VECTORX)) {
           step = ranges.lookup(LayoutDimension::VECTORX).stop;
         }
         vecOffset = vecOffset.value_or(0) + it.getPosition() * step;
