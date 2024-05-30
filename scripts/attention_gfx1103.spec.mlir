@@ -461,6 +461,90 @@ module attributes { transform.with_named_sequence } {
   }
 
 //===----------------------------------------------------------------------===//
+// Kernel Configs
+//===----------------------------------------------------------------------===//
+  transform.named_sequence @apply_op_config(%op: !transform.any_op {transform.readonly}, %config: !transform.any_param {transform.readonly}) {
+    transform.annotate %op "compilation_info" = %config : !transform.any_op, !transform.any_param
+    // transform.print %op {name = "Applied"} : !transform.any_op
+    transform.yield
+  }
+
+  transform.named_sequence @match_mmt_f16_f16_f32(%root: !transform.any_op {transform.readonly}) -> (!transform.any_op) {
+    transform.match.operation_name %root ["linalg.generic"] : !transform.any_op
+    // transform.print %root {name = "Generic"} : !transform.any_op
+    %ins, %outs = transform.iree.match.cast_compatible_dag_from_root %root {
+      ^bb0(%lhs: tensor<?x?xf16>, %rhs: tensor<?x?xf16>, %out: tensor<?x?xf32>):
+      %7 = linalg.generic {indexing_maps = [affine_map<(d0, d1, d2) -> (d0, d2)>,
+                                            affine_map<(d0, d1, d2) -> (d1, d2)>,
+                                            affine_map<(d0, d1, d2) -> (d0, d1)>],
+                           iterator_types = ["parallel", "parallel", "reduction"]}
+          ins(%lhs, %rhs : tensor<?x?xf16>, tensor<?x?xf16>) outs(%out : tensor<?x?xf32>) {
+        ^bb0(%in: f16, %in_0: f16, %acc: f32):
+          %8 = arith.extf %in : f16 to f32
+          %9 = arith.extf %in_0 : f16 to f32
+          %10 = arith.mulf %8, %9 : f32
+          %11 = arith.addf %acc, %10 : f32
+          linalg.yield %11 : f32
+        } -> tensor<?x?xf32>
+    } : (!transform.any_op) -> (!transform.any_value, !transform.any_value)
+    transform.yield %root : !transform.any_op
+  }
+
+  transform.named_sequence @match_mmt_2048x1536x6144(%matmul: !transform.any_op {transform.readonly}) -> (!transform.any_op, !transform.any_param) {
+    %mmt = transform.include @match_mmt_f16_f16_f32 failures(propagate) (%matmul) : (!transform.any_op) -> !transform.any_op
+    %lhs = transform.get_operand %matmul[0] : (!transform.any_op) -> !transform.any_value
+    %rhs = transform.get_operand %matmul[1] : (!transform.any_op) -> !transform.any_value
+    transform.iree.match.cast_compatible_type %lhs = tensor<2048x6144xf16> : !transform.any_value
+    transform.iree.match.cast_compatible_type %rhs = tensor<1536x6144xf16> : !transform.any_value
+    %config = transform.param.constant #iree_codegen.compilation_info<
+      lowering_config = #iree_codegen.lowering_config<tile_sizes = [[128, 256, 64]]>,
+      translation_info = #iree_codegen.translation_info<LLVMGPUVectorDistribute
+        workgroup_size = [128, 4, 1] subgroup_size = 32,
+        {mma_schedule = #iree_gpu.mma_schedule<
+           intrinsic = #iree_gpu.mma_layout<WMMA_F16_16x16x16_F32>,
+           subgroup_m_count = 4, subgroup_n_count = 4>
+         , no_reorder_workgroups}>
+      > -> !transform.any_param
+    transform.yield %matmul, %config : !transform.any_op, !transform.any_param
+  }
+
+  transform.named_sequence @match_mmt_2048x6144x1536(%matmul: !transform.any_op {transform.readonly}) -> (!transform.any_op, !transform.any_param) {
+    %mmt = transform.include @match_mmt_f16_f16_f32 failures(propagate) (%matmul) : (!transform.any_op) -> !transform.any_op
+    %lhs = transform.get_operand %matmul[0] : (!transform.any_op) -> !transform.any_value
+    %rhs = transform.get_operand %matmul[1] : (!transform.any_op) -> !transform.any_value
+    transform.iree.match.cast_compatible_type %lhs = tensor<2048x1536xf16> : !transform.any_value
+    transform.iree.match.cast_compatible_type %rhs = tensor<6144x1536xf16> : !transform.any_value
+    %config = transform.param.constant #iree_codegen.compilation_info<
+      lowering_config = #iree_codegen.lowering_config<tile_sizes = [[128, 64, 128]]>,
+      translation_info = #iree_codegen.translation_info<LLVMGPUVectorDistribute
+        workgroup_size = [64, 4, 1] subgroup_size = 32,
+        {mma_schedule = #iree_gpu.mma_schedule<
+           intrinsic = #iree_gpu.mma_layout<WMMA_F16_16x16x16_F32>,
+           subgroup_m_count = 4, subgroup_n_count = 2>
+         , no_reorder_workgroups}>
+      > -> !transform.any_param
+    transform.yield %matmul, %config : !transform.any_op, !transform.any_param
+  }
+
+  transform.named_sequence @match_mmt_2048x4608x1536(%matmul: !transform.any_op {transform.readonly}) -> (!transform.any_op, !transform.any_param) {
+    %mmt = transform.include @match_mmt_f16_f16_f32 failures(propagate) (%matmul) : (!transform.any_op) -> !transform.any_op
+    %lhs = transform.get_operand %matmul[0] : (!transform.any_op) -> !transform.any_value
+    %rhs = transform.get_operand %matmul[1] : (!transform.any_op) -> !transform.any_value
+    transform.iree.match.cast_compatible_type %lhs = tensor<2048x1536xf16> : !transform.any_value
+    transform.iree.match.cast_compatible_type %rhs = tensor<4608x1536xf16> : !transform.any_value
+    %config = transform.param.constant #iree_codegen.compilation_info<
+      lowering_config = #iree_codegen.lowering_config<tile_sizes = [[256, 256, 32]]>,
+      translation_info = #iree_codegen.translation_info<LLVMGPUVectorDistribute
+        workgroup_size = [128, 4, 1] subgroup_size = 32,
+        {mma_schedule = #iree_gpu.mma_schedule<
+           intrinsic = #iree_gpu.mma_layout<WMMA_F16_16x16x16_F32>,
+           subgroup_m_count = 4, subgroup_n_count = 4>
+         , no_reorder_workgroups}>
+      > -> !transform.any_param
+    transform.yield %matmul, %config : !transform.any_op, !transform.any_param
+  }
+
+//===----------------------------------------------------------------------===//
 // Entry point
 //===----------------------------------------------------------------------===//
 
@@ -468,7 +552,13 @@ module attributes { transform.with_named_sequence } {
     transform.foreach_match in %variant_op
         // Attention.
         @match_attention_len_512 -> @custom_attention_len_512,
-        @match_attention -> @custom_attention
+        @match_attention -> @custom_attention,
+
+        // Matmul.
+        @match_mmt_2048x1536x6144 -> @apply_op_config,
+        @match_mmt_2048x6144x1536 -> @apply_op_config,
+        @match_mmt_2048x4608x1536 -> @apply_op_config
+
       : (!transform.any_op) -> (!transform.any_op)
     transform.yield
   }
