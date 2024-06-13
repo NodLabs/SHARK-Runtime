@@ -51,6 +51,11 @@ tileAttention(IREE::LinalgExt::AttentionOp attnOp,
               SmallVectorImpl<Operation *> &ops, RewriterBase &rewriter,
               std::optional<uint64_t> tileSize = std::nullopt);
 
+IREE::LinalgExt::AttentionOp padAttention(IREE::LinalgExt::AttentionOp attnOp,
+                                          SmallVectorImpl<Operation *> &ops,
+                                          RewriterBase &rewriter,
+                                          ArrayRef<int64_t> padToMultipleOf);
+
 void decomposeTiledAttention(IREE::LinalgExt::AttentionOp tiledAttnOp,
                              SmallVectorImpl<Operation *> &ops,
                              RewriterBase &rewriter,
@@ -61,6 +66,9 @@ std::unique_ptr<Pass> createTileAttentionPass();
 
 // Creates a pass to convert the attention op into a sequence of linalg ops.
 std::unique_ptr<Pass> createDecomposeAttentionPass();
+
+// Creates a pass to pad the attention op along the specified dims.
+std::unique_ptr<Pass> createPadAttentionPass();
 
 //===---------------------------------------------------------------------===//
 // Codegen Strategy passes that are moved into IREE.

@@ -24,7 +24,7 @@ LinalgExt::LinalgExtTransformOpsExtension::LinalgExtTransformOpsExtension() {
 void LinalgExt::LinalgExtTransformOpsExtension::init() {}
 
 //===---------------------------------------------------------------------===//
-// TileAndDecomposeAttention
+// Attention related transformOps
 //===---------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure LinalgExt::TileAttentionOp::applyToOne(
@@ -45,6 +45,22 @@ DiagnosedSilenceableFailure LinalgExt::DecomposeTiledAttentionOp::applyToOne(
     transform::TransformState &state) {
   SmallVector<Operation *> ops;
   LinalgExt::decomposeTiledAttention(attentionOp, ops, rewriter, getTileSize());
+  for (auto op : ops) {
+    results.push_back(op);
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+DiagnosedSilenceableFailure
+LinalgExt::PadAttentionOp::applyToOne(transform::TransformRewriter &rewriter,
+                                      LinalgExt::AttentionOp attentionOp,
+                                      transform::ApplyToEachResultList &results,
+                                      transform::TransformState &state) {
+  SmallVector<int64_t> padToMultipleOf =
+      extractFromIntegerArrayAttr<int64_t>(getPadToMultipleOf());
+
+  SmallVector<Operation *> ops;
+  LinalgExt::padAttention(attentionOp, ops, rewriter, padToMultipleOf);
   for (auto op : ops) {
     results.push_back(op);
   }
